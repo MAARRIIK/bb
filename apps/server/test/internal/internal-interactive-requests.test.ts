@@ -3,7 +3,9 @@ import {
   deleteThread,
   listPendingInteractionsByThread,
   markHostEnvironmentsDestroyed,
+  threads,
 } from "@bb/db";
+import { eq } from "drizzle-orm";
 import type { HostDaemonInteractiveRequest } from "@bb/host-daemon-contract";
 import { renderTemplate } from "@bb/templates";
 import { describe, expect, it } from "vitest";
@@ -75,6 +77,7 @@ function buildCommandApprovalInteractiveRequest(
   args: BuildCommandApprovalInteractiveRequestArgs,
 ): HostDaemonInteractiveRequest {
   return {
+    source: null,
     sessionId: args.sessionId,
     interaction: {
       threadId: args.threadId,
@@ -117,6 +120,53 @@ function registerInteractiveRequest(
 }
 
 describe("internal interactive request lifecycle", () => {
+  it("does not create approval requests from a previous provider generation", async () => {
+    await withTestHarness(async (harness) => {
+      const { session, thread } = seedThreadFixture(harness);
+      harness.db
+        .update(threads)
+        .set({ providerSessionId: "current-generation" })
+        .where(eq(threads.id, thread.id))
+        .run();
+      const body = buildCommandApprovalInteractiveRequest({
+        sessionId: session.id,
+        threadId: thread.id,
+        suffix: "fenced",
+      });
+      seedTurnStarted(harness.deps, {
+        threadId: thread.id,
+        turnId: body.interaction.turnId,
+        providerThreadId: body.interaction.providerThreadId,
+      });
+      for (const source of [
+        null,
+        { providerId: "codex", providerSessionId: "previous-generation" },
+      ]) {
+        const response = await postInteractiveRequest({
+          harness,
+          body: { ...body, source },
+        });
+        expect(response.status).toBe(409);
+      }
+      expect(
+        listPendingInteractionsByThread(harness.db, { threadId: thread.id }),
+      ).toEqual([]);
+      const response = await postInteractiveRequest({
+        harness,
+        body: {
+          ...body,
+          source: {
+            providerId: "codex",
+            providerSessionId: "current-generation",
+          },
+        },
+      });
+      expect(response.status).toBe(200);
+      expect(
+        listPendingInteractionsByThread(harness.db, { threadId: thread.id }),
+      ).toHaveLength(1);
+    });
+  });
   it("persists an interactive request and delivers a later resolution through a command", async () => {
     await withTestHarness(async (harness) => {
       const { session, environment, thread } = seedThreadFixture(harness, {
@@ -137,6 +187,7 @@ describe("internal interactive request lifecycle", () => {
           method: "POST",
           headers: internalAuthHeaders(harness),
           body: JSON.stringify({
+            source: null,
             sessionId: session.id,
             interaction: {
               threadId: thread.id,
@@ -238,6 +289,7 @@ describe("internal interactive request lifecycle", () => {
       const response = await registerInteractiveRequest({
         harness,
         body: {
+          source: null,
           sessionId: session.id,
           interaction: {
             threadId: thread.id,
@@ -297,6 +349,7 @@ describe("internal interactive request lifecycle", () => {
           method: "POST",
           headers: internalAuthHeaders(harness),
           body: JSON.stringify({
+            source: null,
             sessionId: session.id,
             interaction: {
               threadId: thread.id,
@@ -791,6 +844,7 @@ describe("internal interactive request lifecycle", () => {
           method: "POST",
           headers: internalAuthHeaders(harness),
           body: JSON.stringify({
+            source: null,
             sessionId: session.id,
             interaction: {
               threadId: liveThread.id,
@@ -885,6 +939,7 @@ describe("internal interactive request lifecycle", () => {
           method: "POST",
           headers: internalAuthHeaders(harness),
           body: JSON.stringify({
+            source: null,
             sessionId: session.id,
             interaction: {
               threadId: thread.id,
@@ -963,6 +1018,7 @@ describe("internal interactive request lifecycle", () => {
           method: "POST",
           headers: internalAuthHeaders(harness),
           body: JSON.stringify({
+            source: null,
             sessionId: session.id,
             interaction: {
               threadId: thread.id,

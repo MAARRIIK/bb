@@ -1,6 +1,7 @@
 import type {
   PendingInteractionCreate,
   PendingInteractionResolution,
+  ProviderSessionSource,
 } from "@bb/domain";
 import type {
   HostDaemonInteractiveRequestKey,
@@ -31,6 +32,7 @@ interface InteractiveRequestRegistryOptions {
   onRequestWithdrawn: (request: PendingInteractionCreate) => void;
   registerRequest: (
     request: PendingInteractionCreate,
+    source: ProviderSessionSource | null,
   ) => Promise<HostDaemonInteractiveRequestResponse>;
 }
 
@@ -47,6 +49,7 @@ interface PendingInteractiveRequestEntry {
   reject: (error: Error) => void;
   resolve: (resolution: PendingInteractionResolution) => void;
   request: PendingInteractionCreate;
+  source: ProviderSessionSource | null;
 }
 
 interface DeliveredInteractiveRequestTombstone {
@@ -118,10 +121,22 @@ export class InteractiveRequestRegistry {
   registerAndWait(
     request: PendingInteractionCreate,
     signal: AbortSignal,
+    source: ProviderSessionSource | null,
   ): Promise<PendingInteractionResolution> {
     const key = buildInteractiveRequestKey(request);
     const existing = this.pendingEntries.get(key);
     if (existing) {
+      if (
+        (existing.source?.providerSessionId ?? null) !==
+        (source?.providerSessionId ?? null)
+      ) {
+        return Promise.reject(
+          new InteractiveRequestRegistryError(
+            "interactive_request_collision",
+            "Interactive request belongs to another provider session",
+          ),
+        );
+      }
       return existing.promise;
     }
 
@@ -147,6 +162,7 @@ export class InteractiveRequestRegistry {
       reject: (error) => rejectEntry(error),
       resolve: (resolution) => resolveEntry(resolution),
       request,
+      source,
     };
     this.pendingEntries.set(key, entry);
     entry.registered = this.register(key, entry);
@@ -163,7 +179,10 @@ export class InteractiveRequestRegistry {
     entry: PendingInteractiveRequestEntry,
   ): Promise<boolean> {
     try {
-      const response = await this.options.registerRequest(entry.request);
+      const response = await this.options.registerRequest(
+        entry.request,
+        entry.source,
+      );
       if (this.pendingEntries.get(key) === entry) {
         this.applyRegistrationResponse(key, entry, response);
       }

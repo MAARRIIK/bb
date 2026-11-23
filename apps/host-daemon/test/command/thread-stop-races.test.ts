@@ -218,6 +218,7 @@ function threadStartCommand(
       workspacePath: harness.workspacePath,
     },
     projectId: "project-stop-race",
+    providerSessionId: null,
     providerId: args.providerId ?? "fake",
     requestId: nextClientRequestId(),
     input:
@@ -270,6 +271,7 @@ function turnSubmitCommand(
         workspacePath: harness.workspacePath,
       },
       projectId: "project-stop-race",
+      providerSessionId: null,
       providerId: "fake",
       providerThreadId: "prov-1",
       instructions: "Be a helpful coding agent.",

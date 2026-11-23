@@ -369,7 +369,10 @@ describe("public thread banner actions", () => {
                     sessionId: fixture.sessionId,
                     eventGroups: groupHostDaemonEvents([
                       {
-                        providerId: "codex",
+                        source: {
+                          providerId: "codex",
+                          providerSessionId: null,
+                        },
                         threadId: fixture.threadId,
                         event: {
                           type: "turn/completed",

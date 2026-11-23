@@ -323,6 +323,7 @@ export async function buildThreadStartCommand(
     projectId: args.projectId,
     providerId: args.providerId,
     bridgeLaunch,
+    providerSessionId: runtimeContext.providerSessionId,
     requestId: args.requestId,
     input: args.input,
     ...(args.inputGroups !== undefined
@@ -378,6 +379,7 @@ function buildPreparedTurnSubmitCommandPayload(
       projectId: args.runtimeContext.projectId,
       providerId: args.runtimeContext.providerId,
       bridgeLaunch,
+      providerSessionId: args.runtimeContext.providerSessionId,
       providerThreadId: args.providerThreadId,
       instructions: args.runtimeContext.instructions,
       additionalWorkspaceFolders:

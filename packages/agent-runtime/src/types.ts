@@ -10,6 +10,7 @@ import type {
   PromptInput,
   ProviderFork,
   ProviderRecoveryKind,
+  ProviderSessionSource,
   RuntimeThreadExecutionOptions,
   ThreadEvent,
   ToolCallRequest,
@@ -49,6 +50,7 @@ export interface AgentRuntimeProcessExitThreadState {
 
 export interface AgentRuntimeProcessExitInfo {
   providerId: string;
+  providerSessionId: string | null;
   threads: AgentRuntimeProcessExitThreadState[];
   code: number | null;
   expected: boolean;
@@ -72,16 +74,18 @@ export interface AgentRuntimeOptions {
 
   skillRoots?: readonly AgentRuntimeSkillRoot[];
 
-  onEvent: (event: ThreadEvent, providerId: string) => void;
+  onEvent: (event: ThreadEvent, source: ProviderSessionSource) => void;
 
   onToolCall: (
     request: ToolCallRequest,
-    signal?: AbortSignal,
+    signal: AbortSignal | undefined,
+    source: ProviderSessionSource,
   ) => Promise<ToolCallResponse>;
 
   onInteractiveRequest?: (
     request: PendingInteractionCreate,
     signal: AbortSignal,
+    source: ProviderSessionSource,
   ) => Promise<PendingInteractionResolution>;
 
   onStderr?: (line: string, threadId?: string) => void;
@@ -119,6 +123,7 @@ export interface EnsureProviderArgs {
   bridgeLaunch: AgentRuntimeBridgeLaunch;
   skillRoots?: readonly AgentRuntimeSkillRoot[];
   providerId: string;
+  providerSessionId?: string | null;
 }
 
 export interface StartThreadArgs {
@@ -129,6 +134,7 @@ export interface StartThreadArgs {
   threadId: string;
   projectId: string;
   providerId: string;
+  providerSessionId?: string | null;
   contributedEnv?: readonly AgentRuntimeContributedEnvEntry[];
   clientRequestId?: ClientTurnRequestId;
   input?: PromptInput[];
@@ -155,6 +161,7 @@ interface PrepareThreadRewindArgs {
   leaseId: string;
   projectId: string;
   providerId: string;
+  providerSessionId?: string | null;
   contributedEnv?: readonly AgentRuntimeContributedEnvEntry[];
   sourceProviderThreadId: string;
   retainThroughProviderCheckpoint: string;
@@ -181,6 +188,7 @@ export interface ResumeThreadArgs {
   projectId?: string;
   providerThreadId: string;
   providerId: string;
+  providerSessionId?: string | null;
   contributedEnv?: readonly AgentRuntimeContributedEnvEntry[];
   options: AgentRuntimeExecutionOptions;
   instructions?: string;
@@ -241,6 +249,7 @@ export interface StopThreadResult {
 
 export interface AgentRuntimeProviderSession {
   providerId: string;
+  providerSessionId: string | null;
   providerThreadId: string;
 }
 

@@ -266,6 +266,7 @@ function daemonEvent(
   item: { itemId: string; itemKind: AppendDaemonEventInput["itemKind"] } | null,
 ): AppendDaemonEventInput {
   return {
+    providerSessionId: null,
     providerId: "codex",
     data: JSON.stringify({
       providerThreadId: fixture.providerThreadId,
@@ -495,6 +496,7 @@ function liveDeltaBatch(fixture: HistoryFixture): AppendDaemonEventInput[] {
     itemKind: AppendDaemonEventInput["itemKind"],
     delta: string,
   ): AppendDaemonEventInput => ({
+    providerSessionId: null,
     providerId: "codex",
     data: JSON.stringify({
       providerThreadId: liveTurn.providerThreadId,

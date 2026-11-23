@@ -584,7 +584,7 @@ describe("a thread start whose reply is lost with the daemon connection", () => 
                 status: "completed" as const,
               },
             ].map((event) => ({
-              providerId: "codex",
+              source: { providerId: "codex", providerSessionId: null },
               threadId: fixture.threadId,
               event,
             })),

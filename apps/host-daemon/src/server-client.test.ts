@@ -436,7 +436,7 @@ describe("createServerClient", () => {
         sessionId: "session-1",
         eventGroups: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: "thr_123",
             events: [
               {
@@ -479,7 +479,7 @@ describe("createServerClient", () => {
     await expect(
       client.postEvents([
         {
-          providerId: "codex",
+          source: { providerId: "codex", providerSessionId: null },
           threadId: "thr_123",
           event: {
             type: "turn/started",
@@ -548,7 +548,7 @@ describe("createServerClient", () => {
     });
 
     await expect(
-      client.registerInteractiveRequest(createInteractiveRequest()),
+      client.registerInteractiveRequest(createInteractiveRequest(), null),
     ).resolves.toEqual({
       outcome: "created",
       interactionId: "pint_123",
@@ -593,6 +593,7 @@ describe("createServerClient", () => {
 
     const result = client.registerInteractiveRequest(
       createInteractiveRequest(),
+      null,
     );
 
     await expect(result).rejects.toBeInstanceOf(ServerResponseError);
@@ -631,6 +632,7 @@ describe("dynamic tool cancellation", () => {
         tool: "question",
       },
       controller.signal,
+      null,
     );
     controller.abort();
     expect(transportSignal?.aborted).toBe(true);

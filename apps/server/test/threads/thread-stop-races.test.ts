@@ -63,7 +63,7 @@ async function postDaemonEvent(
       sessionId: args.sessionId,
       eventGroups: groupHostDaemonEvents([
         {
-          providerId: "codex",
+          source: { providerId: "codex", providerSessionId: null },
           threadId: args.threadId,
           event:
             event.type === "turn/started"
@@ -179,7 +179,7 @@ describe("repeated stops", () => {
           sessionId: session.id,
           eventGroups: groupHostDaemonEvents([
             {
-              providerId: "codex",
+              source: { providerId: "codex", providerSessionId: null },
               threadId: thread.id,
               event: {
                 type: "turn/started",

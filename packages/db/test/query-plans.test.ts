@@ -651,6 +651,7 @@ describe("slow query index plans", () => {
       (tx) =>
         appendDaemonEventsInTransaction(tx, [
           {
+            providerSessionId: null,
             providerId: "codex",
             threadId: thread.id,
             environmentId: null,

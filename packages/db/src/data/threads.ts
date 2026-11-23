@@ -731,6 +731,7 @@ export interface ListActiveHostThreadsArgs {
 
 export interface ThreadRuntimeAssignmentRow {
   providerId: string;
+  providerSessionId: string | null;
   environmentId: string;
   threadId: string;
 }
@@ -1766,6 +1767,7 @@ export function listThreadRuntimeAssignmentsOnHost(
     .select({
       threadId: threads.id,
       providerId: threads.providerId,
+      providerSessionId: threads.providerSessionId,
       environmentId: environments.id,
     })
     .from(threads)

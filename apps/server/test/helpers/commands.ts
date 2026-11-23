@@ -262,14 +262,17 @@ function buildDefaultGitBranchOptionsResult(
 interface CreateTestDaemonEventEnvelopeArgs {
   event: ThreadEvent;
   threadId?: string;
-  providerId?: string | null;
+  source?: HostDaemonEventEnvelope["source"];
 }
 
 export function createTestDaemonEventEnvelope(
   args: CreateTestDaemonEventEnvelopeArgs,
 ): HostDaemonEventEnvelope {
   return {
-    providerId: args.providerId === undefined ? "codex" : args.providerId,
+    source:
+      args.source === undefined
+        ? { providerId: "codex", providerSessionId: null }
+        : args.source,
     threadId: args.threadId ?? args.event.threadId,
     event: args.event,
   };

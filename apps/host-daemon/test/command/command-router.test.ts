@@ -123,6 +123,7 @@ function createTurnSubmitCommand(
         workspacePath,
       },
       projectId: "project-router",
+      providerSessionId: null,
       providerId: args.providerId ?? "fake",
       providerThreadId: args.providerThreadId ?? "provider-thread-router",
       instructions: "Be a helpful coding agent.",
@@ -146,6 +147,7 @@ function createThreadStartCommand(): ThreadStartCommand {
       workspacePath: "/tmp/env-router",
     },
     projectId: "project-router",
+    providerSessionId: null,
     providerId: "fake",
     requestId: createClientRequestId(),
     input: [textPromptInput("start")],
@@ -556,6 +558,7 @@ describe("CommandRouter", () => {
       workspacePath: "/tmp/env-router-old",
     });
     oldHarness.threadControls.setProviderSession("thread-moved", {
+      providerSessionId: null,
       providerId: "fake",
       providerThreadId: "provider-moved",
     });
@@ -641,10 +644,12 @@ describe("CommandRouter", () => {
       workspacePath: "/tmp/env-router",
     });
     harness.threadControls.setProviderSession("thread-stop", {
+      providerSessionId: null,
       providerId,
       providerThreadId: "provider-stop",
     });
     harness.threadControls.setProviderSession("thread-turn", {
+      providerSessionId: null,
       providerId,
       providerThreadId: "provider-turn",
     });

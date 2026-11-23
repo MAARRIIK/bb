@@ -116,7 +116,12 @@ async function answerDirectRequest(args: {
       }),
       parsedId: id,
       parsedMethod: String(args.rawRequest.method),
-      providerProcess: { adapter, child, interactiveRequestScope: "scope-1" },
+      providerProcess: {
+        identity: { source: { providerId: "fake", providerSessionId: null } },
+        adapter,
+        child,
+        interactiveRequestScope: "scope-1",
+      },
       rawRequest: args.rawRequest,
       resolveThreadId: () => "t1",
     });
@@ -585,6 +590,7 @@ describe("createAgentRuntime interactive requests", () => {
           payload: expect.objectContaining({ kind: "secrets/secret-request" }),
         }),
         expect.any(AbortSignal),
+        { providerId: "fake", providerSessionId: null },
       );
       expect(answer).toMatchObject({
         jsonrpc: "2.0",

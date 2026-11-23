@@ -674,7 +674,7 @@ class Machine {
         sessionId,
         eventGroups: groupHostDaemonEvents(
           events.map((event) => ({
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: event.threadId,
             event,
           })),

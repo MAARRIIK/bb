@@ -59,7 +59,7 @@ describe("session model catalogs", () => {
             sessionId: session.id,
             eventGroups: groupHostDaemonEvents([
               {
-                providerId: "codex",
+                source: { providerId: "codex", providerSessionId: null },
                 threadId: thread.id,
                 event: {
                   type: "thread/extensionState/updated",

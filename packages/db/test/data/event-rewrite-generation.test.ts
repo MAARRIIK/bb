@@ -340,6 +340,7 @@ describe("thread event rewrite generation", () => {
         expect(
           appendDaemonEventsInTransaction(tx, [
             {
+              providerSessionId: null,
               providerId: "codex",
               data: JSON.stringify({ text: "daemon" }),
               environmentId: null,

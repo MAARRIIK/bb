@@ -313,7 +313,11 @@ function streamedTurn(server: SizedServer): HostDaemonEventEnvelope[] {
       providerCheckpointId: "streamed-turn-checkpoint",
     },
   ];
-  return events.map((event) => ({ providerId: "codex", threadId, event }));
+  return events.map((event) => ({
+    source: { providerId: "codex", providerSessionId: null },
+    threadId,
+    event,
+  }));
 }
 
 function newItemsInLiveTurn(server: SizedServer): HostDaemonEventEnvelope[] {
@@ -345,7 +349,11 @@ function newItemsInLiveTurn(server: SizedServer): HostDaemonEventEnvelope[] {
       },
     ];
   }).flat();
-  return events.map((event) => ({ providerId: "codex", threadId, event }));
+  return events.map((event) => ({
+    source: { providerId: "codex", providerSessionId: null },
+    threadId,
+    event,
+  }));
 }
 
 const timelineTagSchema = z.object({ tag: z.string() });
@@ -392,7 +400,11 @@ function streamedIntoLiveTurn(server: SizedServer): HostDaemonEventEnvelope[] {
       },
     },
   ];
-  return events.map((event) => ({ providerId: "codex", threadId, event }));
+  return events.map((event) => ({
+    source: { providerId: "codex", providerSessionId: null },
+    threadId,
+    event,
+  }));
 }
 
 const REQUEST_PATHS: readonly RequestPath[] = [

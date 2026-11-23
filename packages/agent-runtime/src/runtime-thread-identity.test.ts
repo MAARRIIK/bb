@@ -51,6 +51,7 @@ describe("RuntimeThreadIdentityRegistry", () => {
       });
       registry.forgetThread({ threadId: "thread-1", providerState: previous });
       expect(registry.getProviderSession("thread-1")).toEqual({
+        providerSessionId: null,
         providerId,
         providerThreadId: "next-session",
       });

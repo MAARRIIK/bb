@@ -1000,7 +1000,7 @@ describe("active thread disconnect reconciliation triggers", () => {
             sessionId,
             eventGroups: groupHostDaemonEvents([
               {
-                providerId: "codex",
+                source: { providerId: "codex", providerSessionId: null },
                 threadId: thread.id,
                 event: {
                   type: "item/completed",
@@ -1015,7 +1015,7 @@ describe("active thread disconnect reconciliation triggers", () => {
                 },
               },
               {
-                providerId: "codex",
+                source: { providerId: "codex", providerSessionId: null },
                 threadId: thread.id,
                 event: {
                   type: "turn/completed",

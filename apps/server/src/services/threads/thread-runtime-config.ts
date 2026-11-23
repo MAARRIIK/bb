@@ -2,7 +2,7 @@ import {
   resolveHostEnvironment,
   mergeHostAndProviderEnvironment,
 } from "../hosts/host-environment.js";
-import { getEnvironment, getHost, getProject } from "@bb/db";
+import { getEnvironment, getHost, getProject, getThread } from "@bb/db";
 import { PLUGIN_DYNAMIC_INSTRUCTIONS_MAX_CHARS } from "@get-bb/plugin-sdk/internal/host-policy";
 import type {
   DynamicTool,
@@ -70,6 +70,7 @@ export interface ResolvedThreadRuntimeCommandConfig {
   instructions: string;
   projectId: string;
   providerId: string;
+  providerSessionId: string | null;
   threadStoragePath: string;
   workspacePath: string;
 }
@@ -122,6 +123,10 @@ export async function resolveThreadRuntimeCommandConfig(
   args: ResolveThreadRuntimeCommandConfigArgs,
 ): Promise<ResolvedThreadRuntimeCommandConfig> {
   markTurnTraceSpan("runtimeConfig.started");
+  const threadSession = getThread(deps.db, args.thread.id);
+  if (!threadSession)
+    throw new ApiError(404, "thread_not_found", "Thread not found");
+  const { providerSessionId } = threadSession;
   const workspacePath = requireWorkspacePath(args.environment);
   const project = getProject(deps.db, args.thread.projectId);
   if (!project) {
@@ -288,6 +293,7 @@ export async function resolveThreadRuntimeCommandConfig(
     instructions,
     projectId: args.thread.projectId,
     providerId: args.thread.providerId,
+    providerSessionId,
     threadStoragePath,
     workspacePath,
   };

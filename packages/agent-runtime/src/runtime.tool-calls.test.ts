@@ -256,6 +256,7 @@ describe("createAgentRuntime tool calls", () => {
         parsedId: rawRequest.id,
         parsedMethod: rawRequest.method,
         providerProcess: {
+          identity: { source: { providerId: "fake", providerSessionId: null } },
           adapter,
           child,
           interactiveRequestScope: "scope-1",
@@ -321,6 +322,7 @@ describe("createAgentRuntime tool calls", () => {
         parsedId: rawRequest.id,
         parsedMethod: rawRequest.method,
         providerProcess: {
+          identity: { source: { providerId: "fake", providerSessionId: null } },
           adapter,
           child,
           interactiveRequestScope: "scope-1",

@@ -22,6 +22,7 @@ import {
   jsonValueSchema,
   pendingInteractionCreateSchema,
   pendingInteractionStatusSchema,
+  providerSessionSourceSchema,
   terminalColsSchema,
   terminalDataBase64Schema,
   terminalRowsSchema,
@@ -226,7 +227,7 @@ export type HostDaemonProjectAttachmentContentQuery = z.infer<
 const hostDaemonEventEnvelopeSchema = z
   .object({
     threadId: z.string().min(1),
-    providerId: z.string().min(1).nullable(),
+    source: providerSessionSourceSchema.nullable(),
     event: threadEventSchema,
   })
   .strict();
@@ -251,7 +252,7 @@ const hostDaemonWireEventSchema = z
 const hostDaemonEventGroupSchema = z
   .object({
     threadId: z.string().min(1),
-    providerId: z.string().min(1).nullable(),
+    source: providerSessionSourceSchema.nullable(),
     events: z.array(hostDaemonWireEventSchema).min(1),
   })
   .strict();
@@ -275,13 +276,14 @@ export function groupHostDaemonEvents(
     const last = groups.at(-1);
     if (
       last?.threadId === envelope.threadId &&
-      last.providerId === envelope.providerId
+      last.source?.providerId === envelope.source?.providerId &&
+      last.source?.providerSessionId === envelope.source?.providerSessionId
     ) {
       last.events.push(envelope.event);
     } else {
       groups.push({
         threadId: envelope.threadId,
-        providerId: envelope.providerId,
+        source: envelope.source,
         events: [envelope.event],
       });
     }
@@ -295,7 +297,7 @@ export function ungroupHostDaemonEvents(
   return groups.flatMap((group) =>
     group.events.map((event) => ({
       threadId: group.threadId,
-      providerId: group.providerId,
+      source: group.source,
       event,
     })),
   );
@@ -305,6 +307,7 @@ const hostDaemonEventRejectionReasonSchema = z.enum([
   "thread_not_owned_by_host",
   "provider_mismatch",
   "missing_provider",
+  "provider_session_mismatch",
 ]);
 
 const hostDaemonRejectedEventSchema = z
@@ -947,6 +950,7 @@ export const hostDaemonToolCallRequestSchema = toolCallRequestSchema
   })
   .extend({
     sessionId: z.string().min(1),
+    source: providerSessionSourceSchema.nullable().default(null),
   });
 export type HostDaemonToolCallRequest = z.infer<
   typeof hostDaemonToolCallRequestSchema
@@ -959,6 +963,7 @@ export type HostDaemonToolCallResponse = z.infer<
 
 export const hostDaemonInteractiveRequestSchema = z.object({
   sessionId: z.string().min(1),
+  source: providerSessionSourceSchema.nullable().default(null),
   interaction: pendingInteractionCreateSchema,
 });
 export type HostDaemonInteractiveRequest = z.infer<

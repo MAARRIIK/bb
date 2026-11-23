@@ -214,6 +214,7 @@ export function createFakeRuntime() {
       if (!providerSessionsByThreadId.has(threadId)) {
         providerSessionsByThreadId.set(threadId, {
           providerId: "fake",
+          providerSessionId: null,
           providerThreadId: `provider-${threadId}`,
         });
       }
@@ -234,6 +235,7 @@ export function createFakeRuntime() {
       state.startedInstructions = args.instructions;
       providerSessionsByThreadId.set(args.threadId, {
         providerId: args.providerId,
+        providerSessionId: args.providerSessionId ?? null,
         providerThreadId: `provider-${args.threadId}`,
       });
       if (args.input && args.input.length > 0) {
@@ -256,6 +258,7 @@ export function createFakeRuntime() {
         args.providerThreadId ?? `provider-${args.threadId}`;
       providerSessionsByThreadId.set(args.threadId, {
         providerId: args.providerId,
+        providerSessionId: args.providerSessionId ?? null,
         providerThreadId,
       });
       return { providerThreadId };

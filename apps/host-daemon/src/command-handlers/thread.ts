@@ -1,7 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { AgentRuntimeBridgeLaunch } from "@bb/agent-runtime";
-import { flattenPromptInputGroups } from "@bb/domain";
+import {
+  flattenPromptInputGroups,
+  type ProviderSessionSource,
+} from "@bb/domain";
 import { killProcessesWithCwdUnder } from "@bb/process-utils";
 import {
   COMPETING_TURN_ERROR_CODE,
@@ -37,6 +40,22 @@ type ExistingThreadRuntimeCommand =
 
 const TURN_SUBMIT_ACTIVE_TURN_WAIT_MS = 5_000;
 const TURN_SUBMIT_STEER_ATTEMPTS = 2;
+
+function requireMatchingProviderSession(
+  current: ProviderSessionSource | null,
+  expected: ProviderSessionSource,
+): void {
+  if (
+    !current ||
+    current.providerId !== expected.providerId ||
+    current.providerSessionId !== expected.providerSessionId
+  ) {
+    throw new CommandDispatchError(
+      "provider_session_mismatch",
+      "Thread command belongs to another provider session",
+    );
+  }
+}
 
 interface ResumeThreadRuntimeIfMissingArgs {
   command: ExistingThreadRuntimeCommand;
@@ -202,6 +221,8 @@ async function resumeThreadRuntimeIfMissing(
   const { command, entry, options } = args;
   const { resumeContext } = command;
   if (entry.runtime.hasThread(command.threadId)) {
+    const current = entry.runtime.getProviderSession(command.threadId);
+    requireMatchingProviderSession(current, resumeContext);
     return;
   }
   if (!resumeContext.providerThreadId) {
@@ -228,6 +249,7 @@ async function resumeThreadRuntimeIfMissing(
     projectId: resumeContext.projectId,
     providerThreadId: resumeContext.providerThreadId,
     providerId: resumeContext.providerId,
+    providerSessionId: resumeContext.providerSessionId,
     contributedEnv: resumeContext.contributedEnv,
     options: command.options,
     instructions: resumeContext.instructions,
@@ -240,6 +262,10 @@ export async function startThread(
   command: CommandOf<"thread.start">,
   options: CommandDispatchOptions,
 ): Promise<HostDaemonCommandResult<"thread.start">> {
+  const hosted = options.runtimeManager
+    .get(command.environmentId)
+    ?.runtime.getProviderSession(command.threadId);
+  if (hosted) requireMatchingProviderSession(hosted, command);
   await requireSupportedProviderCliForThreadStart({ command, options });
   if (command.threadStoragePath) {
     const confined = requireContainedPath(
@@ -260,6 +286,8 @@ export async function startThread(
       command,
       options,
     );
+    const current = entry.runtime.getProviderSession(command.threadId);
+    if (current) requireMatchingProviderSession(current, command);
     const result = await entry.runtime.startThread({
       additionalWorkspaceWriteRoots:
         await options.runtimeManager.resolveThreadWorkspaceWriteRoots({
@@ -274,6 +302,7 @@ export async function startThread(
       projectId: command.projectId,
       providerId: command.providerId,
       contributedEnv: command.contributedEnv,
+      providerSessionId: command.providerSessionId,
       clientRequestId: command.requestId,
       input: staged.input,
       options: command.options,
@@ -313,6 +342,7 @@ export async function prepareThreadRewind(
     projectId: command.projectId,
     providerId: command.providerId,
     contributedEnv: command.contributedEnv,
+    providerSessionId: command.providerSessionId,
     sourceProviderThreadId: command.sourceProviderThreadId,
     retainThroughProviderCheckpoint: command.retainThroughProviderCheckpoint,
     options: command.options,

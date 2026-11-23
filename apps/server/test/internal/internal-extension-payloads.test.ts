@@ -150,7 +150,7 @@ function extensionItemEvent(
   kind: ExtensionKind = GOAL_KIND,
 ): HostDaemonEventEnvelope {
   return {
-    providerId: PROVIDER_ID,
+    source: { providerId: PROVIDER_ID, providerSessionId: null },
     threadId,
     event: {
       type: "item/started",
@@ -176,7 +176,7 @@ function extensionStateEvent(
   kind: ExtensionKind = GOAL_KIND,
 ): HostDaemonEventEnvelope {
   return {
-    providerId: PROVIDER_ID,
+    source: { providerId: PROVIDER_ID, providerSessionId: null },
     threadId,
     event: {
       type: "thread/extensionState/updated",
@@ -191,7 +191,7 @@ function extensionStateEvent(
 
 function turnStarted(threadId: string): HostDaemonEventEnvelope {
   return {
-    providerId: PROVIDER_ID,
+    source: { providerId: PROVIDER_ID, providerSessionId: null },
     threadId,
     event: {
       type: "turn/started",
@@ -245,7 +245,7 @@ describe("extension payload ingest validation", () => {
         turnStarted(thread.id),
         extensionItemEvent(thread.id, { objective: "Ship it" }),
         {
-          providerId: PROVIDER_ID,
+          source: { providerId: PROVIDER_ID, providerSessionId: null },
           threadId: thread.id,
           event: {
             type: "thread/extensionState/updated",
@@ -284,7 +284,7 @@ describe("extension payload ingest validation", () => {
         turnStarted(thread.id),
         extensionItemEvent(thread.id, { objective: 42 }),
         {
-          providerId: PROVIDER_ID,
+          source: { providerId: PROVIDER_ID, providerSessionId: null },
           threadId: thread.id,
           event: {
             type: "thread/extensionState/updated",
@@ -591,14 +591,17 @@ describe("extension kind ownership at ingest", () => {
         status: "active",
       });
       const foreign = await post(harness, session.id, [
-        { ...turnStarted(other.id), providerId: OTHER_PROVIDER_ID },
+        {
+          ...turnStarted(other.id),
+          source: { providerId: OTHER_PROVIDER_ID, providerSessionId: null },
+        },
         {
           ...extensionItemEvent(other.id, { objective: "Ship it" }),
-          providerId: OTHER_PROVIDER_ID,
+          source: { providerId: OTHER_PROVIDER_ID, providerSessionId: null },
         },
         {
           ...extensionStateEvent(other.id, { status: "active" }),
-          providerId: OTHER_PROVIDER_ID,
+          source: { providerId: OTHER_PROVIDER_ID, providerSessionId: null },
         },
       ]);
       expect(foreign.status).toBe(200);
@@ -683,14 +686,17 @@ describe("extension kind ownership at ingest", () => {
         status: "active",
       });
       const response = await post(harness, session.id, [
-        { ...turnStarted(orphan.id), providerId: "unregistered" },
+        {
+          ...turnStarted(orphan.id),
+          source: { providerId: "unregistered", providerSessionId: null },
+        },
         {
           ...extensionItemEvent(orphan.id, { objective: "Ship it" }),
-          providerId: "unregistered",
+          source: { providerId: "unregistered", providerSessionId: null },
         },
         {
           ...extensionStateEvent(orphan.id, { status: "active" }),
-          providerId: "unregistered",
+          source: { providerId: "unregistered", providerSessionId: null },
         },
       ]);
       expect(response.status).toBe(200);

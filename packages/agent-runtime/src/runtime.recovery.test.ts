@@ -807,6 +807,7 @@ describe("runtime recovery hints", () => {
       providerThreadId,
     });
     expect(runtime.getProviderSession("t-restart")).toEqual({
+      providerSessionId: null,
       providerId: PROVIDER_ID,
       providerThreadId,
     });

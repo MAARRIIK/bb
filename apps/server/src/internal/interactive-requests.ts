@@ -9,6 +9,7 @@ import { hasStoredTurnStarted } from "@bb/db";
 import type { Hono } from "hono";
 import type { AppDeps } from "../types.js";
 import { ApiError } from "../errors.js";
+import { requireCurrentProviderSession } from "./provider-session.js";
 import {
   requireThreadEnvironment,
   requireThreadEnvironmentAllowingDestroyed,
@@ -64,7 +65,7 @@ export function registerInternalInteractiveRequestRoutes(
         sessionId: payload.sessionId,
       });
 
-      const { environment } = requireThreadEnvironment(
+      const { environment, thread } = requireThreadEnvironment(
         deps.db,
         payload.interaction.threadId,
       );
@@ -73,6 +74,18 @@ export function registerInternalInteractiveRequestRoutes(
           403,
           "invalid_request",
           "Thread does not belong to the session host",
+        );
+      }
+
+      requireCurrentProviderSession(thread, payload.source);
+      if (
+        payload.source !== null &&
+        payload.source.providerId !== payload.interaction.providerId
+      ) {
+        throw new ApiError(
+          409,
+          "invalid_request",
+          "Provider request source does not match its interaction",
         );
       }
 

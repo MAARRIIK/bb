@@ -942,7 +942,7 @@ describe("resuming threads after a restart", () => {
           sessionId,
           eventGroups: groupHostDaemonEvents([
             {
-              providerId: "codex",
+              source: { providerId: "codex", providerSessionId: null },
               threadId: child.thread.id,
               event: {
                 type: "turn/started",
@@ -952,7 +952,7 @@ describe("resuming threads after a restart", () => {
               },
             },
             {
-              providerId: "codex",
+              source: { providerId: "codex", providerSessionId: null },
               threadId: child.thread.id,
               event: {
                 type: "turn/completed",

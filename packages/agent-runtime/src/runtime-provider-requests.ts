@@ -8,6 +8,7 @@ import type {
   PendingInteractionPayload,
   PendingInteractionResolution,
   ToolCallRequest,
+  ProviderSessionSource,
 } from "@bb/domain";
 import { isApprovalPendingInteractionPayload } from "@bb/domain";
 import type { BridgeProtocolAdapter } from "./bridge-protocol-adapter.js";
@@ -97,6 +98,7 @@ interface RuntimeProviderRequestProcess {
   adapter: BridgeProtocolAdapter;
   child: ChildProcess;
   interactiveRequestScope: string;
+  identity: { source: ProviderSessionSource };
 }
 
 export interface ResolveRuntimeProviderRequestThreadIdArgs {
@@ -224,7 +226,11 @@ function handleToolCallProviderRequest(
   void Promise.resolve()
     .then(() => {
       controller.signal.throwIfAborted();
-      return args.onToolCall(scopedToolCallReq, controller.signal);
+      return args.onToolCall(
+        scopedToolCallReq,
+        controller.signal,
+        args.providerProcess.identity.source,
+      );
     })
     .then((response) => {
       if (controller.signal.aborted) return;
@@ -361,7 +367,11 @@ function handleInteractiveProviderRequest(
   });
   if (!controller) return true;
   void args
-    .onInteractiveRequest(scopedInteractiveReq, controller.signal)
+    .onInteractiveRequest(
+      scopedInteractiveReq,
+      controller.signal,
+      args.providerProcess.identity.source,
+    )
     .then((resolution) => {
       if (controller.signal.aborted) return;
       const result = buildInteractiveResponse({

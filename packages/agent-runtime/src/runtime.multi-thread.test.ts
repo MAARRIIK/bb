@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ThreadEvent } from "@bb/domain";
+import type { ProviderSessionSource, ThreadEvent } from "@bb/domain";
 import { createAgentRuntime } from "./runtime.js";
 import type { AgentRuntime } from "./types.js";
 import {
@@ -55,6 +55,70 @@ describe("createAgentRuntime multi-thread routing", () => {
 
   afterEach(() => {
     rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("keeps successive generations of the same thread isolated in their originating processes", async () => {
+    const received: { event: ThreadEvent; source: ProviderSessionSource }[] =
+      [];
+    const events: ThreadEvent[] = [];
+    const runtime = createScriptedEchoRuntime({
+      runtime: {
+        workspacePath: tmpDir,
+        onEvent: (event, source) => {
+          received.push({ event, source });
+          events.push(event);
+        },
+      },
+    });
+    try {
+      await runtime.startThread({
+        environmentId: "env-1",
+        threadId: "t1",
+        projectId: "p1",
+        providerId: "fake",
+        providerSessionId: "first-generation",
+        options: fullRuntimeOptions,
+      });
+      expect(received.length).toBeGreaterThan(0);
+      expect(
+        received.every(
+          ({ source }) => source.providerSessionId === "first-generation",
+        ),
+      ).toBe(true);
+      received.splice(0);
+      await runtime.startThread({
+        environmentId: "env-1",
+        threadId: "t1",
+        projectId: "p1",
+        providerId: "fake",
+        providerSessionId: "second-generation",
+        options: fullRuntimeOptions,
+      });
+      await runtime.runTurn({
+        threadId: "t1",
+        clientRequestId: "creq_2222222222",
+        input: [promptTextInput({ text: "Reply with current generation" })],
+        options: fullRuntimeOptions,
+      });
+      await waitForThreadTurnCompleted({
+        events,
+        providerId: "fake",
+        runtime,
+        threadId: "t1",
+      });
+      expect(
+        received.some(({ event }) => event.type === "turn/completed"),
+      ).toBe(true);
+      expect(
+        received.every(
+          ({ source }) =>
+            source.providerId === "fake" &&
+            source.providerSessionId === "second-generation",
+        ),
+      ).toBe(true);
+    } finally {
+      await runtime.shutdown();
+    }
   });
 
   it("handles multiple threads on the same provider", async () => {

@@ -1179,7 +1179,7 @@ describe("createHostDaemonApp", () => {
       await app.connection.start();
 
       app.eventSink.emit({
-        providerId: "codex",
+        source: { providerId: "codex", providerSessionId: null },
         threadId: "thr_app_inactive_session",
         event: {
           type: "turn/started",
@@ -1235,6 +1235,7 @@ describe("createHostDaemonApp", () => {
       const pending = options.onInteractiveRequest(
         request,
         new AbortController().signal,
+        { providerId: "codex", providerSessionId: null },
       );
       const rejection = expect(pending).rejects.toMatchObject({
         code: "interactive_request_ended",
@@ -1249,7 +1250,7 @@ describe("createHostDaemonApp", () => {
       });
 
       app.eventSink.emit({
-        providerId: "codex",
+        source: { providerId: "codex", providerSessionId: null },
         threadId: request.threadId,
         event: {
           type: "turn/started",
@@ -1351,6 +1352,7 @@ describe("createHostDaemonApp", () => {
       }
 
       options.onProcessExit({
+        providerSessionId: null,
         providerId: "codex",
         threads: [
           {
@@ -1398,6 +1400,7 @@ describe("createHostDaemonApp", () => {
       }
 
       options.onProcessExit({
+        providerSessionId: null,
         providerId: "claude-code",
         threads: [
           {
@@ -1430,7 +1433,7 @@ describe("createHostDaemonApp", () => {
         sessionId: "session-app-test",
         eventGroups: [
           {
-            providerId: "claude-code",
+            source: { providerId: "claude-code", providerSessionId: null },
             threadId: "thr_pending_turn_exit",
             events: [
               {
@@ -1468,6 +1471,7 @@ describe("createHostDaemonApp", () => {
       const pending = options.onInteractiveRequest(
         request,
         new AbortController().signal,
+        { providerId: "codex", providerSessionId: null },
       );
       await vi.waitFor(() => {
         expect(
@@ -1482,6 +1486,7 @@ describe("createHostDaemonApp", () => {
         'Provider "codex" exited while awaiting user interaction',
       );
       options.onProcessExit({
+        providerSessionId: null,
         providerId: "codex",
         threads: [
           {
@@ -1544,7 +1549,10 @@ describe("createHostDaemonApp", () => {
 
       const request = createCommandApprovalRequest();
       const provider = new AbortController();
-      const pending = options.onInteractiveRequest(request, provider.signal);
+      const pending = options.onInteractiveRequest(request, provider.signal, {
+        providerId: "codex",
+        providerSessionId: null,
+      });
       await vi.waitFor(() => {
         expect(
           fetchRecorder.requests.filter(
@@ -1619,6 +1627,7 @@ describe("createHostDaemonApp", () => {
       }
       const exitThread = (threadId: string) =>
         options.onProcessExit?.({
+          providerSessionId: null,
           providerId: "codex",
           threads: [
             {
@@ -1693,6 +1702,7 @@ describe("createHostDaemonApp", () => {
         ).length;
 
       options.onProcessExit({
+        providerSessionId: null,
         providerId: "codex",
         threads: [
           {
@@ -1746,7 +1756,10 @@ describe("createHostDaemonApp", () => {
       const callback = runtimeOptions.current?.onToolCall;
       if (!callback) throw new Error("Tool callback missing");
       await expect(
-        callback(createToolCallRequest(), controller.signal),
+        callback(createToolCallRequest(), controller.signal, {
+          providerId: "codex",
+          providerSessionId: null,
+        }),
       ).rejects.toThrow("Failed to call tool");
       controller.abort();
       expect(signal?.aborted).toBe(true);
@@ -1770,9 +1783,12 @@ describe("createHostDaemonApp", () => {
       }
 
       const request = createToolCallRequest();
-      await expect(options.onToolCall(request)).rejects.toThrow(
-        "Failed to call tool",
-      );
+      await expect(
+        options.onToolCall(request, undefined, {
+          providerId: "codex",
+          providerSessionId: null,
+        }),
+      ).rejects.toThrow("Failed to call tool");
 
       expect(logger.error).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1811,7 +1827,10 @@ describe("createHostDaemonApp", () => {
 
       const request = createCommandApprovalRequest();
       await expect(
-        options.onInteractiveRequest(request, new AbortController().signal),
+        options.onInteractiveRequest(request, new AbortController().signal, {
+          providerId: "codex",
+          providerSessionId: null,
+        }),
       ).rejects.toThrow("registration transport failed");
 
       expect(logger.error).toHaveBeenCalledWith(
@@ -1853,7 +1872,10 @@ describe("createHostDaemonApp", () => {
 
       const request = createCommandApprovalRequest();
       await expect(
-        options.onInteractiveRequest(request, new AbortController().signal),
+        options.onInteractiveRequest(request, new AbortController().signal, {
+          providerId: "codex",
+          providerSessionId: null,
+        }),
       ).rejects.toThrow("Ask User Question feature is disabled");
 
       expect(logger.warn).toHaveBeenCalledWith(
