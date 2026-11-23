@@ -38,6 +38,7 @@ import type {
   QueuedMessagePayloadKind,
   QueuedMessageWaitHolder,
   ReasoningLevel,
+  ResolvedThreadExecutionOptions,
   ServiceTier,
   SystemThreadInterruptedReason,
   TerminalSessionCloseReason,
@@ -1449,6 +1450,90 @@ export const threadPruningWork = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.policy, table.threadId] }),
     index("thread_pruning_work_thread_idx").on(table.threadId),
+  ],
+);
+
+export const threadProviderTransitions = sqliteTable(
+  "thread_provider_transitions",
+  {
+    id: text("id").primaryKey(),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    environmentId: text("environment_id")
+      .notNull()
+      .references(() => environments.id, { onDelete: "cascade" }),
+    hostId: text("host_id")
+      .notNull()
+      .references(() => hosts.id, { onDelete: "cascade" }),
+    fingerprint: text("fingerprint").notNull(),
+    sourceProviderId: text("source_provider_id").notNull(),
+    sourceProviderSessionId: text("source_provider_session_id"),
+    sourceProviderThreadId: text("source_provider_thread_id"),
+    sourceModelOverride: text("source_model_override"),
+    sourceReasoningLevelOverride: text(
+      "source_reasoning_level_override",
+    ).$type<ReasoningLevel>(),
+    targetProviderId: text("target_provider_id").notNull(),
+    targetProviderSessionId: text("target_provider_session_id").notNull(),
+    targetProviderThreadId: text("target_provider_thread_id"),
+    execution: text("execution", { mode: "json" })
+      .$type<ResolvedThreadExecutionOptions>()
+      .notNull(),
+    contextText: text("context_text").notNull(),
+    contextThroughSequence: integer("context_through_sequence").notNull(),
+    contextTokenBudget: integer("context_token_budget").notNull(),
+    contextWindowTokens: integer("context_window_tokens"),
+    contextWindowSource: text("context_window_source", {
+      enum: ["unknown", "provider", "host", "user"],
+    }).notNull(),
+    phase: text("phase", {
+      enum: [
+        "preparing",
+        "prepared",
+        "adopting",
+        "committed",
+        "finalizing",
+        "rolling_back",
+        "completed",
+        "rolled_back",
+      ],
+    }).notNull(),
+    revision: integer("revision").notNull(),
+    errorCode: text("error_code"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("thread_provider_transitions_active_thread_idx")
+      .on(table.threadId)
+      .where(sql`${table.phase} NOT IN ('completed', 'rolled_back')`),
+    uniqueIndex("thread_provider_transitions_target_generation_idx").on(
+      table.targetProviderSessionId,
+    ),
+    index("thread_provider_transitions_pending_host_idx")
+      .on(table.hostId, table.updatedAt)
+      .where(sql`${table.phase} NOT IN ('completed', 'rolled_back')`),
+    check(
+      "thread_provider_transitions_revision_check",
+      sql`${table.revision} >= 1`,
+    ),
+    check(
+      "thread_provider_transitions_generation_check",
+      sql`${table.targetProviderSessionId} IS NOT ${table.sourceProviderSessionId}`,
+    ),
+    check(
+      "thread_provider_transitions_phase_check",
+      sql`${table.phase} IN ('preparing', 'prepared', 'adopting', 'committed', 'finalizing', 'rolling_back', 'completed', 'rolled_back')`,
+    ),
+    check(
+      "thread_provider_transitions_native_identity_check",
+      sql`${table.phase} IN ('preparing', 'rolling_back', 'rolled_back') OR ${table.targetProviderThreadId} IS NOT NULL`,
+    ),
+    check(
+      "thread_provider_transitions_context_check",
+      sql`${table.contextThroughSequence} >= 0 AND ${table.contextTokenBudget} > 0 AND ((${table.contextWindowTokens} IS NULL AND ${table.contextWindowSource} = 'unknown') OR (${table.contextWindowTokens} IS NOT NULL AND ${table.contextWindowTokens} > 0 AND ${table.contextWindowSource} IN ('provider', 'host', 'user')))`,
+    ),
   ],
 );
 

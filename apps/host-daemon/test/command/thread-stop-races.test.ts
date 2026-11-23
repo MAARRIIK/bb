@@ -23,7 +23,7 @@ import type {
   HostDaemonCommand,
   HostDaemonOnlineRpcResponseMessage,
 } from "@bb/host-daemon-contract";
-import { makeTempDir } from "@bb/test-helpers";
+import { createDeferredPromise, makeTempDir } from "@bb/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { dispatchCommand } from "../../src/command-dispatch.js";
 import {
@@ -326,10 +326,13 @@ function routerStop(
   return routerCommand(router, threadStopCommand(threadId));
 }
 
-function createRaceRouter(harness: RaceHarness): CommandRouter {
+function createRaceRouter(
+  harness: RaceHarness,
+  eventSink: CommandDispatchOptions["eventSink"] = noopEventSink,
+): CommandRouter {
   return new CommandRouter({
     dataDir: "/tmp/bb-stop-race-data",
-    eventSink: noopEventSink,
+    eventSink,
     fetchProjectAttachment: unexpectedProjectAttachmentFetch,
     fetchPluginHostArtifact: harness.dispatchOptions.fetchPluginHostArtifact,
     ...unexpectedProviderMaintenance,
@@ -339,7 +342,81 @@ function createRaceRouter(harness: RaceHarness): CommandRouter {
   });
 }
 
+function providerPrepareCommand(
+  start: CommandOf<"thread.start">,
+  args: {
+    leaseId: string;
+    providerSessionId: string;
+    bridgeLaunch?: HostDaemonBridgeLaunch;
+  },
+): CommandOf<"thread.session.prepare"> {
+  const {
+    type: _type,
+    requestId: _requestId,
+    input: _input,
+    inputGroups: _groups,
+    fork: _fork,
+    threadStoragePath: _storage,
+    ...context
+  } = start;
+  return {
+    ...context,
+    type: "thread.session.prepare",
+    providerId: "replacement",
+    leaseId: args.leaseId,
+    providerSessionId: args.providerSessionId,
+    bridgeLaunch: args.bridgeLaunch ?? start.bridgeLaunch,
+    expectedSource: {
+      providerId: start.providerId,
+      providerSessionId: start.providerSessionId,
+    },
+  };
+}
+
 describe("provider session transition commands", () => {
+  it("returns adoption while the previous event stream is held by the server commit barrier", async () => {
+    const harness = await createRaceHarness();
+    const start = threadStartCommand(harness, { threadId: "t-adopt-flush" });
+    await dispatchCommand(start, harness.dispatchOptions);
+    const prepare = providerPrepareCommand(start, {
+      leaseId: "adopt-flush",
+      providerSessionId: "adopt-generation",
+    });
+    const target = await dispatchCommand(prepare, harness.dispatchOptions);
+    const blockedFlush = createDeferredPromise<void>();
+    let flushCalls = 0;
+    const router = createRaceRouter(harness, {
+      emit: () => undefined,
+      flush: async () => {
+        flushCalls += 1;
+        await blockedFlush.promise;
+      },
+    });
+    let result: HostDaemonOnlineRpcResponseMessage | null = null;
+    const response = routerCommand(router, {
+      type: "thread.session.adopt",
+      environmentId: ENVIRONMENT_ID,
+      threadId: start.threadId,
+      leaseId: prepare.leaseId,
+      target,
+    }).then((value) => {
+      result = value;
+      return value;
+    });
+    try {
+      await vi.waitFor(() => expect(result).toMatchObject({ ok: true }), {
+        timeout: 1000,
+      });
+      expect(
+        harness.requireRuntime().getProviderSession(start.threadId),
+      ).toEqual(target);
+      expect(flushCalls).toBe(0);
+    } finally {
+      blockedFlush.resolve();
+      await response;
+    }
+  });
+
   it("retains the old and prepared sessions across a shell environment refresh", async () => {
     const harness = await createRaceHarness();
     const start = threadStartCommand(harness, {
@@ -348,20 +425,10 @@ describe("provider session transition commands", () => {
     await dispatchCommand(start, harness.dispatchOptions);
     const runtime = harness.requireRuntime();
     const original = runtime.getProviderSession(start.threadId);
-    const {
-      type: _type,
-      input: _input,
-      requestId: _requestId,
-      ...context
-    } = start;
-    const prepare = {
-      ...context,
-      type: "thread.session.prepare" as const,
+    const prepare = providerPrepareCommand(start, {
       leaseId: "retained-lease",
-      providerId: "replacement",
       providerSessionId: "retained-generation",
-      expectedSource: { providerId: start.providerId, providerSessionId: null },
-    };
+    });
     await dispatchCommand(prepare, harness.dispatchOptions);
     await harness.manager.replaceBaseShellEnv({
       ...harness.manager.getShellEnv(),
@@ -393,23 +460,13 @@ describe("provider session transition commands", () => {
     const runtime = harness.requireRuntime();
     const original = runtime.getProviderSession(start.threadId);
     expect(original).not.toBeNull();
-    const {
-      type: _type,
-      input: _input,
-      requestId: _requestId,
-      ...context
-    } = start;
-    const preparation = {
-      ...context,
-      type: "thread.session.prepare" as const,
+    const preparation = providerPrepareCommand(start, {
       leaseId: "transition-lease",
-      providerId: "replacement",
       providerSessionId: "replacement-generation",
-      expectedSource: { providerId: start.providerId, providerSessionId: null },
       bridgeLaunch: await scriptedEchoDispatchLaunch({
         scripted: { startDelayMs: 150 },
       }),
-    };
+    });
     const preparing = routerCommand(router, preparation);
     await vi.waitFor(() =>
       expect(harness.record.last("thread/start")?.params).toMatchObject({

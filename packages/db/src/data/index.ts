@@ -28,6 +28,7 @@ export * from "./project-attachments.js";
 export * from "./project-execution-defaults.js";
 export * from "./project-sources.js";
 export * from "./projects.js";
+export * from "./provider-transitions.js";
 export * from "./prompt-history.js";
 export * from "./provider-model-catalogs.js";
 export * from "./queued-thread-messages.js";

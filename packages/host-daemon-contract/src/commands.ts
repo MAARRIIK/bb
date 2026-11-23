@@ -1492,7 +1492,7 @@ export const hostDaemonCommandRegistry = {
     resultSchema: preparedProviderSessionSchema,
     transport: "settled",
     retryable: false,
-    flushEventsBeforeResult: true,
+    flushEventsBeforeResult: false,
     envLane: "read",
   }),
   "thread.session.rollback": defineHostDaemonCommandDescriptor({

@@ -1,6 +1,11 @@
 import { and, asc, eq, inArray, notExists, notInArray, sql } from "drizzle-orm";
 import type { DbQueryConnection } from "../connection.js";
-import { events, threadPurges, threads } from "../schema.js";
+import {
+  events,
+  threadProviderTransitions,
+  threadPurges,
+  threads,
+} from "../schema.js";
 
 const THREAD_PURGE_BATCHED_TABLES = [
   "thread_search_segments",
@@ -36,6 +41,17 @@ export function nextThreadPurge(
               .select({ id: threads.id })
               .from(threads)
               .where(eq(threads.lifecycleOwnerThreadId, threadPurges.threadId)),
+          ),
+          notExists(
+            db
+              .select({ id: threadProviderTransitions.id })
+              .from(threadProviderTransitions)
+              .where(
+                and(
+                  eq(threadProviderTransitions.threadId, threadPurges.threadId),
+                  sql`${threadProviderTransitions.phase} NOT IN ('completed', 'rolled_back')`,
+                ),
+              ),
           ),
         ),
       )

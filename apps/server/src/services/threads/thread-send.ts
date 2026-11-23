@@ -1,3 +1,4 @@
+import { requireProviderTransitionSettled } from "./provider-transition-guard.js";
 import { getEnvironment, getThread } from "@bb/db";
 import type { DbConnection, DbTransaction, EnvironmentRow } from "@bb/db";
 import type {
@@ -534,9 +535,10 @@ export async function sendThreadMessage(
     });
     return null;
   }
-  return withThreadSendGuard(args.thread.id, () =>
-    sendThreadMessageWithoutContextClear(deps, args),
-  );
+  return withThreadSendGuard(args.thread.id, () => {
+    requireProviderTransitionSettled(deps.db, args.thread.id);
+    return sendThreadMessageWithoutContextClear(deps, args);
+  });
 }
 
 async function sendThreadMessageWithoutContextClear(
@@ -594,7 +596,7 @@ async function sendThreadMessageWithoutContextClear(
     args.beforeAppendInTransaction?.({ tx });
     if (deferredFirstTurnContext) {
       requireDeferredFirstTurnContextCurrent(tx, {
-        requestSequence: deferredFirstTurnContext.requestSequence,
+        origin: deferredFirstTurnContext.origin,
         threadId: thread.id,
       });
     }

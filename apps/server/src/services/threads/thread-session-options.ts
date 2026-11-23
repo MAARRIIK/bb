@@ -1,3 +1,4 @@
+import { requireProviderTransitionSettled } from "./provider-transition-guard.js";
 import { listLatestThreadStateEventRowsByThreadIds } from "@bb/db";
 import type { DbConnection } from "@bb/db";
 import {
@@ -143,6 +144,7 @@ export function applyThreadSessionOptionPatch(
   deps: Pick<AppDeps, "db" | "hub">,
   args: { thread: Thread; patch: SessionOptionSelectionPatch },
 ): void {
+  requireProviderTransitionSettled(deps.db, args.thread.id);
   const state = readThreadSessionOptionState(deps.db, args.thread.id);
   const result = applySessionOptionSelectionPatch({
     options: state.options,

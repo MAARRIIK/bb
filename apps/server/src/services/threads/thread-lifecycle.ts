@@ -10,6 +10,7 @@ import {
 import { revokeThreadDesktopBrowserControl } from "../desktop-browsers.js";
 import {
   getActiveStoredTurnId,
+  getActiveProviderTransition,
   getEnvironment,
   getHost,
   updateThread,
@@ -522,6 +523,7 @@ export function requestThreadStorageDeletion(
   thread: Pick<Thread, "environmentId" | "id">,
   environment: StopEnvironment | null,
 ): void {
+  if (getActiveProviderTransition(deps.db, thread.id) !== null) return;
   deps.pendingInteractions.interruptPendingInteractionsForThreadIds({
     threadIds: [thread.id],
     reason: "thread-deleted",

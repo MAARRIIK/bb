@@ -6,6 +6,7 @@ import {
   isStoredTurnProviderCompactionRunning,
   getLastStoredProviderThreadId,
   getLastStoredTurnRequestEvent,
+  getCurrentProviderTransition,
   getStoredProviderSession,
   getStoredTurnRequestEventForTurn,
   getThread,
@@ -24,6 +25,7 @@ import {
   parseStoredThreadEvent,
   systemErrorEventDataSchema,
   threadScope,
+  resolvedThreadExecutionOptionsSchema,
   turnRequestEventDataSchema,
   WORKSPACE_PROVISIONING_STEP_KEYS,
 } from "@bb/domain";
@@ -968,5 +970,9 @@ export function getLastExecutionOptions(
     "current-session",
   );
 
-  return row ? parseStoredTurnRequestEvent(row).execution : null;
+  if (row) return parseStoredTurnRequestEvent(row).execution;
+  const transition = getCurrentProviderTransition(deps.db, threadId);
+  return transition
+    ? resolvedThreadExecutionOptionsSchema.parse(transition.execution)
+    : null;
 }
