@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { z } from "zod";
@@ -63,6 +64,7 @@ import { RuntimeThreadGoalState } from "./runtime-thread-goal-state.js";
 import { RuntimeBackgroundWorkState } from "./runtime-background-work-state.js";
 import { RuntimeTurnState } from "./runtime-turn-state.js";
 import type {
+  AgentRuntimeProviderSession,
   AgentRuntimeContributedEnvEntry,
   AgentRuntime,
   AgentRuntimeProviderRecoveryHint,
@@ -209,6 +211,7 @@ const PREPARED_THREAD_REWIND_TTL_MS = 5 * 60_000;
 const PREPARED_THREAD_REWIND_RETRY_MS = 30_000;
 
 interface ThreadRuntimeConfig {
+  bridgeThreadId: string;
   providerSessionId: string | null;
   additionalWorkspaceWriteRoots: readonly string[];
   bridgeLaunch: AgentRuntimeBridgeLaunch;
@@ -224,6 +227,38 @@ interface ThreadRuntimeConfig {
   projectId?: string;
   providerId: string;
   sessionRestorable: boolean;
+}
+
+type PrepareProviderSessionArgs = Parameters<
+  AgentRuntime["prepareProviderSession"]
+>[0];
+type ProviderSessionTargetArgs = Parameters<
+  AgentRuntime["adoptProviderSession"]
+>[0];
+
+interface HostedSessionSnapshot {
+  session: AgentRuntimeProviderSession;
+  config: ThreadRuntimeConfig;
+  providerState: RuntimeProviderProcess["identity"];
+}
+
+interface PreparedSessionEvents {
+  snapshots: Map<string, ThreadEvent>;
+  error: Error | null;
+}
+
+interface PreparedProviderSessionState {
+  phase: "prepared" | "adopted" | "discarding";
+  target: HostedSessionSnapshot;
+  previous: HostedSessionSnapshot | null;
+}
+
+interface ProviderSessionLease {
+  args: PrepareProviderSessionArgs;
+  stagingThreadId: string;
+  retiredThreadId: string;
+  ready: Promise<PreparedProviderSessionState>;
+  controls: Promise<void>;
 }
 
 interface RuntimeParsedMessageArgs {
@@ -264,6 +299,7 @@ function resolveThreadStoragePath(
 
 export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
   const skillRoots = options.skillRoots ?? [];
+  const onInteractiveRequest = options.onInteractiveRequest;
   for (const skillRoot of skillRoots) {
     if (!path.isAbsolute(skillRoot.path)) {
       throw new Error(
@@ -306,7 +342,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         continue;
       }
       entry.watchdogFired = true;
-      options.onEvent(
+      emitRuntimeEvent(
         {
           type: "system/error",
           threadId,
@@ -322,6 +358,9 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
   const threadOperationCounts = new Map<string, number>();
   const stagedThreadRewinds = new Map<string, StagedThreadRewind>();
   const suppressedThreadEventIds = new Set<string>();
+  const providerSessionLeases = new Map<string, ProviderSessionLease>();
+  const providerSessionPins = new Set<string>();
+  const preparedSessionEvents = new Map<string, PreparedSessionEvents>();
   const threadGoalState = new RuntimeThreadGoalState();
   const turnState = new RuntimeTurnState();
   const toolCalls = new RuntimeProviderRequests();
@@ -349,7 +388,10 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     env: options.env,
     getNextRequestId: () => nextRequestId++,
     handleDeferredEvents: (args) => {
-      if (suppressedThreadEventIds.has(args.sourceThreadId)) {
+      if (
+        suppressedThreadEventIds.has(args.sourceThreadId) &&
+        !preparedSessionEvents.has(args.sourceThreadId)
+      ) {
         return;
       }
       emitTranslatedEvents({
@@ -360,7 +402,13 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     },
     handleStdoutLine: (args) =>
       handleStdoutLine(args.line, args.providerProcess),
-    onProcessExit: options.onProcessExit,
+    onProcessExit: (info) =>
+      options.onProcessExit?.({
+        ...info,
+        threads: info.threads.filter(
+          (thread) => !preparedSessionEvents.has(thread.threadId),
+        ),
+      }),
     onProviderThreadDetached: (threadId) => {
       const config = threadRuntimeConfigs.get(threadId);
       toolCalls.cancelThread(threadId);
@@ -370,7 +418,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       const settlements = backgroundWorkState.settleThread(threadId);
       if (!suppressedThreadEventIds.has(threadId) && config !== undefined) {
         for (const event of settlements) {
-          options.onEvent(event, {
+          emitRuntimeEvent(event, {
             providerId: config.providerId,
             providerSessionId: config.providerSessionId,
           });
@@ -420,6 +468,22 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     });
   }
 
+  function buildProviderCommandPlan(
+    proc: ProviderProcess,
+    command: AdapterCommand,
+  ): ProviderCommandPlan {
+    if ("threadId" in command) {
+      const config = threadRuntimeConfigs.get(command.threadId);
+      if (config?.processKey === proc.processKey) {
+        return proc.adapter.buildCommandPlan({
+          ...command,
+          threadId: config.bridgeThreadId,
+        });
+      }
+    }
+    return proc.adapter.buildCommandPlan(command);
+  }
+
   async function releaseThreadOnBridgeBestEffort(args: {
     proc: ProviderProcess;
     threadId: string;
@@ -430,7 +494,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     const providerThreadId =
       threadIdentityRegistry.getProviderThreadId(args.threadId) ??
       args.threadId;
-    const plan = args.proc.adapter.buildCommandPlan({
+    const plan = buildProviderCommandPlan(args.proc, {
       type: "thread/stop",
       threadId: args.threadId,
       providerThreadId,
@@ -727,7 +791,12 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       });
       return null;
     }
-    if (args.threadIdHint && args.threadIdHint !== resolvedThreadId) {
+    if (
+      args.threadIdHint &&
+      args.threadIdHint !== resolvedThreadId &&
+      args.threadIdHint !==
+        threadRuntimeConfigs.get(resolvedThreadId)?.bridgeThreadId
+    ) {
       sendJsonRpcError({
         child: args.proc.child,
         id: args.parsedId,
@@ -929,6 +998,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     args: FindReapableIdleProviderSessionArgs,
   ): ReapIdleProviderSessionCandidate | null {
     if (
+      providerSessionPins.has(args.threadId) ||
       threadHasInFlightOperation(args.threadId) ||
       pendingTurnStarts.has(args.threadId) ||
       turnState.getActiveTurnId(args.threadId) !== null
@@ -1156,6 +1226,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     args: ArchiveOrUnarchiveThreadArgs,
   ): Promise<void> {
     const { commandType, providerId, providerThreadId, threadId } = args;
+    assertProviderSessionFinalized(threadId);
     const threadConfig = threadRuntimeConfigs.get(threadId);
     const bridgeLaunch = args.bridgeLaunch ?? threadConfig?.bridgeLaunch;
     if (bridgeLaunch === undefined) {
@@ -1190,7 +1261,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     };
     const cmd = requireProviderRequestPlan({
       commandType: adapterCommand.type,
-      plan: proc.adapter.buildCommandPlan(adapterCommand),
+      plan: buildProviderCommandPlan(proc, adapterCommand),
       providerId,
     });
     await sendCommand({
@@ -1236,7 +1307,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     source: ProviderSessionSource;
     threadId: string;
   }): void {
-    options.onEvent(
+    emitRuntimeEvent(
       {
         type: "provider.env-resolved",
         threadId: args.threadId,
@@ -1247,7 +1318,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       args.source,
     );
     for (const contribution of args.droppedContributions) {
-      options.onEvent(
+      emitRuntimeEvent(
         {
           type: "provider/warning",
           threadId: args.threadId,
@@ -1286,12 +1357,24 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     });
   }
 
+  function resolveBridgeThreadHint(
+    proc: ProviderProcess,
+    hint: string | undefined,
+  ): string | undefined {
+    if (hint === undefined) return undefined;
+    for (const threadId of proc.identity.threadIds) {
+      if (threadRuntimeConfigs.get(threadId)?.bridgeThreadId === hint)
+        return threadId;
+    }
+    return hint;
+  }
+
   function emitTranslatedEvents(args: EmitTranslatedEventsArgs): void {
     for (const event of args.events) {
       const scope = {
-        eventThreadId: event.threadId,
+        eventThreadId: resolveBridgeThreadHint(args.proc, event.threadId),
         providerState: args.proc.identity,
-        sourceThreadId: args.sourceThreadId,
+        sourceThreadId: resolveBridgeThreadHint(args.proc, args.sourceThreadId),
       };
       const resolvedBbThreadId =
         event.type === "thread/identity"
@@ -1307,6 +1390,15 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       const targetThreadId = resolvedBbThreadId;
 
       if (suppressedThreadEventIds.has(targetThreadId)) {
+        if (preparedSessionEvents.has(targetThreadId)) {
+          const stagedEvent = stampThreadEventScope({
+            event,
+            providerThreadId:
+              threadIdentityRegistry.getProviderThreadId(targetThreadId),
+            threadId: targetThreadId,
+          });
+          capturePreparedSessionEvent(stagedEvent);
+        }
         continue;
       }
       if (event.type === "thread/identity" && event.providerThreadId) {
@@ -1341,7 +1433,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       turnState.observe(normalizedEvent);
       backgroundWorkState.observe(normalizedEvent);
       observeProviderSessionIdleState(normalizedEvent);
-      options.onEvent(normalizedEvent, args.proc.identity.source);
+      emitRuntimeEvent(normalizedEvent, args.proc.identity.source);
       threadGoalState.observe(normalizedEvent);
     }
   }
@@ -1363,15 +1455,45 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     const sourceThreadId = getJsonRpcStringParam(args.parsed, "threadId");
     if (
       sourceThreadId !== undefined &&
-      suppressedThreadEventIds.has(sourceThreadId)
+      suppressedThreadEventIds.has(sourceThreadId) &&
+      !preparedSessionEvents.has(sourceThreadId)
     ) {
       return;
     }
     const recoveryHint = args.proc.adapter.decodeRecoveryHint?.(args.parsed);
     if (recoveryHint !== null && recoveryHint !== undefined) {
+      const threadId = resolveBridgeThreadHint(
+        args.proc,
+        recoveryHint.threadId,
+      );
+      const buffer =
+        threadId === undefined
+          ? undefined
+          : preparedSessionEvents.get(threadId);
+      if (threadId === undefined) {
+        const hosted = [...args.proc.identity.threadIds];
+        for (const id of hosted) {
+          const prepared = preparedSessionEvents.get(id);
+          if (prepared)
+            prepared.error = new Error(
+              "The prepared provider requires recovery before finalization",
+            );
+        }
+        if (
+          hosted.length > 0 &&
+          hosted.every((id) => preparedSessionEvents.has(id))
+        )
+          return;
+      }
+      if (buffer) {
+        buffer.error = new Error(
+          "The prepared provider requires recovery before finalization",
+        );
+        return;
+      }
       if (
-        recoveryHint.threadId !== undefined &&
-        !args.proc.identity.threadIds.has(recoveryHint.threadId)
+        threadId !== undefined &&
+        !args.proc.identity.threadIds.has(threadId)
       ) {
         options.onStderr?.(
           `Dropping provider/recovery ${recoveryHint.kind} from "${args.proc.providerId}": it names thread "${recoveryHint.threadId}", which that process does not host.`,
@@ -1379,7 +1501,11 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         return;
       }
       handleRecoveryHint({
-        hint: { providerId: args.proc.providerId, ...recoveryHint },
+        hint: {
+          providerId: args.proc.providerId,
+          ...recoveryHint,
+          ...(threadId === undefined ? {} : { threadId }),
+        },
         proc: args.proc,
         source: "unsolicited",
       });
@@ -1416,8 +1542,29 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         getActiveTurnId: (threadId) => turnState.getActiveTurnId(threadId),
         getThreadExecutionOptions: (threadId) =>
           threadRuntimeConfigs.get(threadId)?.options,
-        onInteractiveRequest: options.onInteractiveRequest,
-        onToolCall: options.onToolCall,
+        onInteractiveRequest:
+          onInteractiveRequest === undefined
+            ? undefined
+            : async (request, signal, source) => {
+                const buffer = preparedSessionEvents.get(request.threadId);
+                if (buffer) {
+                  buffer.error = new Error(
+                    "A prepared session cannot request user interaction before finalization",
+                  );
+                  throw buffer.error;
+                }
+                return onInteractiveRequest(request, signal, source);
+              },
+        onToolCall: async (request, signal, source) => {
+          const buffer = preparedSessionEvents.get(request.threadId);
+          if (buffer) {
+            buffer.error = new Error(
+              "A prepared session cannot invoke tools before finalization",
+            );
+            throw buffer.error;
+          }
+          return options.onToolCall(request, signal, source);
+        },
         interactiveRequests,
         toolCalls,
         parsedId: parsedLine.parsedId,
@@ -1472,7 +1619,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     stagingThreadId: string,
     providerThreadId: string,
   ): Promise<void> {
-    const command = proc.adapter.buildCommandPlan({
+    const command = buildProviderCommandPlan(proc, {
       type: "thread/discard",
       threadId: stagingThreadId,
       providerThreadId,
@@ -1564,7 +1711,460 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     }
   }
 
+  function capturePreparedSessionEvent(event: ThreadEvent): void {
+    const buffer = preparedSessionEvents.get(event.threadId);
+    if (!buffer) return;
+    const providerThreadId = threadIdentityRegistry.getProviderThreadId(
+      event.threadId,
+    );
+    if (
+      event.type === "thread/identity" &&
+      event.providerThreadId !== undefined &&
+      providerThreadId !== undefined &&
+      event.providerThreadId !== providerThreadId
+    ) {
+      buffer.error = new Error(
+        "The prepared provider replaced its native session before finalization",
+      );
+      return;
+    }
+    if (event.type === "system/error" || event.type === "provider/error") {
+      buffer.error = new Error(
+        "The prepared provider reported an error before adoption",
+      );
+      return;
+    }
+    if (
+      event.scope.kind !== "thread" ||
+      event.type === "item/started" ||
+      event.type === "item/completed" ||
+      event.type.startsWith("turn/")
+    ) {
+      buffer.error = new Error(
+        "The prepared provider started work before adoption",
+      );
+      turnState.observe(event);
+      backgroundWorkState.observe(event);
+      return;
+    }
+    const key =
+      event.type === "thread/extensionState/updated"
+        ? `${event.type}:${event.kind}`
+        : event.type;
+    if (buffer.snapshots.size >= 64 && !buffer.snapshots.has(key)) {
+      buffer.error = new Error(
+        "The prepared provider emitted too many initial snapshots",
+      );
+      return;
+    }
+    buffer.snapshots.set(key, event);
+  }
+
+  function emitRuntimeEvent(
+    event: ThreadEvent,
+    source: ProviderSessionSource,
+  ): void {
+    if (preparedSessionEvents.has(event.threadId)) {
+      capturePreparedSessionEvent(event);
+      return;
+    }
+    options.onEvent(event, source);
+  }
+
+  function hostedSessionSnapshot(
+    threadId: string,
+  ): HostedSessionSnapshot | null {
+    const session = threadIdentityRegistry.getProviderSession(threadId);
+    if (!session) return null;
+    const config = threadRuntimeConfigs.get(threadId);
+    if (!config)
+      throw new Error(`Missing runtime configuration for ${threadId}`);
+    return {
+      session,
+      config,
+      providerState: requireProviderProcessForThread(threadId).identity,
+    };
+  }
+
+  function requireProviderSessionSource(
+    threadId: string,
+    expected: ProviderSessionSource,
+  ): void {
+    const current = threadIdentityRegistry.getProviderSession(threadId);
+    if (
+      current &&
+      (current.providerId !== expected.providerId ||
+        current.providerSessionId !== expected.providerSessionId)
+    ) {
+      throw new Error(
+        "The provider session changed while its replacement was being prepared",
+      );
+    }
+  }
+
+  function assertProviderSessionQuiescent(threadId: string): void {
+    if (
+      threadHasInFlightOperation(threadId) ||
+      pendingTurnStarts.has(threadId) ||
+      turnState.getActiveTurnId(threadId) !== null ||
+      backgroundWorkState.hasOpenThreadWork(threadId) ||
+      toolCalls.hasPendingThread(threadId) ||
+      interactiveRequests.hasPendingThread(threadId)
+    ) {
+      throw new Error("The provider session still has active work");
+    }
+  }
+
+  function moveHostedSession(
+    snapshot: HostedSessionSnapshot,
+    from: string,
+    to: string,
+  ): void {
+    forgetThreadRuntimeStateForProviderState(snapshot.providerState, from);
+    threadGoalState.clearThread(from);
+    threadIdentityRegistry.registerThreadProvider({
+      providerId: snapshot.session.providerId,
+      providerState: snapshot.providerState,
+      threadId: to,
+    });
+    threadIdentityRegistry.recordProviderThreadIdentity({
+      providerState: snapshot.providerState,
+      providerThreadId: snapshot.session.providerThreadId,
+      threadId: to,
+    });
+    setThreadRuntimeConfig(to, snapshot.config);
+    markHostedProviderSessionIdle(to);
+  }
+
+  function releaseProviderSessionLease(
+    leaseId: string,
+    lease: ProviderSessionLease,
+  ): void {
+    providerSessionLeases.delete(leaseId);
+    for (const id of [
+      lease.args.threadId,
+      lease.stagingThreadId,
+      lease.retiredThreadId,
+    ])
+      providerSessionPins.delete(id);
+    for (const id of [
+      lease.args.threadId,
+      lease.stagingThreadId,
+      lease.retiredThreadId,
+    ]) {
+      suppressedThreadEventIds.delete(id);
+      preparedSessionEvents.delete(id);
+    }
+  }
+
+  function withProviderSessionLease<T>(
+    args: { leaseId: string; threadId: string },
+    work: (
+      lease: ProviderSessionLease,
+      state: PreparedProviderSessionState,
+    ) => Promise<T>,
+  ): Promise<T> {
+    const lease = providerSessionLeases.get(args.leaseId);
+    if (!lease || lease.args.threadId !== args.threadId)
+      return Promise.reject(new Error("Provider session lease is unavailable"));
+    const task = lease.controls.then(async () => {
+      const state = await lease.ready;
+      if (providerSessionLeases.get(args.leaseId) !== lease)
+        throw new Error("Provider session lease has already been closed");
+      return work(lease, state);
+    });
+    lease.controls = task.then(
+      () => undefined,
+      () => undefined,
+    );
+    return task;
+  }
+
+  function requirePreparedTarget(
+    args: ProviderSessionTargetArgs,
+    state: PreparedProviderSessionState,
+  ): void {
+    if (!isDeepStrictEqual(args.target, state.target.session))
+      throw new Error("Provider session target does not match its preparation");
+  }
+
+  function requireAdoptedTarget(
+    args: ProviderSessionTargetArgs,
+    state: PreparedProviderSessionState,
+  ): void {
+    requirePreparedTarget(args, state);
+    if (
+      state.phase !== "adopted" ||
+      !isDeepStrictEqual(
+        threadIdentityRegistry.getProviderSession(args.threadId),
+        state.target.session,
+      )
+    )
+      throw new Error("The adopted provider session is no longer current");
+    assertProviderSessionQuiescent(args.threadId);
+  }
+
+  function assertProviderSessionFinalized(threadId: string): void {
+    if (
+      [...providerSessionLeases.values()].some(
+        (lease) =>
+          lease.args.threadId === threadId &&
+          preparedSessionEvents.has(threadId),
+      )
+    )
+      throw new Error("The provider session transition has not been finalized");
+  }
+
   const runtime: AgentRuntime = {
+    async prepareProviderSession(request) {
+      const existing = providerSessionLeases.get(request.leaseId);
+      if (existing) {
+        if (!isDeepStrictEqual(existing.args, request))
+          throw new Error(
+            "Provider session lease was reused with different preparation arguments",
+          );
+        return withProviderSessionLease(request, async (_lease, state) => {
+          if (state.phase === "discarding")
+            throw new Error("Provider session preparation is being discarded");
+          return state.target.session;
+        });
+      }
+      const args = structuredClone(request);
+      if (
+        args.providerSessionId.length === 0 ||
+        args.providerSessionId === args.expectedSource.providerSessionId
+      )
+        throw new Error(
+          "A replacement requires a fresh provider session generation",
+        );
+      if (
+        [...providerSessionLeases.values()].some(
+          (lease) =>
+            lease.args.threadId === args.threadId ||
+            lease.args.providerSessionId === args.providerSessionId,
+        ) ||
+        [...threadRuntimeConfigs.values()].some(
+          (config) => config.providerSessionId === args.providerSessionId,
+        )
+      )
+        throw new Error(
+          "The thread or target generation already has a session transition",
+        );
+      requireProviderSessionSource(args.threadId, args.expectedSource);
+      assertProviderSessionQuiescent(args.threadId);
+      const stagingThreadId = `${args.threadId}:prepare:${args.leaseId}`;
+      const retiredThreadId = `${args.threadId}:retired:${args.leaseId}`;
+      if (
+        threadRuntimeConfigs.has(stagingThreadId) ||
+        threadRuntimeConfigs.has(retiredThreadId)
+      )
+        throw new Error("Provider session staging identity is already in use");
+      for (const id of [args.threadId, stagingThreadId, retiredThreadId])
+        providerSessionPins.add(id);
+      suppressedThreadEventIds.add(stagingThreadId);
+      const buffer: PreparedSessionEvents = {
+        snapshots: new Map(),
+        error: null,
+      };
+      preparedSessionEvents.set(stagingThreadId, buffer);
+      const ready = (async (): Promise<PreparedProviderSessionState> => {
+        try {
+          const {
+            leaseId: _leaseId,
+            expectedSource: _expectedSource,
+            ...start
+          } = args;
+          await runtime.startThread({
+            ...start,
+            threadId: stagingThreadId,
+            environmentThreadId: args.threadId,
+          });
+          if (buffer.error) throw buffer.error;
+          const target = hostedSessionSnapshot(stagingThreadId);
+          if (!target)
+            throw new Error("Prepared provider did not retain its session");
+          return { phase: "prepared", target, previous: null };
+        } catch (error) {
+          if (threadRuntimeConfigs.has(stagingThreadId)) {
+            await abandonFailedSessionConstruction({
+              proc: requireProviderProcessForThread(stagingThreadId),
+              threadId: stagingThreadId,
+            });
+          }
+          const failed = providerSessionLeases.get(args.leaseId);
+          if (failed) releaseProviderSessionLease(args.leaseId, failed);
+          throw error;
+        }
+      })();
+      const lease: ProviderSessionLease = {
+        args,
+        stagingThreadId,
+        retiredThreadId,
+        ready,
+        controls: Promise.resolve(),
+      };
+      providerSessionLeases.set(args.leaseId, lease);
+      const state = await ready;
+      return state.target.session;
+    },
+
+    async adoptProviderSession(args) {
+      if (
+        !providerSessionLeases.has(args.leaseId) &&
+        isDeepStrictEqual(
+          threadIdentityRegistry.getProviderSession(args.threadId),
+          args.target,
+        )
+      )
+        return args.target;
+      return withProviderSessionLease(args, async (lease, state) => {
+        requirePreparedTarget(args, state);
+        if (state.phase === "adopted") {
+          requireAdoptedTarget(args, state);
+          return state.target.session;
+        }
+        if (state.phase !== "prepared")
+          throw new Error("Provider session preparation is being discarded");
+        requireProviderSessionSource(args.threadId, lease.args.expectedSource);
+        assertProviderSessionQuiescent(args.threadId);
+        assertProviderSessionQuiescent(lease.stagingThreadId);
+        const buffer = preparedSessionEvents.get(lease.stagingThreadId);
+        if (!buffer || buffer.error)
+          throw (
+            buffer?.error ??
+            new Error("Prepared provider snapshots are unavailable")
+          );
+        if (
+          !isDeepStrictEqual(
+            threadIdentityRegistry.getProviderSession(lease.stagingThreadId),
+            state.target.session,
+          )
+        )
+          throw new Error("Prepared provider session is no longer available");
+        const previous = hostedSessionSnapshot(args.threadId);
+        if (previous) {
+          suppressedThreadEventIds.add(lease.retiredThreadId);
+          preparedSessionEvents.set(lease.retiredThreadId, {
+            snapshots: new Map(),
+            error: null,
+          });
+          moveHostedSession(previous, args.threadId, lease.retiredThreadId);
+        }
+        moveHostedSession(state.target, lease.stagingThreadId, args.threadId);
+        preparedSessionEvents.set(args.threadId, buffer);
+        state.previous = previous;
+        state.phase = "adopted";
+        return state.target.session;
+      });
+    },
+
+    async discardPreparedProviderSession(args) {
+      if (!providerSessionLeases.has(args.leaseId)) return;
+      await withProviderSessionLease(args, async (lease, state) => {
+        if (state.phase === "adopted")
+          throw new Error(
+            "An adopted session requires explicit rollback or finalization",
+          );
+        state.phase = "discarding";
+        if (runtime.hasThread(lease.stagingThreadId))
+          await runtime.stopThread({ threadId: lease.stagingThreadId });
+        releaseProviderSessionLease(args.leaseId, lease);
+      });
+    },
+
+    async rollbackProviderSession(args) {
+      if (!providerSessionLeases.has(args.leaseId)) {
+        const current = threadIdentityRegistry.getProviderSession(
+          args.threadId,
+        );
+        if (isDeepStrictEqual(current, args.target))
+          throw new Error("A finalized provider session cannot be rolled back");
+        requireProviderSessionSource(args.threadId, args.restoreSource);
+        return current;
+      }
+      return withProviderSessionLease(args, async (lease, state) => {
+        requirePreparedTarget(args, state);
+        if (!isDeepStrictEqual(args.restoreSource, lease.args.expectedSource))
+          throw new Error("Rollback source does not match its preparation");
+        if (state.phase === "adopted") {
+          assertProviderSessionQuiescent(lease.retiredThreadId);
+          const current = threadIdentityRegistry.getProviderSession(
+            args.threadId,
+          );
+          if (current !== null) {
+            requireAdoptedTarget(args, state);
+            moveHostedSession(
+              state.target,
+              args.threadId,
+              lease.stagingThreadId,
+            );
+          }
+          if (
+            state.previous &&
+            isDeepStrictEqual(
+              threadIdentityRegistry.getProviderSession(lease.retiredThreadId),
+              state.previous.session,
+            )
+          )
+            moveHostedSession(
+              state.previous,
+              lease.retiredThreadId,
+              args.threadId,
+            );
+        }
+        state.phase = "discarding";
+        if (runtime.hasThread(lease.stagingThreadId))
+          await runtime.stopThread({ threadId: lease.stagingThreadId });
+        releaseProviderSessionLease(args.leaseId, lease);
+        return threadIdentityRegistry.getProviderSession(args.threadId);
+      });
+    },
+
+    async finalizeProviderSession(args) {
+      if (!providerSessionLeases.has(args.leaseId)) {
+        if (
+          !isDeepStrictEqual(
+            threadIdentityRegistry.getProviderSession(args.threadId),
+            args.target,
+          )
+        )
+          throw new Error("Finalized provider session is no longer current");
+        return;
+      }
+      await withProviderSessionLease(args, async (lease, state) => {
+        requireAdoptedTarget(args, state);
+        const buffer = preparedSessionEvents.get(args.threadId);
+        if (!buffer || buffer.error)
+          throw (
+            buffer?.error ??
+            new Error("Prepared provider snapshots are unavailable")
+          );
+        if (runtime.hasThread(lease.retiredThreadId))
+          await runtime.stopThread({ threadId: lease.retiredThreadId });
+        requireAdoptedTarget(args, state);
+        if (buffer.error) throw buffer.error;
+        const events = [...buffer.snapshots.values()];
+        releaseProviderSessionLease(args.leaseId, lease);
+        emitRuntimeEvent(
+          {
+            type: "thread/identity",
+            threadId: args.threadId,
+            providerThreadId: state.target.session.providerThreadId,
+            scope: { kind: "thread" },
+          },
+          state.target.session,
+        );
+        for (const event of events) {
+          if (event.type === "thread/identity") continue;
+          emitTranslatedEvents({
+            proc: requireProviderProcessForThread(args.threadId),
+            events: [{ ...event, threadId: args.threadId }],
+            sourceThreadId: args.threadId,
+          });
+        }
+      });
+    },
+
     async ensureProvider({
       providerId,
       providerSessionId = null,
@@ -1589,6 +2189,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       additionalWorkspaceWriteRoots,
       environmentId,
       threadId,
+      environmentThreadId = threadId,
       projectId,
       providerId,
       providerSessionId = null,
@@ -1603,6 +2204,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       instructionMode = "append",
       fork,
     }) {
+      assertProviderSessionFinalized(threadId);
       return runThreadOperation({
         threadId,
         work: async () => {
@@ -1632,7 +2234,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             contributedEnv,
             environmentId,
             projectId,
-            threadId,
+            threadId: environmentThreadId,
           });
           threadIdentityRegistry.registerThreadProvider({
             providerId,
@@ -1640,6 +2242,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             threadId,
           });
           setThreadRuntimeConfig(threadId, {
+            bridgeThreadId: threadId,
             additionalWorkspaceWriteRoots,
             bridgeLaunch,
             skillRoots: sessionSkillRoots,
@@ -1691,7 +2294,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           try {
             const cmd = requireProviderRequestPlan({
               commandType: adapterCommand.type,
-              plan: proc.adapter.buildCommandPlan(adapterCommand),
+              plan: buildProviderCommandPlan(proc, adapterCommand),
               providerId,
             });
             const result = await sendCommand({
@@ -1768,6 +2371,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       dynamicTools,
       instructionMode = "append",
     }) {
+      assertProviderSessionFinalized(threadId);
       const existing = stagedThreadRewinds.get(leaseId);
       if (existing !== undefined) {
         return existing.state === "preparing"
@@ -1838,7 +2442,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             };
             const command = requireProviderRequestPlan({
               commandType: adapterCommand.type,
-              plan: proc.adapter.buildCommandPlan(adapterCommand),
+              plan: buildProviderCommandPlan(proc, adapterCommand),
               providerId,
             });
             const result = await sendCommand({
@@ -1943,6 +2547,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       dynamicTools,
       instructionMode = "append",
     }) {
+      assertProviderSessionFinalized(threadId);
       return runThreadOperation({
         threadId,
         work: async () => {
@@ -1990,6 +2595,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             threadId,
           });
           setThreadRuntimeConfig(threadId, {
+            bridgeThreadId: threadId,
             additionalWorkspaceWriteRoots,
             bridgeLaunch,
             skillRoots: sessionSkillRoots,
@@ -2023,7 +2629,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             dynamicTools,
             instructionMode,
           };
-          const plan = proc.adapter.buildCommandPlan(adapterCommand);
+          const plan = buildProviderCommandPlan(proc, adapterCommand);
           if (plan.kind === "noop") {
             emitResolvedProviderEnvironment({
               source: proc.identity.source,
@@ -2080,6 +2686,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       contributedEnv,
       instructions,
     }) {
+      assertProviderSessionFinalized(threadId);
       return runThreadOperation({
         threadId,
         work: async () => {
@@ -2135,7 +2742,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           };
           const cmd = requireProviderRequestPlan({
             commandType: adapterCommand.type,
-            plan: proc.adapter.buildCommandPlan(adapterCommand),
+            plan: buildProviderCommandPlan(proc, adapterCommand),
             providerId: pid,
           });
           assertThreadCanStartTurn(threadId);
@@ -2161,7 +2768,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
                   }
                   pendingTurnStarts.delete(threadId);
                   markHostedProviderSessionIdle(threadId);
-                  options.onEvent(
+                  emitRuntimeEvent(
                     {
                       type: "system/error",
                       threadId,
@@ -2220,6 +2827,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       contributedEnv,
       instructions,
     }) {
+      assertProviderSessionFinalized(threadId);
       return runThreadOperation({
         threadId,
         work: async () => {
@@ -2287,7 +2895,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           };
           const cmd = requireProviderRequestPlan({
             commandType: adapterCommand.type,
-            plan: proc.adapter.buildCommandPlan(adapterCommand),
+            plan: buildProviderCommandPlan(proc, adapterCommand),
             providerId: pid,
           });
           try {
@@ -2359,6 +2967,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     },
 
     async stopThread({ threadId }) {
+      assertProviderSessionFinalized(threadId);
       toolCalls.cancelThread(threadId);
       return runThreadOperation({
         threadId,
@@ -2373,7 +2982,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             providerThreadId,
             activeTurnId,
           };
-          const cmd = proc.adapter.buildCommandPlan(adapterCommand);
+          const cmd = buildProviderCommandPlan(proc, adapterCommand);
 
           if (cmd.kind === "noop") {
             if (activeTurnId) {
@@ -2401,6 +3010,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     },
 
     async clearThreadGoal({ threadId }) {
+      assertProviderSessionFinalized(threadId);
       return runThreadOperation({
         threadId,
         work: async () => {
@@ -2413,7 +3023,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           };
           const cmd = requireProviderRequestPlan({
             commandType: adapterCommand.type,
-            plan: proc.adapter.buildCommandPlan(adapterCommand),
+            plan: buildProviderCommandPlan(proc, adapterCommand),
             providerId: pid,
           });
           const clearRevision = threadGoalState.getClearRevision(threadId);
@@ -2439,6 +3049,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     },
 
     async renameThread({ threadId, title }) {
+      assertProviderSessionFinalized(threadId);
       return runThreadOperation({
         threadId,
         work: async () => {
@@ -2458,7 +3069,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           };
           const cmd = requireProviderRequestPlan({
             commandType: adapterCommand.type,
-            plan: proc.adapter.buildCommandPlan(adapterCommand),
+            plan: buildProviderCommandPlan(proc, adapterCommand),
             providerId: pid,
           });
           await sendCommand({
@@ -2529,7 +3140,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       });
       const command = requireProviderRequestPlan({
         commandType: "model/list",
-        plan: proc.adapter.buildCommandPlan({
+        plan: buildProviderCommandPlan(proc, {
           type: "model/list",
           ...(selectedModel === undefined ? {} : { selectedModel }),
           ...(cwd !== undefined ? { cwd } : {}),
@@ -2554,7 +3165,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         processKey: resolveProviderProcessKey({ bridgeLaunch, providerId }),
         providerId,
       });
-      const plan = proc.adapter.buildCommandPlan({
+      const plan = buildProviderCommandPlan(proc, {
         type: "commands/list",
         cwd,
         envVars: resolveContributedEnvironment(
@@ -2578,7 +3189,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         processKey: resolveProviderProcessKey({ bridgeLaunch, providerId }),
         providerId,
       });
-      const plan = proc.adapter.buildCommandPlan({
+      const plan = buildProviderCommandPlan(proc, {
         type: "provider/health",
         ...(cwd !== undefined ? { cwd } : {}),
         envVars: resolveContributedEnvironment(
@@ -2602,7 +3213,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         processKey: resolveProviderProcessKey({ bridgeLaunch, providerId }),
         providerId,
       });
-      const plan = proc.adapter.buildCommandPlan({
+      const plan = buildProviderCommandPlan(proc, {
         type: "provider/usage",
         ...(cwd !== undefined ? { cwd } : {}),
       });
@@ -2631,7 +3242,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       });
       const plan = requireProviderRequestPlan({
         commandType: "provider/installation/status",
-        plan: proc.adapter.buildCommandPlan({
+        plan: buildProviderCommandPlan(proc, {
           type: "provider/installation/status",
           checkUpdates,
           ...(cwd !== undefined ? { cwd } : {}),
@@ -2664,7 +3275,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       });
       const plan = requireProviderRequestPlan({
         commandType: "provider/installation/run",
-        plan: proc.adapter.buildCommandPlan({
+        plan: buildProviderCommandPlan(proc, {
           type: "provider/installation/run",
           action,
           ...(cwd !== undefined ? { cwd } : {}),
@@ -2771,15 +3382,35 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           ...turnState.getActiveThreadIds(),
           ...pendingTurnStarts.keys(),
         ]),
-      ];
+      ].filter(
+        (threadId) =>
+          ![...providerSessionLeases.values()].some(
+            (lease) =>
+              threadId === lease.stagingThreadId ||
+              threadId === lease.retiredThreadId,
+          ),
+      );
     },
 
     hasOpenBackgroundWork() {
       return backgroundWorkState.hasOpenWork();
     },
 
+    hasPendingProviderSessionTransition() {
+      return providerSessionLeases.size > 0;
+    },
+
     listOpenBackgroundWork() {
-      return backgroundWorkState.listOpenWork();
+      return backgroundWorkState
+        .listOpenWork()
+        .filter(
+          (work) =>
+            ![...providerSessionLeases.values()].some(
+              (lease) =>
+                work.threadId === lease.stagingThreadId ||
+                work.threadId === lease.retiredThreadId,
+            ),
+        );
     },
 
     async shutdown() {
@@ -2807,8 +3438,13 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       await providerProcesses.shutdown();
       for (const event of backgroundWorkState.settleAll()) {
         const source = providerSources.get(event.threadId);
-        if (source !== undefined) options.onEvent(event, source);
+        if (source !== undefined) emitRuntimeEvent(event, source);
       }
+      providerSessionLeases.clear();
+      providerSessionPins.clear();
+      for (const threadId of preparedSessionEvents.keys())
+        suppressedThreadEventIds.delete(threadId);
+      preparedSessionEvents.clear();
     },
   };
 

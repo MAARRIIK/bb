@@ -131,6 +131,21 @@ function createRuntime(): FakeDispatchRuntime {
   const activeTurnsByThreadId = new Map<string, string>();
   const hostedThreadIds = new Set<string>();
   return {
+    async prepareProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async adoptProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async rollbackProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async finalizeProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async discardPreparedProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
     ensureProvider: vi.fn(async () => undefined),
     startThread: vi.fn(async (args: { threadId: string }) => {
       hostedThreadIds.add(args.threadId);
@@ -185,6 +200,7 @@ function createRuntime(): FakeDispatchRuntime {
     reapIdleProviderSessions: vi.fn(async () => ({ reapedSessions: [] })),
     hasThread: (threadId) => hostedThreadIds.has(threadId),
     getLiveThreadIds: vi.fn(() => [...activeTurnsByThreadId.keys()]),
+    hasPendingProviderSessionTransition: () => false,
     hasOpenBackgroundWork: () => false,
     listOpenBackgroundWork: () => [],
     shutdown: vi.fn(async () => undefined),

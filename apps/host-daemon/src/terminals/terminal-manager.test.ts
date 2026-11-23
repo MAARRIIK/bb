@@ -210,6 +210,21 @@ class FakeTerminalPtyAdapter implements TerminalPtyAdapter {
 function createFakeRuntime(): AgentRuntime {
   const steerTurnResult: SteerTurnResult = { status: "steered" };
   return {
+    async prepareProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async adoptProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async rollbackProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async finalizeProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async discardPreparedProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
     ensureProvider: vi.fn(async () => undefined),
     startThread: vi.fn(async () => ({
       providerThreadId: "provider-thread",
@@ -246,6 +261,7 @@ function createFakeRuntime(): AgentRuntime {
     reapIdleProviderSessions: vi.fn(async () => ({ reapedSessions: [] })),
     hasThread: vi.fn(() => false),
     getLiveThreadIds: vi.fn(() => []),
+    hasPendingProviderSessionTransition: () => false,
     hasOpenBackgroundWork: vi.fn(() => false),
     listOpenBackgroundWork: vi.fn(() => []),
     shutdown: vi.fn(async () => undefined),

@@ -46,6 +46,10 @@ interface StampThreadEventScopeArgs {
 }
 
 export class RuntimeThreadIdentityRegistry {
+  private readonly retiredThreadHints = new WeakMap<
+    RuntimeProviderIdentityState,
+    Set<string>
+  >();
   private readonly threadToProviderState = new Map<
     string,
     RuntimeProviderIdentityState
@@ -70,6 +74,7 @@ export class RuntimeThreadIdentityRegistry {
     }
     const previous = this.threadToProviderState.get(args.threadId);
     if (previous !== args.providerState) {
+      if (previous) this.retireThreadHints(previous, args.threadId);
       previous?.threadIds.delete(args.threadId);
       this.threadToProviderThread.delete(args.threadId);
     }
@@ -186,15 +191,32 @@ export class RuntimeThreadIdentityRegistry {
       return false;
     }
     return (
-      this.threadToProviderState.has(threadId) &&
-      !providerState.threadIds.has(threadId)
+      this.retiredThreadHints.get(providerState)?.has(threadId) === true ||
+      (this.threadToProviderState.has(threadId) &&
+        !providerState.threadIds.has(threadId))
     );
   }
 
   clearThread(threadId: string): void {
-    this.threadToProviderState.get(threadId)?.threadIds.delete(threadId);
+    const providerState = this.threadToProviderState.get(threadId);
+    if (providerState) {
+      this.retireThreadHints(providerState, threadId);
+      providerState.threadIds.delete(threadId);
+    }
     this.threadToProviderState.delete(threadId);
     this.threadToProviderThread.delete(threadId);
+  }
+
+  private retireThreadHints(
+    providerState: RuntimeProviderIdentityState,
+    threadId: string,
+  ): void {
+    const retired =
+      this.retiredThreadHints.get(providerState) ?? new Set<string>();
+    retired.add(threadId);
+    const nativeId = this.threadToProviderThread.get(threadId);
+    if (nativeId !== undefined) retired.add(nativeId);
+    this.retiredThreadHints.set(providerState, retired);
   }
 
   forgetThread(args: ForgetThreadArgs): boolean {

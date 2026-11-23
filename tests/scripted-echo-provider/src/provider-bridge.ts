@@ -59,6 +59,7 @@ export const scriptedEchoOptionsSchema = z
     steerFindsNewTurn: z.boolean().optional(),
     answerStartWithoutIdentity: z.boolean().optional(),
     identityAfterResponse: z.boolean().optional(),
+    initialSessionState: z.boolean().optional(),
     identityNotificationsBeforeTurn: z
       .array(
         z.object({
@@ -893,6 +894,15 @@ function openSession(args: {
     notifySessionIdentity(session);
   }
   emitDeltas(args.threadId, [{ kind: "session.reset" }]);
+  if (args.options.initialSessionState === true) {
+    emitDeltas(args.threadId, [
+      {
+        kind: "extension.state",
+        extensionKind: "echo/session",
+        payload: { ready: true },
+      },
+    ]);
+  }
   return session;
 }
 

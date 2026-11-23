@@ -323,6 +323,49 @@ const threadRewindDiscardCommandSchema = hostDaemonThreadTargetSchema
   })
   .strict();
 
+const preparedProviderSessionSchema = providerSessionSourceSchema
+  .extend({ providerThreadId: z.string().min(1) })
+  .strict();
+
+const providerSessionPrepareCommandSchema = hostDaemonThreadTargetSchema
+  .merge(hostDaemonThreadRuntimeContextSchema)
+  .extend({
+    type: z.literal("thread.session.prepare"),
+    leaseId: z.string().min(1),
+    providerSessionId: z.string().min(1),
+    expectedSource: providerSessionSourceSchema,
+  })
+  .strict();
+
+const providerSessionTargetCommandSchema = hostDaemonThreadTargetSchema
+  .extend({
+    leaseId: z.string().min(1),
+    target: preparedProviderSessionSchema,
+  })
+  .strict();
+
+const providerSessionAdoptCommandSchema = providerSessionTargetCommandSchema
+  .extend({ type: z.literal("thread.session.adopt") })
+  .strict();
+
+const providerSessionFinalizeCommandSchema = providerSessionTargetCommandSchema
+  .extend({ type: z.literal("thread.session.finalize") })
+  .strict();
+
+const providerSessionRollbackCommandSchema = providerSessionTargetCommandSchema
+  .extend({
+    type: z.literal("thread.session.rollback"),
+    restoreSource: providerSessionSourceSchema,
+  })
+  .strict();
+
+const providerSessionDiscardCommandSchema = hostDaemonThreadTargetSchema
+  .extend({
+    type: z.literal("thread.session.discard"),
+    leaseId: z.string().min(1),
+  })
+  .strict();
+
 const turnSubmitTargetSchema = z.discriminatedUnion("mode", [
   z.object({
     mode: z.literal("start"),
@@ -1433,6 +1476,53 @@ export const hostDaemonCommandRegistry = {
     retryable: false,
     flushEventsBeforeResult: false,
     envLane: null,
+  }),
+  "thread.session.prepare": defineHostDaemonCommandDescriptor({
+    type: "thread.session.prepare",
+    schema: providerSessionPrepareCommandSchema,
+    resultSchema: preparedProviderSessionSchema,
+    transport: "settled",
+    retryable: false,
+    flushEventsBeforeResult: true,
+    envLane: "read",
+  }),
+  "thread.session.adopt": defineHostDaemonCommandDescriptor({
+    type: "thread.session.adopt",
+    schema: providerSessionAdoptCommandSchema,
+    resultSchema: preparedProviderSessionSchema,
+    transport: "settled",
+    retryable: false,
+    flushEventsBeforeResult: true,
+    envLane: "read",
+  }),
+  "thread.session.rollback": defineHostDaemonCommandDescriptor({
+    type: "thread.session.rollback",
+    schema: providerSessionRollbackCommandSchema,
+    resultSchema: z
+      .object({ session: preparedProviderSessionSchema.nullable() })
+      .strict(),
+    transport: "settled",
+    retryable: false,
+    flushEventsBeforeResult: true,
+    envLane: "read",
+  }),
+  "thread.session.finalize": defineHostDaemonCommandDescriptor({
+    type: "thread.session.finalize",
+    schema: providerSessionFinalizeCommandSchema,
+    resultSchema: emptyCommandResultSchema,
+    transport: "settled",
+    retryable: false,
+    flushEventsBeforeResult: true,
+    envLane: "read",
+  }),
+  "thread.session.discard": defineHostDaemonCommandDescriptor({
+    type: "thread.session.discard",
+    schema: providerSessionDiscardCommandSchema,
+    resultSchema: emptyCommandResultSchema,
+    transport: "settled",
+    retryable: false,
+    flushEventsBeforeResult: true,
+    envLane: "read",
   }),
   "thread.rewind.discard": defineHostDaemonCommandDescriptor({
     type: "thread.rewind.discard",

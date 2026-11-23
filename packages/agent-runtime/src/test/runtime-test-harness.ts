@@ -50,6 +50,7 @@ export interface ScriptedEchoLaunchScript {
   steerFindsNewTurn?: boolean;
   answerStartWithoutIdentity?: boolean;
   identityAfterResponse?: boolean;
+  initialSessionState?: boolean;
   identityNotificationsBeforeTurn?: {
     threadId: string;
     providerThreadId: string;
@@ -135,6 +136,7 @@ export function scriptedEchoProcessEnv(
 type SessionStartMethod =
   | "startThread"
   | "prepareThreadRewind"
+  | "prepareProviderSession"
   | "resumeThread";
 
 type LaunchBearingMethod =
@@ -185,6 +187,12 @@ export function withBridgeLaunch(
     ensureProvider: (args) => runtime.ensureProvider({ bridgeLaunch, ...args }),
     startThread: (args) =>
       runtime.startThread({
+        bridgeLaunch,
+        additionalWorkspaceWriteRoots: [],
+        ...args,
+      }),
+    prepareProviderSession: (args) =>
+      runtime.prepareProviderSession({
         bridgeLaunch,
         additionalWorkspaceWriteRoots: [],
         ...args,

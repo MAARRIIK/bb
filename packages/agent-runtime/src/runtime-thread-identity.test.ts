@@ -221,6 +221,15 @@ describe("RuntimeThreadIdentityRegistry", () => {
       providerState,
       threadId: "fork",
     });
+    for (const eventThreadId of ["provider-source", "source"]) {
+      expect(
+        registry.resolveProviderEventThreadId({
+          providerState,
+          eventThreadId,
+          sourceThreadId: undefined,
+        }),
+      ).toBeUndefined();
+    }
     expect(
       registry.resolveProviderIdentityThreadId({
         providerState,

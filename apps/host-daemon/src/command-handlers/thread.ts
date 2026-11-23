@@ -75,6 +75,7 @@ export async function deleteThreadStorage(
 
 type ThreadStartRuntimeCommand =
   | CommandOf<"thread.start">
+  | CommandOf<"thread.session.prepare">
   | CommandOf<"thread.rewind.prepare">;
 
 interface RequireSupportedProviderCliArgs {
@@ -191,7 +192,9 @@ async function resolveThreadStartRuntime(
     environmentId: command.environmentId,
     injectedSkillSources: command.injectedSkillSources,
     runtimeManager: options.runtimeManager,
-    targetThreadId: command.threadId,
+    ...(command.type === "thread.session.prepare"
+      ? {}
+      : { targetThreadId: command.threadId }),
     workspaceContext: command.workspaceContext,
   });
   return { bridgeLaunch, entry };
@@ -344,6 +347,57 @@ export async function discardThreadRewind(
   }
   await entry.runtime.discardThreadRewind({ leaseId: command.leaseId });
   return {};
+}
+
+export async function prepareProviderSession(
+  command: CommandOf<"thread.session.prepare">,
+  options: CommandDispatchOptions,
+): Promise<HostDaemonCommandResult<"thread.session.prepare">> {
+  const checkOwner = () => {
+    for (const owner of options.runtimeManager.listThreadOwnerEntries(
+      command.threadId,
+    )) {
+      if (owner.environmentId !== command.environmentId)
+        throw new ExpectedCommandDispatchError(
+          "thread_busy_in_other_environment",
+          "A provider transition must use the thread's current environment",
+        );
+      requireMatchingProviderSession(
+        owner.runtime.getProviderSession(command.threadId),
+        command.expectedSource,
+      );
+    }
+  };
+  checkOwner();
+  await requireSupportedProviderCliForThreadStart({ command, options });
+  const { bridgeLaunch, entry } = await resolveThreadStartRuntime(
+    command,
+    options,
+  );
+  const additionalWorkspaceWriteRoots =
+    await options.runtimeManager.resolveThreadWorkspaceWriteRoots({
+      additionalWorkspaceFolders: command.additionalWorkspaceFolders,
+      entry,
+      threadId: command.threadId,
+    });
+  checkOwner();
+  return entry.runtime.prepareProviderSession({
+    additionalWorkspaceWriteRoots,
+    bridgeLaunch,
+    skillRoots: entry.skillRoots,
+    environmentId: command.environmentId,
+    projectId: command.projectId,
+    threadId: command.threadId,
+    leaseId: command.leaseId,
+    expectedSource: command.expectedSource,
+    providerId: command.providerId,
+    providerSessionId: command.providerSessionId,
+    contributedEnv: command.contributedEnv,
+    options: command.options,
+    instructions: command.instructions,
+    dynamicTools: command.dynamicTools,
+    instructionMode: command.instructionMode,
+  });
 }
 
 export async function ensureThreadRuntime(

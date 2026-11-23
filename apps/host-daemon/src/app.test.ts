@@ -268,6 +268,21 @@ function createOpeningWebSocket(
 
 function createFakeRuntime(): AgentRuntime {
   return {
+    async prepareProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async adoptProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async rollbackProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async finalizeProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async discardPreparedProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
     async ensureProvider() {},
     async startThread() {
       return { providerThreadId: "provider-thread-app-test" };
@@ -339,6 +354,7 @@ function createFakeRuntime(): AgentRuntime {
     getLiveThreadIds() {
       return [];
     },
+    hasPendingProviderSessionTransition: () => false,
     hasOpenBackgroundWork() {
       return false;
     },

@@ -127,6 +127,7 @@ export interface EnsureProviderArgs {
 }
 
 export interface StartThreadArgs {
+  environmentThreadId?: string;
   additionalWorkspaceWriteRoots: readonly string[];
   bridgeLaunch: AgentRuntimeBridgeLaunch;
   skillRoots?: readonly AgentRuntimeSkillRoot[];
@@ -150,6 +151,25 @@ export interface StartThreadArgs {
 
 export interface StartThreadResult {
   providerThreadId: string;
+}
+
+interface PrepareProviderSessionArgs extends Omit<
+  StartThreadArgs,
+  | "environmentThreadId"
+  | "input"
+  | "clientRequestId"
+  | "fork"
+  | "providerSessionId"
+> {
+  leaseId: string;
+  providerSessionId: string;
+  expectedSource: ProviderSessionSource;
+}
+
+interface PreparedProviderSessionTargetArgs {
+  leaseId: string;
+  threadId: string;
+  target: AgentRuntimeProviderSession;
 }
 
 interface PrepareThreadRewindArgs {
@@ -331,6 +351,24 @@ interface ProviderInstallationStatusArgs extends ProviderMaintenanceArgs {
 }
 
 export interface AgentRuntime {
+  prepareProviderSession(
+    args: PrepareProviderSessionArgs,
+  ): Promise<AgentRuntimeProviderSession>;
+  adoptProviderSession(
+    args: PreparedProviderSessionTargetArgs,
+  ): Promise<AgentRuntimeProviderSession>;
+  rollbackProviderSession(
+    args: PreparedProviderSessionTargetArgs & {
+      restoreSource: ProviderSessionSource;
+    },
+  ): Promise<AgentRuntimeProviderSession | null>;
+  finalizeProviderSession(
+    args: PreparedProviderSessionTargetArgs,
+  ): Promise<void>;
+  discardPreparedProviderSession(args: {
+    leaseId: string;
+    threadId: string;
+  }): Promise<void>;
   ensureProvider(args: EnsureProviderArgs): Promise<void>;
 
   startThread(args: StartThreadArgs): Promise<StartThreadResult>;
@@ -398,6 +436,8 @@ export interface AgentRuntime {
   getLiveThreadIds(): string[];
 
   hasOpenBackgroundWork(): boolean;
+
+  hasPendingProviderSessionTransition(): boolean;
 
   listOpenBackgroundWork(): RuntimeOpenBackgroundWork[];
 

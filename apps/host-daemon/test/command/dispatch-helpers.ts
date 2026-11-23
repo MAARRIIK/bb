@@ -225,6 +225,21 @@ export function createFakeRuntime() {
     },
   };
   const runtime: AgentRuntime = {
+    async prepareProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async adoptProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async rollbackProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async finalizeProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async discardPreparedProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
     async ensureProvider() {},
     async startThread(args) {
       state.startedBridgeLaunch = args.bridgeLaunch;
@@ -328,6 +343,7 @@ export function createFakeRuntime() {
     getLiveThreadIds() {
       return [...activeTurnsByThreadId.keys()];
     },
+    hasPendingProviderSessionTransition: () => false,
     hasOpenBackgroundWork() {
       return false;
     },
