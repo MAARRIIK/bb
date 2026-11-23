@@ -1,4 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { and, eq } from "drizzle-orm";
+import {
+  events as eventsTable,
+  retainedEventOutputs,
+  threads as threadsTable,
+} from "../../src/schema.js";
 import {
   LOCAL_AGENT_TASK_TYPE,
   LOCAL_BASH_TASK_TYPE,
@@ -11,6 +17,7 @@ import {
   turnScope,
   type PromptInput,
   type ThreadEventType,
+  type StoredThreadEventDataForType,
 } from "@bb/domain";
 import { noopNotifier } from "../../src/notifier.js";
 import type { DbNotifier } from "../../src/notifier.js";
@@ -5080,6 +5087,112 @@ describe("stored provider thread identity ownership", () => {
     return (getHighWaterMarks(db, [threadId])[threadId] ?? 0) + 1;
   }
 
+  it("keeps historical provider claims when a thread changes its current provider", () => {
+    const { db, threadIds } = setupThreads({
+      providerIds: ["codex", "codex", "claude-code"],
+    });
+    const [owner, peer, otherProvider] = threadIds;
+    if (!owner || !peer || !otherProvider)
+      throw new Error("Missing fixture threads");
+    for (const [index, threadId] of threadIds.entries()) {
+      announceIdentity(db, {
+        threadId,
+        providerThreadId: "shared-provider-id",
+        createdAt: 1000 + index,
+      });
+    }
+    db.update(threadsTable)
+      .set({ providerId: "claude-code" })
+      .where(eq(threadsTable.id, owner))
+      .run();
+    expect(getStoredProviderSession(db, owner)).toEqual({ kind: "none" });
+    expect(getStoredProviderSession(db, peer)).toEqual({
+      kind: "foreign",
+      providerThreadId: "shared-provider-id",
+      claimantThreadIds: [owner],
+    });
+    expect(getStoredProviderSession(db, otherProvider)).toEqual({
+      kind: "owned",
+      providerThreadId: "shared-provider-id",
+    });
+    db.$client.close();
+  });
+
+  it("preserves provider provenance when history is copied to a different provider", () => {
+    const { db, threadIds, environment } = setupThreads({
+      providerIds: ["codex", "claude-code"],
+    });
+    const [source, target] = threadIds;
+    if (!source || !target) throw new Error("Missing fixture threads");
+    announceIdentity(db, {
+      threadId: source,
+      providerThreadId: "source-session",
+      createdAt: 1000,
+    });
+    for (const [index, output] of [
+      "short output",
+      "long output ".repeat(10_000),
+    ].entries()) {
+      const data = {
+        providerThreadId: "source-session",
+        item: {
+          id: `command-${index}`,
+          type: "commandExecution",
+          command: "cat example.txt",
+          cwd: "/tmp/identity",
+          status: "completed",
+          approvalStatus: null,
+          exitCode: 0,
+          aggregatedOutput: output,
+        },
+      } satisfies StoredThreadEventDataForType<"item/completed">;
+      const sequence = appendStoredThreadEvent(db, noopNotifier, {
+        threadId: source,
+        scope: turnScope("turn-copy"),
+        providerThreadId: "source-session",
+        type: "item/completed",
+        data,
+      });
+      if (index === 1) {
+        const raw = db
+          .update(eventsTable)
+          .set({ data: JSON.stringify(data) })
+          .where(
+            and(
+              eq(eventsTable.threadId, source),
+              eq(eventsTable.sequence, sequence),
+            ),
+          )
+          .returning({ id: eventsTable.id })
+          .get();
+        if (!raw) throw new Error("Missing legacy event");
+        db.delete(retainedEventOutputs)
+          .where(eq(retainedEventOutputs.eventId, raw.id))
+          .run();
+      }
+    }
+    db.transaction((tx) =>
+      copyStoredThreadEventsInTransaction(tx, {
+        rows: listStoredEventRows(db, { threadId: source }),
+        targetThreadId: target,
+        targetEnvironmentId: environment.id,
+      }),
+    );
+    expect(
+      db
+        .select({ providerId: eventsTable.providerId })
+        .from(eventsTable)
+        .where(eq(eventsTable.threadId, target))
+        .all(),
+    ).toEqual([
+      { providerId: "codex" },
+      { providerId: "codex" },
+      { providerId: "codex" },
+    ]);
+    expect(getStoredProviderSession(db, target)).toEqual({ kind: "none" });
+    db.$client.close();
+  });
+
   function announceIdentity(
     db: DbConnection,
     args: { createdAt: number; providerThreadId: string; threadId: string },
@@ -5149,9 +5262,13 @@ describe("stored provider thread identity ownership", () => {
     return [first, second];
   }
 
-  it.each([null, ""])(
-    "refuses an invalid persisted identity handle %s instead of treating it as a fresh thread",
-    (providerThreadId) => {
+  it.each([
+    { providerThreadId: null, missingProvider: false },
+    { providerThreadId: "", missingProvider: false },
+    { providerThreadId: "unknown-origin", missingProvider: true },
+  ])(
+    "refuses invalid identity $providerThreadId with missing provider $missingProvider instead of treating it as a fresh thread",
+    ({ providerThreadId, missingProvider }) => {
       const { db, threadIds } = setupThreads();
       const [threadId] = requireThreadIds(threadIds);
       announceIdentity(db, {
@@ -5171,6 +5288,17 @@ describe("stored provider thread identity ownership", () => {
           data: "{}",
         },
       ]);
+      if (missingProvider) {
+        db.update(eventsTable)
+          .set({ providerId: null })
+          .where(
+            and(
+              eq(eventsTable.threadId, threadId),
+              eq(eventsTable.sequence, 2),
+            ),
+          )
+          .run();
+      }
       expect(getStoredProviderSession(db, threadId)).toEqual({
         kind: "invalid",
         providerThreadId,

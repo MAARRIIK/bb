@@ -20,6 +20,7 @@ import {
   dropForkHistoryCopyIndex,
   dropQueuedMessageRecheckAtColumn,
   dropThreadSearchOrderIndex,
+  dropEventProviderProvenanceColumn,
   dropThreadRunStateTables,
   dropThreadStatusChangedAtColumn,
   dropQueuedMessageEditHeldUntilColumn,
@@ -74,6 +75,7 @@ function upgradeDatabase(overrides: AppKeybindingOverrides | undefined) {
   dropForkHistoryCopyIndex(db);
   dropEnvironmentHoldColumns(db);
   dropThreadSearchOrderIndex(db);
+  dropEventProviderProvenanceColumn(db);
   db.$client
     .prepare("DELETE FROM __drizzle_migrations WHERE created_at >= ?")
     .run(migrationTimestamp);

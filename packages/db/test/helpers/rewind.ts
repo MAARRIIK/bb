@@ -1,5 +1,14 @@
 import type { DbConnection } from "../../src/index.js";
 
+export function dropEventProviderProvenanceColumn(db: DbConnection): void {
+  const columns = db.$client
+    .prepare<[], { name: string }>("PRAGMA table_info(events)")
+    .all();
+  if (columns.some((column) => column.name === "provider_id")) {
+    db.$client.exec("ALTER TABLE events DROP COLUMN provider_id");
+  }
+}
+
 export function dropPluginEnabledFollowsDefaultColumn(db: DbConnection): void {
   const columns = db.$client
     .prepare<[], { name: string }>("PRAGMA table_info(plugins)")
@@ -185,6 +194,7 @@ export function rewindQueuedMessageRecheckAtMigration(db: DbConnection): void {
     .prepare("DELETE FROM __drizzle_migrations WHERE created_at >= ?")
     .run(QUEUED_MESSAGE_RECHECK_AT_MIGRATION_TIMESTAMP);
   dropThreadSearchOrderIndex(db);
+  dropEventProviderProvenanceColumn(db);
   dropForkHistoryCopyIndex(db);
   dropQueuedMessageRecheckAtColumn(db);
 }

@@ -894,6 +894,7 @@ export const events = sqliteTable(
     scopeKind: text("scope_kind").$type<ThreadEventScopeKind>().notNull(),
     turnId: text("turn_id"),
     providerThreadId: text("provider_thread_id"),
+    providerId: text("provider_id"),
     sequence: integer("sequence").notNull(),
     type: text("type").$type<ThreadEventType>().notNull(),
     itemId: text("item_id"),

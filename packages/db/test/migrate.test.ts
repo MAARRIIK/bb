@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { publishedMigrationWhensByTag } from "../src/migration-history.js";
 import {
+  dropEventProviderProvenanceColumn,
   dropPluginEnabledFollowsDefaultColumn,
   dropIdleLifecycleIndexes,
   rewindThreadPruningWork,
@@ -381,6 +382,7 @@ function dropRewindAddedTables(db: DbConnection): void {
   dropSteerActiveThreadOnEnterColumn(db);
   dropOnboardingCompletedAtColumn(db);
   dropThreadSearchOrderIndex(db);
+  dropEventProviderProvenanceColumn(db);
   db.$client.prepare("ALTER TABLE threads DROP COLUMN visibility").run();
   db.$client.exec("DROP INDEX IF EXISTS `threads_origin_plugin_archived_idx`");
   db.$client.prepare("ALTER TABLE threads DROP COLUMN origin_plugin_id").run();
@@ -555,6 +557,12 @@ const machineProvidersMigrationPath = resolve(
   "..",
   "drizzle",
   "0117_machine_providers.sql",
+);
+const eventProviderProvenanceMigrationPath = resolve(
+  __dirname,
+  "..",
+  "drizzle",
+  "0166_event_provider_provenance.sql",
 );
 function closeConnection(db: DbConnection): void {
   db.$client.close();
@@ -773,6 +781,7 @@ function rewindEnvironmentProvisioningMigration(db: DbConnection): void {
   dropForkHistoryCopyIndex(db);
   dropEnvironmentHoldColumns(db);
   dropThreadSearchOrderIndex(db);
+  dropEventProviderProvenanceColumn(db);
   db.$client.exec("DROP TRIGGER IF EXISTS threads_lifecycle_owner_insert");
   db.$client.exec("DROP TRIGGER IF EXISTS threads_lifecycle_owner_immutable");
   db.$client.exec("DROP INDEX IF EXISTS threads_lifecycle_owner_idx");
@@ -830,6 +839,7 @@ function dropQueuedMessageAttemptColumns(db: DbConnection): void {
   dropForkHistoryCopyIndex(db);
   dropEnvironmentHoldColumns(db);
   dropThreadSearchOrderIndex(db);
+  dropEventProviderProvenanceColumn(db);
   const columns = db.$client
     .prepare<[], TableInfoRow>("PRAGMA table_info(queued_thread_messages)")
     .all();
@@ -919,6 +929,7 @@ function rewindMachineProvidersMigration(db: DbConnection): void {
   dropForkHistoryCopyIndex(db);
   dropEnvironmentHoldColumns(db);
   dropThreadSearchOrderIndex(db);
+  dropEventProviderProvenanceColumn(db);
   db.$client.exec("DROP TABLE IF EXISTS ui_preference_defaults");
   const queuedDispatchOrigin = db.$client
     .prepare<[], TableInfoRow>("PRAGMA table_info(queued_thread_messages)")
@@ -1607,6 +1618,43 @@ function deleteDeferredCleanupMigrationRows(db: DbConnection): void {
 }
 
 describe("migrate", () => {
+  it("backfills provider provenance without changing historical identity payloads", () => {
+    const db = createConnection(":memory:");
+    try {
+      db.$client.exec(`
+        CREATE TABLE threads (id text PRIMARY KEY, provider_id text NOT NULL);
+        CREATE TABLE events (id text PRIMARY KEY, thread_id text NOT NULL, data text NOT NULL);
+        INSERT INTO threads VALUES ('codex-thread', 'codex'), ('claude-thread', 'claude-code');
+        INSERT INTO events VALUES ('one', 'codex-thread', '{"providerThreadId":"same-id"}'), ('two', 'claude-thread', '{"providerThreadId":"same-id"}');
+      `);
+      runMigrationFile({
+        db,
+        migrationPath: eventProviderProvenanceMigrationPath,
+      });
+      db.$client.exec("UPDATE threads SET provider_id = 'other-provider'");
+      expect(
+        db.$client
+          .prepare<[], { id: string; provider_id: string; data: string }>(
+            "SELECT id, provider_id, data FROM events ORDER BY id",
+          )
+          .all(),
+      ).toEqual([
+        {
+          id: "one",
+          provider_id: "codex",
+          data: '{"providerThreadId":"same-id"}',
+        },
+        {
+          id: "two",
+          provider_id: "claude-code",
+          data: '{"providerThreadId":"same-id"}',
+        },
+      ]);
+    } finally {
+      closeConnection(db);
+    }
+  });
+
   beforeAll(() => {
     prepareMigratedConnectionTemplate();
   });
@@ -1909,6 +1957,7 @@ describe("migrate", () => {
       runMigrationFile({ db, migrationPath: appSettingsKeyValueMigrationPath });
 
       expect(getAppSettings(db)).toEqual({
+        interfaceLanguage: "system",
         showKeyboardHints: false,
         steerActiveThreadOnEnter: true,
         terminalCopyOnSelect: true,
@@ -2728,6 +2777,7 @@ describe("migrate", () => {
       dropForkHistoryCopyIndex(db);
       dropEnvironmentHoldColumns(db);
       dropThreadSearchOrderIndex(db);
+      dropEventProviderProvenanceColumn(db);
       restoreDiffViewedFilesTable(db);
       db.$client
         .prepare<[number, string]>(
@@ -3571,6 +3621,7 @@ describe("migrate", () => {
       dropForkHistoryCopyIndex(db);
       dropEnvironmentHoldColumns(db);
       dropThreadSearchOrderIndex(db);
+      dropEventProviderProvenanceColumn(db);
       db.$client.prepare("DROP INDEX projects_deleted_idx").run();
       db.$client.prepare("ALTER TABLE projects DROP COLUMN deleted_at").run();
       db.$client.prepare("ALTER TABLE events ADD producer_event_id text").run();
@@ -3995,6 +4046,7 @@ describe("migrate", () => {
       dropForkHistoryCopyIndex(db);
       dropEnvironmentHoldColumns(db);
       dropThreadSearchOrderIndex(db);
+      dropEventProviderProvenanceColumn(db);
 
       expect(() => migrate(db)).not.toThrow();
       expect(
