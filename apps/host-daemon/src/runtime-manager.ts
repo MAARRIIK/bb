@@ -182,7 +182,7 @@ export interface RuntimeManagerOptions {
   onEvent?: (args: {
     environmentId: string;
     event: ThreadEvent;
-    providerId: string;
+    source: Parameters<AgentRuntimeOptions["onEvent"]>[1];
   }) => void;
   threadStorageRootPath?: string | null;
   onInjectedSkillsChanged?: (args: InjectedSkillsChangedNotification) => void;
@@ -1279,11 +1279,11 @@ export class RuntimeManager {
       shellEnv,
       threadStorageRootPath: this.options.threadStorageRootPath ?? undefined,
       bridgeBundleDir: this.options.bridgeBundleDir,
-      onEvent: (event, providerId) => {
+      onEvent: (event, source) => {
         this.options.onEvent?.({
           environmentId: args.environmentId,
           event,
-          providerId,
+          source,
         });
       },
       onToolCall:
@@ -1313,7 +1313,10 @@ export class RuntimeManager {
             this.options.onEvent?.({
               environmentId: args.environmentId,
               event,
-              providerId: info.providerId,
+              source: {
+                providerId: info.providerId,
+                providerSessionId: info.providerSessionId,
+              },
             });
           }
         }

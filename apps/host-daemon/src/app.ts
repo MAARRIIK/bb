@@ -502,10 +502,10 @@ export async function createHostDaemonApp(
   });
 
   const interactiveRequestRegistry = new InteractiveRequestRegistry({
-    registerRequest: (request) =>
+    registerRequest: (request, source) =>
       runSessionRequest({
         source: "registerInteractiveRequest",
-        request: () => serverClient.registerInteractiveRequest(request),
+        request: () => serverClient.registerInteractiveRequest(request, source),
       }),
     onRegistrationFailure: ({ error, request }) => {
       enqueueInteractiveInterrupt({
@@ -622,12 +622,12 @@ export async function createHostDaemonApp(
     shellEnv: options.runtimeShellEnv,
     applyMachineEnvironment: (shell) =>
       machineEnvironment.shellEnvironment(shell),
-    onEvent: ({ environmentId, event, providerId }) => {
+    onEvent: ({ environmentId, event, source }) => {
       try {
         eventSink.emit({
           threadId: event.threadId,
           event,
-          providerId,
+          source,
         });
       } catch (error) {
         if (error instanceof EventSinkDisposedError) {
@@ -660,13 +660,13 @@ export async function createHostDaemonApp(
         watchError: error.message,
       });
     },
-    onToolCall: async (request, signal) => {
+    onToolCall: async (request, signal, source) => {
       try {
         await flushThreadEvents();
         signal?.throwIfAborted();
         return await runSessionRequest({
           source: "callTool",
-          request: () => serverClient.callTool(request, signal),
+          request: () => serverClient.callTool(request, signal, source),
         });
       } catch (error) {
         options.logger.error(
@@ -683,11 +683,12 @@ export async function createHostDaemonApp(
         throw error;
       }
     },
-    onInteractiveRequest: async (request, signal) => {
+    onInteractiveRequest: async (request, signal, source) => {
       try {
         return await interactiveRequestRegistry.registerAndWait(
           request,
           signal,
+          source,
         );
       } catch (error) {
         if (

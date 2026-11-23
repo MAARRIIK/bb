@@ -1,13 +1,14 @@
-import type { ThreadEvent } from "@bb/domain";
+import type { ProviderSessionSource, ThreadEvent } from "@bb/domain";
 import type { AgentRuntimeProviderSession } from "./types.js";
 
 export interface RuntimeProviderIdentityState {
-  providerId: string;
+  readonly source: ProviderSessionSource;
   threadIds: Set<string>;
 }
 
 interface CreateRuntimeProviderIdentityStateArgs {
   providerId: string;
+  providerSessionId?: string | null;
 }
 
 interface RegisterThreadProviderArgs {
@@ -55,13 +56,16 @@ export class RuntimeThreadIdentityRegistry {
     args: CreateRuntimeProviderIdentityStateArgs,
   ): RuntimeProviderIdentityState {
     return {
-      providerId: args.providerId,
+      source: {
+        providerId: args.providerId,
+        providerSessionId: args.providerSessionId ?? null,
+      },
       threadIds: new Set(),
     };
   }
 
   registerThreadProvider(args: RegisterThreadProviderArgs): void {
-    if (args.providerId !== args.providerState.providerId) {
+    if (args.providerId !== args.providerState.source.providerId) {
       throw new Error("Provider identity state does not match provider");
     }
     const previous = this.threadToProviderState.get(args.threadId);
@@ -74,7 +78,8 @@ export class RuntimeThreadIdentityRegistry {
   }
 
   resolveProviderForThread(threadId: string): string {
-    const providerId = this.threadToProviderState.get(threadId)?.providerId;
+    const providerId =
+      this.threadToProviderState.get(threadId)?.source.providerId;
     if (!providerId) {
       throw new Error(`No provider associated with thread "${threadId}"`);
     }
@@ -86,12 +91,12 @@ export class RuntimeThreadIdentityRegistry {
   }
 
   getProviderSession(threadId: string): AgentRuntimeProviderSession | null {
-    const providerId = this.threadToProviderState.get(threadId)?.providerId;
+    const source = this.threadToProviderState.get(threadId)?.source;
     const providerThreadId = this.threadToProviderThread.get(threadId);
-    if (!providerId || !providerThreadId) {
+    if (!source || !providerThreadId) {
       return null;
     }
-    return { providerId, providerThreadId };
+    return { ...source, providerThreadId };
   }
 
   recordProviderThreadIdentity(args: RecordProviderThreadIdentityArgs): void {

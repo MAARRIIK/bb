@@ -19,6 +19,7 @@ import {
   UPDATE_ENVIRONMENT_DIRECTORY_TOOL_NAME,
 } from "../services/threads/thread-environment-directory.js";
 import { requireAuthenticatedDaemonSession } from "./session-state.js";
+import { requireCurrentProviderSession } from "./provider-session.js";
 
 const textEncoder = new TextEncoder();
 
@@ -74,6 +75,8 @@ export function registerInternalToolCallRoutes(app: Hono, deps: AppDeps): void {
           "Thread does not belong to the session host",
         );
       }
+
+      requireCurrentProviderSession(thread, payload.source);
 
       if (payload.tool === UPDATE_ENVIRONMENT_DIRECTORY_TOOL_NAME) {
         return context.json(

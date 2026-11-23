@@ -1839,6 +1839,7 @@ describe("RuntimeManager", () => {
     });
 
     onProcessExit?.({
+      providerSessionId: null,
       providerId: "fake",
       threads: [
         {
@@ -1883,6 +1884,7 @@ describe("RuntimeManager", () => {
     });
     runningProviders = ["fake-beta"];
     onProcessExit?.({
+      providerSessionId: null,
       providerId: "fake-alpha",
       threads: [
         {
@@ -1946,10 +1948,11 @@ describe("RuntimeManager", () => {
         providerThreadId: "provider-1",
         scope: turnScope("turn-1"),
       },
-      "codex",
+      { providerId: "codex", providerSessionId: null },
     );
 
     onProcessExit({
+      providerSessionId: null,
       providerId: "codex",
       threads: [
         {
@@ -1968,7 +1971,7 @@ describe("RuntimeManager", () => {
     expect(emittedEvents).toEqual([
       {
         environmentId: "env-provider-exit",
-        providerId: "codex",
+        source: { providerId: "codex", providerSessionId: null },
         event: {
           type: "turn/started",
           threadId: "thread-1",
@@ -1978,7 +1981,7 @@ describe("RuntimeManager", () => {
       },
       {
         environmentId: "env-provider-exit",
-        providerId: "codex",
+        source: { providerId: "codex", providerSessionId: null },
         event: {
           type: "turn/completed",
           threadId: "thread-1",
@@ -1992,7 +1995,7 @@ describe("RuntimeManager", () => {
       },
       {
         environmentId: "env-provider-exit",
-        providerId: "codex",
+        source: { providerId: "codex", providerSessionId: null },
         event: {
           type: "system/error",
           threadId: "thread-1",
@@ -2042,6 +2045,7 @@ describe("RuntimeManager", () => {
     }
 
     onProcessExit({
+      providerSessionId: null,
       providerId: "codex",
       threads: [
         {
@@ -2091,6 +2095,7 @@ describe("RuntimeManager", () => {
     }
 
     onProcessExit({
+      providerSessionId: null,
       providerId: "claude-code",
       threads: [
         {
@@ -2109,7 +2114,7 @@ describe("RuntimeManager", () => {
     expect(emittedEvents).toEqual([
       {
         environmentId: "env-pending-turn-exit",
-        providerId: "claude-code",
+        source: { providerId: "claude-code", providerSessionId: null },
         event: {
           type: "system/error",
           threadId: "thread-pending",
@@ -2160,11 +2165,12 @@ describe("RuntimeManager", () => {
         providerThreadId: "provider-1",
         scope: turnScope("turn-1"),
       },
-      "codex",
+      { providerId: "codex", providerSessionId: null },
     );
     emittedEvents.splice(0, emittedEvents.length);
 
     onProcessExit({
+      providerSessionId: null,
       providerId: "codex",
       threads: [
         {

@@ -17,6 +17,7 @@ import {
   threadScope,
   turnScope,
   type ToolCallResponse,
+  type ProviderSessionSource,
 } from "@bb/domain";
 import {
   groupHostDaemonEvents,
@@ -80,7 +81,7 @@ function systemErrorEnvelopes(
   count: number,
 ): HostDaemonEventEnvelope[] {
   return Array.from({ length: count }, (_, index) => ({
-    providerId: "codex",
+    source: { providerId: "codex", providerSessionId: null },
     threadId,
     event: {
       type: "system/error",
@@ -100,12 +101,14 @@ async function postToolCall(args: {
   threadId: string;
   tool: string;
   turnId?: string;
+  source?: ProviderSessionSource | null;
 }): Promise<Response> {
   return args.harness.app.request("/internal/session/tool-call", {
     method: "POST",
     headers: internalAuthHeaders(args.harness),
     body: JSON.stringify({
       sessionId: args.sessionId,
+      source: args.source ?? null,
       threadId: args.threadId,
       providerThreadId: args.providerThreadId ?? "provider-tool-call",
       turnId: args.turnId ?? "turn-tool-call",
@@ -210,7 +213,7 @@ async function runDirectorySwitchTurn(
     sessionId: session.id,
     events: [
       {
-        providerId: "codex",
+        source: { providerId: "codex", providerSessionId: null },
         threadId: thread.id,
         event: {
           type: "turn/completed",
@@ -228,6 +231,76 @@ async function runDirectorySwitchTurn(
 }
 
 describe("internal event and tool-call routes", () => {
+  it("rejects stale tool sources before invoking a plugin side effect", async () => {
+    await withTestHarness(async (harness) => {
+      const { session, thread } = seedThreadFixture(harness);
+      harness.db
+        .update(threads)
+        .set({ providerSessionId: "current-generation" })
+        .where(eq(threads.id, thread.id))
+        .run();
+      let executions = 0;
+      const record: PluginAgentToolRecord = {
+        name: "session_probe",
+        description: "Probe session source",
+        presentation: null,
+        instructions: null,
+        inputSchema: { type: "object" },
+        parse: (value) => ({ ok: true, value }),
+        execute: () => "executed",
+      };
+      setPluginAgentContributions({
+        listSkillRootContributions: () => [],
+        listAgentTools: () => [],
+        listInstructionContributions: () => [],
+        findAgentTool: (name) =>
+          name === record.name ? { pluginId: "fixture", record } : undefined,
+        invokeAgentTool: async () => {
+          executions += 1;
+          return {
+            success: true,
+            contentItems: [{ type: "inputText", text: "executed" }],
+          };
+        },
+        resolveMention: async () => ({ ok: false, error: "unused" }),
+      });
+      try {
+        for (const source of [
+          null,
+          { providerId: "codex", providerSessionId: "previous-generation" },
+          {
+            providerId: "claude-code",
+            providerSessionId: "current-generation",
+          },
+        ]) {
+          const response = await postToolCall({
+            harness,
+            sessionId: session.id,
+            threadId: thread.id,
+            tool: record.name,
+            source,
+          });
+          expect(response.status).toBe(409);
+        }
+        expect(executions).toBe(0);
+        const response = await postToolCall({
+          harness,
+          sessionId: session.id,
+          threadId: thread.id,
+          tool: record.name,
+          source: {
+            providerId: "codex",
+            providerSessionId: "current-generation",
+          },
+        });
+        expect(response.status).toBe(200);
+        expect(await readJson(response)).toMatchObject({ success: true });
+        expect(executions).toBe(1);
+      } finally {
+        setPluginAgentContributions(undefined);
+      }
+    });
+  });
   it("returns the response head before a plugin tool completes", async ({
     signal,
     onTestFinished,
@@ -413,7 +486,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -492,7 +565,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: thread.id,
             event: {
               type: "turn/completed",
@@ -541,7 +614,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -551,7 +624,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -562,7 +635,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: thread.id,
             event: {
               type: "turn/completed",
@@ -659,7 +732,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -670,7 +743,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: thread.id,
             event: {
               type: "turn/completed",
@@ -731,7 +804,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: childThread.id,
             event: {
               type: "turn/started",
@@ -741,7 +814,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: childThread.id,
             event: {
               type: "turn/started",
@@ -752,7 +825,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: childThread.id,
             event: {
               type: "turn/completed",
@@ -822,7 +895,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: childThread.id,
             event: {
               type: "turn/started",
@@ -832,7 +905,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: childThread.id,
             event: {
               type: "turn/completed",
@@ -894,7 +967,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: childThread.id,
             event: {
               type: "turn/started",
@@ -904,7 +977,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: childThread.id,
             event: {
               type: "turn/completed",
@@ -966,7 +1039,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -1048,7 +1121,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: thread.id,
             event: { type: "turn/started", ...agentTurn },
           },
@@ -1061,7 +1134,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: thread.id,
             event: {
               type: "turn/completed",
@@ -1092,7 +1165,7 @@ describe("internal event and tool-call routes", () => {
       });
       const eventBatch: HostDaemonEventEnvelope[] = [
         {
-          providerId: "codex",
+          source: { providerId: "codex", providerSessionId: null },
           threadId: thread.id,
           event: {
             type: "turn/started",
@@ -1102,7 +1175,7 @@ describe("internal event and tool-call routes", () => {
           },
         },
         {
-          providerId: "codex",
+          source: { providerId: "codex", providerSessionId: null },
           threadId: thread.id,
           event: {
             type: "turn/completed",
@@ -1196,7 +1269,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: thread.id,
             event: {
               type: "turn/completed",

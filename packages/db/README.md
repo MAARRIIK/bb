@@ -22,8 +22,9 @@ unknown provider is invalid and requires explicit context recovery.
 
 Migration `0166_event_provider_provenance` backfills existing events from their
 thread's provider. This is valid before in-place provider switching is exposed.
-Current daemon events capture provenance at insertion; switching also requires
-tagging events at their origin so delayed delivery cannot misattribute events.
+Daemon events carry the provider and generation captured by their originating
+runtime process. Insertion preserves that source, independently of the current
+thread assignment, and the server rejects stale sources before persistence.
 
 `threads.provider_session_id` selects a provider session generation within a
 stable BB thread. `events.provider_session_id` preserves that generation on
@@ -32,6 +33,8 @@ leaves existing threads and events there. Session lookup requires matching
 generations, including when a thread returns to the same provider. The visible
 event history is not filtered by generation.
 
-Generation activation is not exposed yet. Daemon insertion currently captures
-the thread's generation; activating non-null generations requires transporting
-the originating generation with events and requests before enabling switches.
+Generation activation is not exposed yet. Protocol 279 carries the originating
+generation through events, tool calls and interactive requests. Legacy null
+generations remain supported; requests without a source cannot act on a thread
+with an explicit generation. Switching still requires transactional preparation,
+context transfer and lifecycle barriers before it can be exposed.

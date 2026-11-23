@@ -1322,6 +1322,7 @@ describe("threads", () => {
         threadId: matchingThread.id,
         environmentId: environment.id,
         providerId: "codex",
+        providerSessionId: null,
       },
     ]);
   });

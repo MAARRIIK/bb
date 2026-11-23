@@ -5,7 +5,12 @@ import {
   normalizeProviderThreadNameEvent,
   toProviderExternalThreadName,
 } from "@bb/domain";
-import type { DynamicTool, InstructionMode, ThreadEvent } from "@bb/domain";
+import type {
+  DynamicTool,
+  InstructionMode,
+  ProviderSessionSource,
+  ThreadEvent,
+} from "@bb/domain";
 import type { AdapterCommand } from "./provider-adapter.js";
 import {
   BRIDGE_JSON_RPC_ERRORS,
@@ -125,6 +130,7 @@ interface FindReapableIdleProviderSessionArgs {
 }
 
 interface ResolveProviderProcessKeyArgs {
+  providerSessionId?: string | null;
   bridgeLaunch: AgentRuntimeBridgeLaunch;
   skillRoots?: readonly AgentRuntimeSkillRoot[];
   providerId: string;
@@ -203,6 +209,7 @@ const PREPARED_THREAD_REWIND_TTL_MS = 5 * 60_000;
 const PREPARED_THREAD_REWIND_RETRY_MS = 30_000;
 
 interface ThreadRuntimeConfig {
+  providerSessionId: string | null;
   additionalWorkspaceWriteRoots: readonly string[];
   bridgeLaunch: AgentRuntimeBridgeLaunch;
   skillRoots: readonly AgentRuntimeSkillRoot[];
@@ -282,7 +289,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     string,
     {
       clientRequestId: string;
-      providerId: string;
+      source: ProviderSessionSource;
       sinceMs: number;
       watchdogFired: boolean;
     }
@@ -307,7 +314,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           code: "provider_turn_start_timeout",
           message: `The provider accepted a turn but did not start it within ${Math.round(turnStartWatchdogThresholdMs / 1000)}s. The request may be stalled; stopping the thread interrupts it.`,
         },
-        entry.providerId,
+        entry.source,
       );
     }
   }, options.turnStartWatchdog?.intervalMs ?? 15_000);
@@ -334,8 +341,11 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         threadIdentityRegistry.getProviderThreadId(threadId) ?? null,
       threadId,
     }),
-    createProviderIdentityState: (providerId) =>
-      threadIdentityRegistry.createProviderState({ providerId }),
+    createProviderIdentityState: (providerId, providerSessionId) =>
+      threadIdentityRegistry.createProviderState({
+        providerId,
+        providerSessionId,
+      }),
     env: options.env,
     getNextRequestId: () => nextRequestId++,
     handleDeferredEvents: (args) => {
@@ -352,15 +362,18 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       handleStdoutLine(args.line, args.providerProcess),
     onProcessExit: options.onProcessExit,
     onProviderThreadDetached: (threadId) => {
-      const providerId = threadRuntimeConfigs.get(threadId)?.providerId;
+      const config = threadRuntimeConfigs.get(threadId);
       toolCalls.cancelThread(threadId);
       threadIdentityRegistry.clearThread(threadId);
       clearThreadRuntimeConfig(threadId);
       turnState.clearThread(threadId);
       const settlements = backgroundWorkState.settleThread(threadId);
-      if (!suppressedThreadEventIds.has(threadId) && providerId !== undefined) {
+      if (!suppressedThreadEventIds.has(threadId) && config !== undefined) {
         for (const event of settlements) {
-          options.onEvent(event, providerId);
+          options.onEvent(event, {
+            providerId: config.providerId,
+            providerSessionId: config.providerSessionId,
+          });
         }
       }
       threadEventGrammar.clearThread(threadId);
@@ -385,7 +398,11 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       roots.length === 0
         ? ""
         : `#skills:${createHash("sha256").update(JSON.stringify(roots)).digest("hex")}`;
-    return `${args.providerId}#bridge:${bridgeLaunchProcessKey(args.bridgeLaunch)}${catalogKey}`;
+    const sessionKey =
+      args.providerSessionId == null
+        ? ""
+        : `#session:${createHash("sha256").update(args.providerSessionId).digest("hex")}`;
+    return `${args.providerId}#bridge:${bridgeLaunchProcessKey(args.bridgeLaunch)}${catalogKey}${sessionKey}`;
   }
 
   function requireProviderProcessForThread(threadId: string): ProviderProcess {
@@ -1124,6 +1141,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         : {}),
       providerThreadId: args.providerThreadId,
       providerId: currentConfig.providerId,
+      providerSessionId: currentConfig.providerSessionId,
       contributedEnv: currentConfig.contributedEnv,
       options: args.options,
       ...(resumeInstructions !== undefined
@@ -1155,6 +1173,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       providerId,
       bridgeLaunch,
       skillRoots: threadConfig?.skillRoots,
+      providerSessionId: threadConfig?.providerSessionId ?? null,
     });
     const proc = providerProcesses.requireProviderProcess({
       processKey,
@@ -1216,7 +1235,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     droppedContributions: DroppedThreadEnvironmentContribution[];
     entries: ResolvedThreadEnvironmentEntry[];
     providerThreadId: string;
-    providerId: string;
+    source: ProviderSessionSource;
     threadId: string;
   }): void {
     options.onEvent(
@@ -1227,7 +1246,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         entries: args.entries,
         scope: { kind: "thread" },
       },
-      args.providerId,
+      args.source,
     );
     for (const contribution of args.droppedContributions) {
       options.onEvent(
@@ -1241,7 +1260,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             "BB_SERVER_URL is unavailable, so its serverPath contribution was not applied.",
           scope: { kind: "thread" },
         },
-        args.providerId,
+        args.source,
       );
     }
   }
@@ -1324,7 +1343,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       turnState.observe(normalizedEvent);
       backgroundWorkState.observe(normalizedEvent);
       observeProviderSessionIdleState(normalizedEvent);
-      options.onEvent(normalizedEvent, args.proc.providerId);
+      options.onEvent(normalizedEvent, args.proc.identity.source);
       threadGoalState.observe(normalizedEvent);
     }
   }
@@ -1550,6 +1569,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
   const runtime: AgentRuntime = {
     async ensureProvider({
       providerId,
+      providerSessionId = null,
       bridgeLaunch,
       skillRoots: sessionSkillRoots = skillRoots,
     }) {
@@ -1557,9 +1577,11 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         processKey: resolveProviderProcessKey({
           bridgeLaunch,
           providerId,
+          providerSessionId,
           skillRoots: sessionSkillRoots,
         }),
         providerId,
+        providerSessionId,
         bridgeLaunch,
         skillRoots: sessionSkillRoots,
       });
@@ -1571,6 +1593,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       threadId,
       projectId,
       providerId,
+      providerSessionId = null,
       bridgeLaunch,
       skillRoots: sessionSkillRoots = skillRoots,
       contributedEnv = [],
@@ -1588,10 +1611,12 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           const processKey = resolveProviderProcessKey({
             bridgeLaunch,
             providerId,
+            providerSessionId,
             skillRoots: sessionSkillRoots,
           });
           await runtime.ensureProvider({
             providerId,
+            providerSessionId,
             bridgeLaunch,
             skillRoots: sessionSkillRoots,
           });
@@ -1630,6 +1655,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             processKey,
             projectId,
             providerId,
+            providerSessionId,
             sessionRestorable: false,
           });
 
@@ -1693,7 +1719,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             );
             resolved = result.providerThreadId;
             emitResolvedProviderEnvironment({
-              providerId: proc.providerId,
+              source: proc.identity.source,
               droppedContributions: resolvedEnvironment.droppedContributions,
               entries: resolvedEnvironment.entries,
               providerThreadId: resolved,
@@ -1733,6 +1759,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       leaseId,
       projectId,
       providerId,
+      providerSessionId = null,
       contributedEnv = [],
       sourceProviderThreadId,
       retainThroughProviderCheckpoint,
@@ -1756,10 +1783,12 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           const processKey = resolveProviderProcessKey({
             bridgeLaunch,
             providerId,
+            providerSessionId,
             skillRoots: sessionSkillRoots,
           });
           await runtime.ensureProvider({
             providerId,
+            providerSessionId,
             bridgeLaunch,
             skillRoots: sessionSkillRoots,
           });
@@ -1907,6 +1936,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       projectId,
       providerThreadId,
       providerId,
+      providerSessionId = null,
       bridgeLaunch,
       skillRoots: sessionSkillRoots = skillRoots,
       contributedEnv = [],
@@ -1921,10 +1951,12 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           const processKey = resolveProviderProcessKey({
             bridgeLaunch,
             providerId,
+            providerSessionId,
             skillRoots: sessionSkillRoots,
           });
           await runtime.ensureProvider({
             providerId,
+            providerSessionId,
             bridgeLaunch,
             skillRoots: sessionSkillRoots,
           });
@@ -1973,6 +2005,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             processKey,
             projectId,
             providerId,
+            providerSessionId,
             sessionRestorable: false,
           });
 
@@ -1995,7 +2028,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           const plan = proc.adapter.buildCommandPlan(adapterCommand);
           if (plan.kind === "noop") {
             emitResolvedProviderEnvironment({
-              providerId: proc.providerId,
+              source: proc.identity.source,
               droppedContributions: resolvedEnvironment.droppedContributions,
               entries: resolvedEnvironment.entries,
               providerThreadId: adapterCommand.providerThreadId,
@@ -2025,7 +2058,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             updateSessionRestoreCapability(threadId, result.sessionRestorable);
             resolved = result.providerThreadId;
             emitResolvedProviderEnvironment({
-              providerId: proc.providerId,
+              source: proc.identity.source,
               droppedContributions: resolvedEnvironment.droppedContributions,
               entries: resolvedEnvironment.entries,
               providerThreadId: resolved,
@@ -2110,7 +2143,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           assertThreadCanStartTurn(threadId);
           const pendingTurnStart = {
             clientRequestId,
-            providerId: proc.providerId,
+            source: proc.identity.source,
             sinceMs: Date.now(),
             watchdogFired: false,
           };
@@ -2138,7 +2171,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
                       code: "provider_turn_start_failed",
                       message: `The provider failed to start the turn after its request timed out: ${error.message}`,
                     },
-                    proc.providerId,
+                    proc.identity.source,
                   );
                 },
               },
@@ -2168,7 +2201,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           });
           if (environmentChanged) {
             emitResolvedProviderEnvironment({
-              providerId: proc.providerId,
+              source: proc.identity.source,
               droppedContributions: resolvedEnvironment.droppedContributions,
               entries: resolvedEnvironment.entries,
               providerThreadId,
@@ -2281,7 +2314,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             });
             if (environmentChanged) {
               emitResolvedProviderEnvironment({
-                providerId: proc.providerId,
+                source: proc.identity.source,
                 droppedContributions: resolvedEnvironment.droppedContributions,
                 entries: resolvedEnvironment.entries,
                 providerThreadId,
@@ -2764,16 +2797,19 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       threadGoalState.clear();
       turnState.clear();
       threadEventGrammar.clear();
-      const providerIds = new Map(
+      const providerSources = new Map(
         [...threadRuntimeConfigs].map(([threadId, config]) => [
           threadId,
-          config.providerId,
+          {
+            providerId: config.providerId,
+            providerSessionId: config.providerSessionId,
+          },
         ]),
       );
       await providerProcesses.shutdown();
       for (const event of backgroundWorkState.settleAll()) {
-        const providerId = providerIds.get(event.threadId);
-        if (providerId !== undefined) options.onEvent(event, providerId);
+        const source = providerSources.get(event.threadId);
+        if (source !== undefined) options.onEvent(event, source);
       }
     },
   };

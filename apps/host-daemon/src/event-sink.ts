@@ -394,7 +394,7 @@ export function createEventSink(options: CreateEventSinkOptions): EventSink {
       queue.push({
         envelope: {
           threadId: input.threadId,
-          providerId: input.providerId,
+          source: input.source === null ? null : { ...input.source },
           event: input.event,
         },
         immediate,

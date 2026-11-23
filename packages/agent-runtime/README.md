@@ -80,7 +80,9 @@ The runtime fails fast when providers crash or are unavailable:
 
 ### Multi-thread / multi-provider
 
-A single runtime can manage multiple threads across multiple providers simultaneously. Each provider process is spawned once and shared across threads. The runtime stamps every event with the correct bb `threadId` and `providerThreadId` regardless of how the provider internally identifies threads.
+A single runtime can manage multiple threads across multiple providers simultaneously. Processes may be shared within the same provider, bridge configuration, skill roots and provider session generation. Different explicit generations use separate process keys. The runtime stamps every event with the correct bb `threadId` and `providerThreadId` regardless of how the provider internally identifies threads.
+
+Event, tool-call and interactive-request callbacks receive a `ProviderSessionSource` captured by the originating process. Its `providerSessionId` is nullable for legacy sessions. Start and resume accept that generation and preserve it across recovery; `getProviderSession` returns it alongside the native session ID. Consumers must preserve the source across asynchronous delivery instead of looking up the thread's latest assignment.
 
 ## Running Tests
 

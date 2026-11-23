@@ -175,6 +175,14 @@ export const toolCallRequestSchema = z.object({
 });
 export type ToolCallRequest = z.infer<typeof toolCallRequestSchema>;
 
+export const providerSessionSourceSchema = z
+  .object({
+    providerId: z.string().min(1),
+    providerSessionId: z.string().min(1).nullable(),
+  })
+  .strict();
+export type ProviderSessionSource = z.infer<typeof providerSessionSourceSchema>;
+
 export const toolCallResponseSchema = z.object({
   contentItems: z.array(toolCallOutputItemSchema),
   success: z.boolean(),

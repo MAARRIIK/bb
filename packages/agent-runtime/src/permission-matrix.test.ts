@@ -396,6 +396,7 @@ async function runCell(
     parsedId: requestId,
     parsedMethod: rawRequest.method,
     providerProcess: {
+      identity: { source: { providerId: "fake", providerSessionId: null } },
       adapter: adapterFor(enforcer),
       child: echo.child,
       interactiveRequestScope: `matrix-${requestId}`,

@@ -282,7 +282,8 @@ function toStoredEvent(args: ToStoredEventArgs): AppendDaemonEventInput {
   return {
     threadId: envelope.threadId,
     environmentId: args.environmentId,
-    providerId: envelope.providerId,
+    providerId: envelope.source?.providerId ?? null,
+    providerSessionId: envelope.source?.providerSessionId ?? null,
     ...resolveProviderIdentifiers(envelope.event),
     scope,
     type,
@@ -730,15 +731,26 @@ function resolvePostableEventBatchEntries(
       });
       continue;
     }
-    const unscoped = entry.providerId === null;
+    const unscoped = entry.source === null;
     if (
       unscoped
         ? entry.event.type !== "system/thread-provisioning"
-        : entry.providerId !== assignment.providerId
+        : entry.source?.providerId !== assignment.providerId
     ) {
       rejectedEvents.push({
         eventIndex,
         reason: unscoped ? "missing_provider" : "provider_mismatch",
+        threadId: entry.threadId,
+      });
+      continue;
+    }
+    if (
+      !unscoped &&
+      entry.source?.providerSessionId !== assignment.providerSessionId
+    ) {
+      rejectedEvents.push({
+        eventIndex,
+        reason: "provider_session_mismatch",
         threadId: entry.threadId,
       });
       continue;

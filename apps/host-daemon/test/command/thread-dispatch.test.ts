@@ -56,6 +56,87 @@ async function* attachmentContent(content: string): AsyncGenerator<Uint8Array> {
 }
 
 describe("thread command dispatch", () => {
+  it.each(["thread.start", "turn.submit"] as const)(
+    "refuses stale %s generations before running an agent",
+    async (type) => {
+      const harness = createHarness({ workspacePath: "/tmp/fenced-workspace" });
+      await harness.manager.ensureEnvironment({
+        environmentId: "env-fenced",
+        workspacePath: "/tmp/fenced-workspace",
+      });
+      harness.threadControls.setProviderSession("thread-fenced", {
+        providerId: "fake",
+        providerSessionId: "current-generation",
+        providerThreadId: "provider-fenced",
+      });
+      const build = (providerSessionId: string | null): HostDaemonCommand => {
+        const context: Extract<
+          HostDaemonCommand,
+          { type: "turn.submit" }
+        >["resumeContext"] = {
+          bridgeLaunch: DISPATCH_TEST_BRIDGE_LAUNCH,
+          workspaceContext: { workspacePath: "/tmp/fenced-workspace" },
+          projectId: "project-fenced",
+          providerId: "fake",
+          providerSessionId,
+          providerThreadId: "provider-fenced",
+          instructions: "Be helpful.",
+          additionalWorkspaceFolders: [],
+          dynamicTools: [],
+          contributedEnv: [],
+          injectedSkillSources: [],
+          instructionMode: "append",
+        };
+        const options: Extract<
+          HostDaemonCommand,
+          { type: "turn.submit" }
+        >["options"] = {
+          model: "gpt-5",
+          serviceTier: "default",
+          reasoningLevel: "medium",
+          providerOptions: {},
+          permissionMode: "full",
+          permissionScope: "full",
+          approvalReviewer: null,
+          permissionEscalation: null,
+        };
+        const common = {
+          environmentId: "env-fenced",
+          threadId: "thread-fenced",
+          requestId: nextClientRequestId(),
+          input: [textPromptInput("Run task")],
+          options,
+        };
+        if (type === "turn.submit")
+          return {
+            ...common,
+            type,
+            bridgeLaunch: DISPATCH_TEST_BRIDGE_LAUNCH,
+            resumeContext: context,
+            target: { mode: "start" },
+          };
+        const { providerThreadId: _providerThreadId, ...startContext } =
+          context;
+        return { ...common, ...startContext, type };
+      };
+      for (const previous of [null, "previous-generation"]) {
+        await expect(
+          dispatchCommand(build(previous), harness.dispatchOptions()),
+        ).rejects.toMatchObject({ code: "provider_session_mismatch" });
+      }
+      expect(harness.runtimeState.ranTurnInput).toBeUndefined();
+      expect(harness.runtimeState.startedThreadId).toBeUndefined();
+      expect(harness.runtimeState.resumedThreadId).toBeUndefined();
+      await dispatchCommand(
+        build("current-generation"),
+        harness.dispatchOptions(),
+      );
+      if (type === "thread.start")
+        expect(harness.runtimeState.startedThreadId).toBe("thread-fenced");
+      else expect(harness.runtimeState.ranTurnText).toBe("Run task");
+    },
+  );
+
   it("evicts stale runtime and rejects thread.start when the loaded runtime path differs from workspaceContext", async () => {
     const harness = createHarness({ workspacePath: "/tmp/env-loaded" });
     await harness.manager.ensureEnvironment({
@@ -72,6 +153,7 @@ describe("thread command dispatch", () => {
         workspacePath: "/tmp/env-stale",
       },
       projectId: "project-stale-start",
+      providerSessionId: null,
       providerId: "fake",
       requestId: nextClientRequestId(),
       input: [textPromptInput("start")],
@@ -149,6 +231,7 @@ describe("thread command dispatch", () => {
               workspacePath: "/tmp/env-stale",
             },
             projectId: "project-stale-turn",
+            providerSessionId: null,
             providerId: "fake",
             providerThreadId: "provider-thread-stale-turn",
             instructions: "Be a helpful coding agent.",
@@ -191,6 +274,7 @@ describe("thread command dispatch", () => {
           workspacePath: "/tmp/env-attachments",
         },
         projectId: "project-attachments",
+        providerSessionId: null,
         providerId: "fake",
         requestId,
         input: [
@@ -326,6 +410,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-submit-attachments",
           },
           projectId: "project-submit-attachments",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-submit-attachments",
           instructions: "Be a helpful coding agent.",
@@ -387,6 +472,7 @@ describe("thread command dispatch", () => {
           workspacePath: "/tmp/env-bridge-start",
         },
         projectId: "project-bridge-start",
+        providerSessionId: null,
         providerId: "echo-agent",
         bridgeLaunch: {
           pluginId: "provider-echo",
@@ -576,6 +662,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-bridge-resume",
           },
           projectId: "project-bridge-resume",
+          providerSessionId: null,
           providerId: "echo-agent",
           providerThreadId: "provider-bridge-resume",
           bridgeLaunch: {
@@ -649,6 +736,7 @@ describe("thread command dispatch", () => {
     const threadId = "thread-reaped-during-staging";
     const providerThreadId = "provider-reaped-during-staging";
     harness.threadControls.setProviderSession(threadId, {
+      providerSessionId: null,
       providerId: "fake",
       providerThreadId,
     });
@@ -694,6 +782,7 @@ describe("thread command dispatch", () => {
               workspacePath: "/tmp/env-reaped-during-staging",
             },
             projectId: "project-reaped-during-staging",
+            providerSessionId: null,
             providerId: "fake",
             providerThreadId,
             instructions: "Be a helpful coding agent.",
@@ -733,6 +822,7 @@ describe("thread command dispatch", () => {
           workspacePath: "/tmp/env-no-stage-attachments",
         },
         projectId: "project-no-stage-attachments",
+        providerSessionId: null,
         providerId: "fake",
         requestId: nextClientRequestId(),
         input: [
@@ -798,6 +888,7 @@ describe("thread command dispatch", () => {
           workspacePath: "/tmp/env-restage-attachments",
         },
         projectId: "project-restage-attachments",
+        providerSessionId: null,
         providerId: "fake",
         requestId,
         input: [
@@ -869,6 +960,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-reuse-attachments",
           },
           projectId: "project-reuse-attachments",
+          providerSessionId: null,
           providerId: "fake",
           requestId: nextClientRequestId(),
           input: [{ type: "localFile", path: "same-uploaded.txt" }],
@@ -923,6 +1015,7 @@ describe("thread command dispatch", () => {
           workspacePath: "/tmp/env-grouped-stage-attachments",
         },
         projectId: "project-grouped-stage-attachments",
+        providerSessionId: null,
         providerId: "fake",
         requestId,
         input: [
@@ -1007,6 +1100,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-failed-stage-attachments",
           },
           projectId: "project-failed-stage-attachments",
+          providerSessionId: null,
           providerId: "fake",
           requestId,
           input: [
@@ -1077,6 +1171,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-oversized-stage-attachments",
           },
           projectId: "project-oversized-stage-attachments",
+          providerSessionId: null,
           providerId: "fake",
           requestId,
           input: [
@@ -1144,6 +1239,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-interrupted-stage-attachments",
           },
           projectId: "project-interrupted-stage-attachments",
+          providerSessionId: null,
           providerId: "fake",
           requestId: nextClientRequestId(),
           input: [{ type: "localFile", path: "interrupted-uploaded.txt" }],
@@ -1208,6 +1304,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-runtime-failed-start-attachments",
           },
           projectId: "project-runtime-failed-start-attachments",
+          providerSessionId: null,
           providerId: "fake",
           requestId,
           input: [{ type: "localFile", path: "runtime-failed-uploaded.txt" }],
@@ -1284,6 +1381,7 @@ describe("thread command dispatch", () => {
               workspacePath: "/tmp/env-runtime-failed-turn-attachments",
             },
             projectId: "project-runtime-failed-turn-attachments",
+            providerSessionId: null,
             providerId: "fake",
             providerThreadId: "provider-runtime-failed-turn-attachments",
             instructions: "Be a helpful coding agent.",
@@ -1348,6 +1446,7 @@ describe("thread command dispatch", () => {
               workspacePath: "/tmp/env-unconfirmed-turn",
             },
             projectId: "project-unconfirmed-turn",
+            providerSessionId: null,
             providerId: "fake",
             providerThreadId: "provider-unconfirmed-turn",
             instructions: "Be a helpful coding agent.",
@@ -1390,6 +1489,7 @@ describe("thread command dispatch", () => {
           workspacePath: "/tmp/env-1",
         },
         projectId: "project-1",
+        providerSessionId: null,
         providerId: "fake",
         requestId: nextClientRequestId(),
         input: [textPromptInput("hello")],
@@ -1495,6 +1595,7 @@ describe("thread command dispatch", () => {
           workspacePath: "/tmp/env-1",
         },
         projectId: "project-1",
+        providerSessionId: null,
         providerId: "fake",
         requestId: nextClientRequestId(),
         input: [textPromptInput("work until stopped")],
@@ -1570,6 +1671,7 @@ describe("thread command dispatch", () => {
         threadId: "thread-delete",
         workspaceContext: { workspacePath: "/tmp/env-1" },
         projectId: "project-1",
+        providerSessionId: null,
         providerId: "fake",
         requestId: nextClientRequestId(),
         input: [textPromptInput("work until deleted")],
@@ -1669,6 +1771,7 @@ describe("thread command dispatch", () => {
           workspacePath: "/tmp/env-resume-after-archive",
         },
         projectId: "project-1",
+        providerSessionId: null,
         providerId: "fake",
         requestId: nextClientRequestId(),
         input: [textPromptInput("hello")],
@@ -1734,6 +1837,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-resume-after-archive",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-thread-resume-after-archive",
           instructions: "Be a helpful coding agent.",
@@ -1798,6 +1902,7 @@ describe("thread command dispatch", () => {
       workspacePath: "/tmp/env-1",
     });
     harness.threadControls.setProviderSession("thread-1", {
+      providerSessionId: null,
       providerId: "fake",
       providerThreadId: "provider-1",
     });
@@ -1826,6 +1931,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-1",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-1",
           instructions: "Be a helpful coding agent.",
@@ -1863,6 +1969,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-1",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-1",
           instructions: "Be a helpful coding agent.",
@@ -1895,6 +2002,7 @@ describe("thread command dispatch", () => {
       workspacePath: "/tmp/env-1",
     });
     harness.threadControls.setProviderSession("thread-1", {
+      providerSessionId: null,
       providerId: "fake",
       providerThreadId: "provider-1",
     });
@@ -1923,6 +2031,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-1",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-1",
           instructions: "Be a helpful coding agent.",
@@ -1963,6 +2072,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-1",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-1",
           instructions: "Be a helpful coding agent.",
@@ -2019,6 +2129,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-1",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-1",
           instructions: "Be a helpful coding agent.",
@@ -2087,6 +2198,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-1",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-1",
           instructions: "Be a helpful coding agent.",
@@ -2144,6 +2256,7 @@ describe("thread command dispatch", () => {
               workspacePath: "/tmp/env-1",
             },
             projectId: "project-1",
+            providerSessionId: null,
             providerId: "fake",
             providerThreadId: "provider-1",
             instructions: "Be a helpful coding agent.",
@@ -2174,6 +2287,7 @@ describe("thread command dispatch", () => {
       workspacePath: "/tmp/env-1",
     });
     harness.threadControls.setProviderSession("thread-1", {
+      providerSessionId: null,
       providerId: "fake",
       providerThreadId: "provider-1",
     });
@@ -2220,6 +2334,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-1",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-1",
           instructions: "Be a helpful coding agent.",
@@ -2248,6 +2363,7 @@ describe("thread command dispatch", () => {
       workspacePath: "/tmp/env-1",
     });
     harness.threadControls.setProviderSession("thread-1", {
+      providerSessionId: null,
       providerId: "fake",
       providerThreadId: "provider-1",
     });
@@ -2280,6 +2396,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-1",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-1",
           instructions: "Be a helpful coding agent.",
@@ -2307,6 +2424,7 @@ describe("thread command dispatch", () => {
       workspacePath: "/tmp/env-1",
     });
     harness.threadControls.setProviderSession("thread-1", {
+      providerSessionId: null,
       providerId: "fake",
       providerThreadId: "provider-1",
     });
@@ -2335,6 +2453,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-1",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-1",
           instructions: "Be a helpful coding agent.",
@@ -2386,6 +2505,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-lazy",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-1",
           instructions: "Be a helpful coding agent.",
@@ -2442,10 +2562,12 @@ describe("thread command dispatch", () => {
       workspacePath: "/tmp/env-exit",
     });
     exitedFake.threadControls.setProviderSession("thread-1", {
+      providerSessionId: null,
       providerId: "fake",
       providerThreadId: "provider-1",
     });
     onProcessExit?.({
+      providerSessionId: null,
       providerId: "fake",
       threads: [
         {
@@ -2485,6 +2607,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-exit",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           providerThreadId: "provider-1",
           instructions: "Be a helpful coding agent.",
@@ -2530,6 +2653,7 @@ describe("thread command dispatch", () => {
           workspacePath: threadStorage,
         },
         projectId: "project-1",
+        providerSessionId: null,
         providerId: "fake",
         requestId: nextClientRequestId(),
         input: [textPromptInput("hello")],
@@ -2593,6 +2717,7 @@ describe("thread command dispatch", () => {
           workspacePath: "/tmp/env-1",
         },
         projectId: "project-1",
+        providerSessionId: null,
         providerId: "fake",
         requestId: nextClientRequestId(),
         input: [textPromptInput("hello")],
@@ -2636,6 +2761,7 @@ describe("thread command dispatch", () => {
             workspacePath: "/tmp/env-1",
           },
           projectId: "project-1",
+          providerSessionId: null,
           providerId: "fake",
           requestId: nextClientRequestId(),
           input: [textPromptInput("hello")],

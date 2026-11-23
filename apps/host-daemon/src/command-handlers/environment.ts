@@ -133,7 +133,7 @@ function buildOnProgress(args: BuildOnProgressArgs): ProvisionProgressEmitter {
     const entries = pendingEntries.splice(0, pendingEntries.length);
     eventSink.emit({
       threadId,
-      providerId: null,
+      source: null,
       event: {
         type: "system/thread-provisioning",
         threadId,

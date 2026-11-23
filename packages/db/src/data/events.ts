@@ -171,6 +171,7 @@ export interface AppendDaemonEventInput {
   parentToolCallId: string | null;
   providerThreadId: string | null;
   providerId: string | null;
+  providerSessionId: string | null;
   scope: ThreadEventScope;
   threadId: string;
   type: ThreadEventType;
@@ -934,7 +935,7 @@ export function appendDaemonEventsInTransaction(
       parentToolCallId: input.parentToolCallId,
       providerThreadId: input.providerThreadId,
       providerId: input.providerId,
-      providerSessionId: eventProviderSessionIdForThread(input.threadId),
+      providerSessionId: input.providerSessionId,
       scopeKind: input.scope.kind,
       sequence,
       threadId: input.threadId,

@@ -18,7 +18,10 @@ import {
   type ToolCallRequest,
   type ToolCallResponse,
 } from "@bb/domain";
-import { groupHostDaemonEvents } from "@bb/host-daemon-contract";
+import {
+  groupHostDaemonEvents,
+  type HostDaemonEventEnvelope,
+} from "@bb/host-daemon-contract";
 import { resolveBuiltinPluginRootPath } from "../../src/services/plugins/builtin-registry.js";
 import {
   buildExecutionOptions,
@@ -259,7 +262,10 @@ describe("echo-provider canary: plugin install → server command → runtime �
 
     const runtimeEvents: ThreadEvent[] = [];
     let ingest: Promise<void> = Promise.resolve();
-    const ingestEvent = (event: ThreadEvent, providerId: string): void => {
+    const ingestEvent = (
+      event: ThreadEvent,
+      source: HostDaemonEventEnvelope["source"],
+    ): void => {
       ingest = ingest.then(async () => {
         const response = await harness.app.request("/internal/session/events", {
           method: "POST",
@@ -267,7 +273,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
           body: JSON.stringify({
             sessionId: session.id,
             eventGroups: groupHostDaemonEvents([
-              { providerId, threadId: event.threadId, event },
+              { source, threadId: event.threadId, event },
             ]),
           }),
         });
@@ -277,9 +283,9 @@ describe("echo-provider canary: plugin install → server command → runtime �
     const toolCalls: ToolCallRequest[] = [];
     const runtimeInstance = createAgentRuntime({
       workspacePath: workspaceDir,
-      onEvent: (event, providerId) => {
+      onEvent: (event, source) => {
         runtimeEvents.push(event);
-        ingestEvent(event, providerId);
+        ingestEvent(event, source);
       },
       onToolCall: async (request): Promise<ToolCallResponse> => {
         toolCalls.push(request);
@@ -518,7 +524,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
         sessionId: session.id,
         eventGroups: groupHostDaemonEvents([
           {
-            providerId: PROVIDER_ID,
+            source: { providerId: PROVIDER_ID, providerSessionId: null },
             threadId: thread.id,
             event: {
               type: "item/completed",

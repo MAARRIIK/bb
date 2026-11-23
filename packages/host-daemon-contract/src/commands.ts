@@ -214,6 +214,7 @@ const hostDaemonThreadRuntimeContextSchema = z
     workspaceContext: workspaceContextSchema,
     projectId: z.string().min(1),
     providerId: z.string().min(1),
+    providerSessionId: z.string().min(1).nullable().default(null),
     bridgeLaunch: hostDaemonBridgeLaunchSchema,
     options: runtimeThreadExecutionOptionsSchema,
     instructions: z.string().min(1),

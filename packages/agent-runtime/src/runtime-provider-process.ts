@@ -67,6 +67,7 @@ interface RuntimeProviderProcessManagerArgs {
   ) => AgentRuntimeProcessExitThreadState;
   createProviderIdentityState: (
     providerId: string,
+    providerSessionId: string | null,
   ) => RuntimeProviderIdentityState;
   env: Record<string, string> | undefined;
   getNextRequestId: () => number;
@@ -84,6 +85,7 @@ interface EnsureRuntimeProviderArgs {
   skillRoots?: readonly AgentRuntimeSkillRoot[];
   processKey: string;
   providerId: string;
+  providerSessionId?: string | null;
 }
 
 interface RequireRuntimeProviderProcessArgs {
@@ -114,6 +116,7 @@ interface SpawnProviderArgs {
   bridgeLaunchKey: string;
   processKey: string;
   providerId: string;
+  providerSessionId: string | null;
 }
 
 interface ProviderProcessExitStatus {
@@ -188,6 +191,7 @@ export class RuntimeProviderProcessManager {
         bridgeLaunchKey: bridgeLaunchProcessKey(args.bridgeLaunch),
         processKey: args.processKey,
         providerId: args.providerId,
+        providerSessionId: args.providerSessionId ?? null,
       });
 
       try {
@@ -413,7 +417,10 @@ export class RuntimeProviderProcessManager {
       expectedShutdownExpectations: 0,
       exitFinalized,
       interactiveRequestScope: randomUUID(),
-      identity: this.args.createProviderIdentityState(args.providerId),
+      identity: this.args.createProviderIdentityState(
+        args.providerId,
+        args.providerSessionId,
+      ),
       pending: new Map(),
       processKey: args.processKey,
       providerId: args.providerId,
@@ -584,6 +591,7 @@ export class RuntimeProviderProcessManager {
 
     this.args.onProcessExit?.({
       providerId: args.providerId,
+      providerSessionId: args.providerProcess.identity.source.providerSessionId,
       threads: [...args.providerProcess.identity.threadIds].map((threadId) =>
         this.args.captureThreadExitState(threadId),
       ),
@@ -630,6 +638,7 @@ export class RuntimeProviderProcessManager {
 
     this.args.onProcessExit?.({
       providerId: args.providerId,
+      providerSessionId: args.providerProcess.identity.source.providerSessionId,
       threads,
       code: args.code,
       expected,

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   PendingInteractionCreate,
   PendingInteractionResolution,
+  ProviderSessionSource,
 } from "@bb/domain";
 import type { HostDaemonInteractiveRequestResponse } from "@bb/host-daemon-contract";
 import { createDeferredPromise } from "@bb/test-helpers";
@@ -14,6 +15,7 @@ interface CreateRegistryArgs {
   onRequestWithdrawn?: (request: PendingInteractionCreate) => void;
   registerRequest: (
     request: PendingInteractionCreate,
+    source: ProviderSessionSource | null,
   ) => Promise<HostDaemonInteractiveRequestResponse>;
 }
 
@@ -61,6 +63,33 @@ function createRegistry(args: CreateRegistryArgs): InteractiveRequestRegistry {
 }
 
 describe("InteractiveRequestRegistry", () => {
+  it("refuses to reuse a pending answer across provider generations", async () => {
+    const request = createCommandApprovalRequest();
+    const registerRequest = vi.fn(
+      async (): Promise<HostDaemonInteractiveRequestResponse> => ({
+        outcome: "created",
+        interactionId: "pint_session",
+        status: "pending",
+      }),
+    );
+    const registry = createRegistry({ registerRequest });
+    const controller = new AbortController();
+    const first = registry.registerAndWait(request, controller.signal, {
+      providerId: "codex",
+      providerSessionId: "first",
+    });
+    await expect(
+      registry.registerAndWait(request, new AbortController().signal, {
+        providerId: "codex",
+        providerSessionId: "second",
+      }),
+    ).rejects.toMatchObject({ code: "interactive_request_collision" });
+    expect(registerRequest).toHaveBeenCalledTimes(1);
+    controller.abort();
+    await expect(first).rejects.toMatchObject({
+      code: "interactive_request_withdrawn",
+    });
+  });
   it("ends a wait whose registration is still in flight without an unhandled rejection", async () => {
     const request = createCommandApprovalRequest();
     const registration =
@@ -71,6 +100,7 @@ describe("InteractiveRequestRegistry", () => {
     const pending = registry.registerAndWait(
       request,
       new AbortController().signal,
+      null,
     );
 
     registry.endRequests(
@@ -112,10 +142,12 @@ describe("InteractiveRequestRegistry", () => {
     const ended = registry.registerAndWait(
       request,
       new AbortController().signal,
+      null,
     );
     const stillOpen = registry.registerAndWait(
       other,
       new AbortController().signal,
+      null,
     );
     const key = {
       threadId: request.threadId,
@@ -163,10 +195,12 @@ describe("InteractiveRequestRegistry", () => {
     const first = registry.registerAndWait(
       request,
       new AbortController().signal,
+      null,
     );
     const second = registry.registerAndWait(
       request,
       new AbortController().signal,
+      null,
     );
 
     expect(registrations).toEqual([request]);
@@ -204,6 +238,7 @@ describe("InteractiveRequestRegistry", () => {
     const pending = registry.registerAndWait(
       request,
       new AbortController().signal,
+      null,
     );
     const command = {
       interactionId: "pint_registry",
@@ -251,7 +286,7 @@ describe("InteractiveRequestRegistry", () => {
     });
 
     await expect(
-      registry.registerAndWait(request, new AbortController().signal),
+      registry.registerAndWait(request, new AbortController().signal, null),
     ).rejects.toMatchObject({
       code: "interactive_request_rejected",
       message: "Thread is already awaiting user interaction",
@@ -272,6 +307,7 @@ describe("InteractiveRequestRegistry", () => {
     const pending = registry.registerAndWait(
       request,
       new AbortController().signal,
+      null,
     );
     registry.interruptThreads({
       providerId: request.providerId,
@@ -292,7 +328,7 @@ describe("InteractiveRequestRegistry", () => {
       registerRequest: () => registration.promise,
     });
     const provider = new AbortController();
-    const pending = registry.registerAndWait(request, provider.signal);
+    const pending = registry.registerAndWait(request, provider.signal, null);
 
     provider.abort();
     await expect(pending).rejects.toMatchObject({
@@ -330,7 +366,7 @@ describe("InteractiveRequestRegistry", () => {
       }),
     });
     const provider = new AbortController();
-    const pending = registry.registerAndWait(request, provider.signal);
+    const pending = registry.registerAndWait(request, provider.signal, null);
     provider.abort();
 
     await expect(pending).rejects.toMatchObject({
@@ -352,7 +388,7 @@ describe("InteractiveRequestRegistry", () => {
       }),
     });
     const provider = new AbortController();
-    const pending = registry.registerAndWait(request, provider.signal);
+    const pending = registry.registerAndWait(request, provider.signal, null);
     await new Promise<void>((resolve) => setImmediate(resolve));
     registry.resolve({
       interactionId: "pint_answered",

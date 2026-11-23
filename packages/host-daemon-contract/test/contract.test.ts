@@ -781,7 +781,7 @@ describe("cache usage wire compatibility", () => {
       sessionId: "session-usage",
       eventGroups: [
         {
-          providerId: "codex",
+          source: { providerId: "codex", providerSessionId: null },
           threadId: "thread-usage",
           events: [
             {
@@ -1091,7 +1091,7 @@ describe("host-daemon command schemas", () => {
   });
 
   it("uses the current host-daemon protocol version", () => {
-    expect(HOST_DAEMON_PROTOCOL_VERSION).toBe(278);
+    expect(HOST_DAEMON_PROTOCOL_VERSION).toBe(279);
     expect(HOST_ARTIFACT_MAX_BYTES).toBe(256 * 1024 * 1024);
   });
 
@@ -1113,9 +1113,23 @@ describe("host-daemon command schemas", () => {
         eventGroups: [eventGroup],
       }).success;
     expect(parse(group)).toBe(false);
-    expect(parse({ ...group, providerId: "" })).toBe(false);
-    expect(parse({ ...group, providerId: null })).toBe(true);
-    expect(parse({ ...group, providerId: "codex" })).toBe(true);
+    expect(
+      parse({ ...group, source: { providerId: "", providerSessionId: null } }),
+    ).toBe(false);
+    expect(parse({ ...group, source: null })).toBe(true);
+    expect(
+      parse({
+        ...group,
+        source: { providerId: "codex", providerSessionId: null },
+      }),
+    ).toBe(true);
+    expect(
+      parse({
+        ...group,
+        source: { providerId: "codex", providerSessionId: "generation" },
+      }),
+    ).toBe(true);
+    expect(parse({ ...group, source: { providerId: "codex" } })).toBe(false);
   });
 
   it("accepts only daemons that carry event provider provenance", () => {
@@ -1152,7 +1166,8 @@ describe("host-daemon command schemas", () => {
     expect(contract.isCompatibleHostDaemonProtocolVersion(275)).toBe(false);
     expect(contract.isCompatibleHostDaemonProtocolVersion(276)).toBe(false);
     expect(contract.isCompatibleHostDaemonProtocolVersion(277)).toBe(false);
-    expect(contract.isCompatibleHostDaemonProtocolVersion(278)).toBe(true);
+    expect(contract.isCompatibleHostDaemonProtocolVersion(278)).toBe(false);
+    expect(contract.isCompatibleHostDaemonProtocolVersion(279)).toBe(true);
     expect(contract.hostDaemonSupportsDesktopBrokerProof(247)).toBe(false);
     expect(contract.hostDaemonSupportsDesktopBrokerProof(248)).toBe(true);
   });
@@ -1976,6 +1991,7 @@ describe("host-daemon command schemas", () => {
 
   it("rejects grouped commands whose flat input disagrees with inputGroups", () => {
     const threadStartCommand = {
+      providerSessionId: null,
       type: "thread.start",
       bridgeLaunch: BRIDGE_LAUNCH,
       environmentId: "env_123",
@@ -2085,6 +2101,7 @@ describe("host-daemon command schemas", () => {
     });
 
     const threadStartCommand = {
+      providerSessionId: null,
       type: "thread.start",
       bridgeLaunch: ACP_BRIDGE_LAUNCH,
       environmentId: "env_123",
@@ -2143,6 +2160,7 @@ describe("host-daemon command schemas", () => {
         },
         projectId: "proj_123",
         providerId: "acp-local",
+        providerSessionId: null,
         providerThreadId: "provider_123",
         instructions: "Be a helpful thread.",
         additionalWorkspaceFolders: [],
@@ -2202,6 +2220,7 @@ describe("host-daemon command schemas", () => {
     ).toEqual(providerListModelsCommand);
 
     const threadStartCommand = {
+      providerSessionId: null,
       type: "thread.start",
       environmentId: "env_123",
       threadId: "thr_123",
@@ -2247,6 +2266,7 @@ describe("host-daemon command schemas", () => {
         projectId: "proj_123",
         providerId: "echo-agent",
         providerThreadId: "provider_123",
+        providerSessionId: null,
         bridgeLaunch,
         instructions: "Be a helpful thread.",
         additionalWorkspaceFolders: [],
@@ -3019,7 +3039,7 @@ describe("host-daemon session schemas", () => {
         sessionId: "session_123",
         eventGroups: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: "thr_123",
             events: [
               {
@@ -3046,7 +3066,7 @@ describe("host-daemon session schemas", () => {
         sessionId: "session_123",
         eventGroups: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: "thr_123",
             events: [
               {
@@ -3125,7 +3145,7 @@ describe("host-daemon session schemas", () => {
         sessionId: "session_123",
         eventGroups: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: "thr_123",
             events: [
               {
@@ -3145,7 +3165,7 @@ describe("host-daemon session schemas", () => {
       sessionId: "session_123",
       eventGroups: [
         {
-          providerId: "codex",
+          source: { providerId: "codex", providerSessionId: null },
           threadId: "thr_123",
           events: [
             {

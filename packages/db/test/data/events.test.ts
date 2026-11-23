@@ -137,6 +137,7 @@ const threadEventFields = {
 };
 
 const daemonThreadEventFields = {
+  providerSessionId: null,
   providerId: "codex",
   ...threadEventFields,
   environmentId: null,
@@ -149,6 +150,7 @@ interface CreateTurnEventFieldsArgs {
 
 function createTurnEventFields(args: CreateTurnEventFieldsArgs) {
   return {
+    providerSessionId: null,
     providerId: "codex",
     ...emptyItemFields,
     scope: turnScope(args.turnId),
@@ -630,6 +632,7 @@ describe("events", () => {
       (tx) =>
         appendDaemonEventsInTransaction(tx, [
           {
+            providerSessionId: null,
             providerId: "codex",
             threadId: thread.id,
             environmentId: null,
@@ -652,6 +655,7 @@ describe("events", () => {
             }),
           },
           {
+            providerSessionId: null,
             providerId: "codex",
             threadId: thread.id,
             environmentId: null,
@@ -673,6 +677,7 @@ describe("events", () => {
             }),
           },
           {
+            providerSessionId: null,
             providerId: "codex",
             threadId: thread.id,
             environmentId: null,
@@ -792,6 +797,7 @@ describe("events", () => {
       (tx) =>
         appendDaemonEventsInTransaction(tx, [
           {
+            providerSessionId: null,
             providerId: "codex",
             threadId: thread.id,
             environmentId: null,
@@ -807,6 +813,7 @@ describe("events", () => {
             }),
           },
           {
+            providerSessionId: null,
             providerId: "codex",
             threadId: thread.id,
             environmentId: null,
@@ -819,6 +826,7 @@ describe("events", () => {
             data: JSON.stringify({ providerThreadId, item: backgroundItem }),
           },
           {
+            providerSessionId: null,
             providerId: "codex",
             threadId: thread.id,
             environmentId: null,

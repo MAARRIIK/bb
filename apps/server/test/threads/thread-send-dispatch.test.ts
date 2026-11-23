@@ -801,7 +801,7 @@ describe("startup queue waits", () => {
           sessionId,
           eventGroups: groupHostDaemonEvents([
             {
-              providerId: "codex",
+              source: { providerId: "codex", providerSessionId: null },
               threadId: thread.id,
               event: {
                 type: "turn/started",
@@ -930,7 +930,7 @@ describe("startup queue waits", () => {
           sessionId,
           eventGroups: groupHostDaemonEvents([
             {
-              providerId: "codex",
+              source: { providerId: "codex", providerSessionId: null },
               threadId: thread.id,
               event: {
                 type: "turn/started",
@@ -1036,7 +1036,7 @@ describe("startup queue waits", () => {
           sessionId,
           eventGroups: groupHostDaemonEvents([
             {
-              providerId: "codex",
+              source: { providerId: "codex", providerSessionId: null },
               threadId: thread.id,
               event: {
                 type: "turn/started",
@@ -1376,7 +1376,7 @@ async function postProviderEvents(
       sessionId,
       eventGroups: groupHostDaemonEvents(
         events.map((event) => ({
-          providerId: "codex",
+          source: { providerId: "codex", providerSessionId: null },
           threadId: event.threadId,
           event,
         })),
@@ -2212,7 +2212,7 @@ describe("competing turn refusals", () => {
           sessionId: fixture.sessionId,
           eventGroups: groupHostDaemonEvents([
             {
-              providerId: "codex",
+              source: { providerId: "codex", providerSessionId: null },
               threadId: fixture.thread.id,
               event: {
                 type: "turn/completed",
@@ -2529,7 +2529,7 @@ describe("turn held open for background work", () => {
         sessionId: args.sessionId,
         eventGroups: groupHostDaemonEvents(
           args.events.map((event) => ({
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: args.threadId,
             event,
           })),

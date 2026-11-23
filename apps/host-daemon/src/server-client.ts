@@ -33,7 +33,11 @@ import {
   type HostDaemonSkillTreeManifest,
 } from "@bb/host-daemon-contract";
 import { HOST_ARTIFACT_MAX_BYTES } from "@bb/host-daemon-contract/protocol";
-import type { PendingInteractionCreate, ToolCallRequest } from "@bb/domain";
+import type {
+  PendingInteractionCreate,
+  ProviderSessionSource,
+  ToolCallRequest,
+} from "@bb/domain";
 import type { HostDaemonLogger } from "./logger.js";
 import type { EventPostResult } from "./event-sink.js";
 import { runtimeErrorLogFields } from "./error-utils.js";
@@ -226,10 +230,12 @@ export interface ServerClient {
   postEvents(events: HostDaemonEventEnvelope[]): Promise<EventPostResult>;
   callTool(
     request: ToolCallRequest,
-    signal?: AbortSignal,
+    signal: AbortSignal | undefined,
+    source: ProviderSessionSource | null,
   ): Promise<HostDaemonToolCallResponse>;
   registerInteractiveRequest(
     request: PendingInteractionCreate,
+    source: ProviderSessionSource | null,
   ): Promise<HostDaemonInteractiveRequestResponse>;
   interruptInteractiveRequests(args: {
     providerId: string;
@@ -530,9 +536,11 @@ export function createServerClient(
 
     async callTool(
       request: ToolCallRequest,
-      signal?: AbortSignal,
+      signal: AbortSignal | undefined,
+      source: ProviderSessionSource | null,
     ): Promise<HostDaemonToolCallResponse> {
       const payload: HostDaemonToolCallRequest = {
+        source,
         threadId: request.threadId,
         providerThreadId: request.providerThreadId,
         turnId: request.turnId,
@@ -559,11 +567,13 @@ export function createServerClient(
 
     async registerInteractiveRequest(
       request: PendingInteractionCreate,
+      source: ProviderSessionSource | null,
     ): Promise<HostDaemonInteractiveRequestResponse> {
       return pRetry(
         async () => {
           await options.beforeInteractiveRequestRegistrationAttempt?.();
           const payload: HostDaemonInteractiveRequest = {
+            source,
             sessionId: requireSessionId(),
             interaction: request,
           };

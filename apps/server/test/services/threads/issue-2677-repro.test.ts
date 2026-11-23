@@ -150,7 +150,7 @@ describe("child outcome reconciliation", () => {
         sessionId: fixture.sessionId,
         events: [
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: fixture.child.id,
             event: {
               type: "turn/started",
@@ -160,7 +160,7 @@ describe("child outcome reconciliation", () => {
             },
           },
           {
-            providerId: "codex",
+            source: { providerId: "codex", providerSessionId: null },
             threadId: fixture.child.id,
             event: {
               type: "turn/input/accepted",
