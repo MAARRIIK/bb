@@ -835,6 +835,9 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Report context usage, service tiers, and install status",
           "Distinguish unknown reasoning from confirmed models with no selectable levels",
         ],
+        reference: [
+          "AvailableModel.experimental_contextWindowTokens optionally reports a positive provider-declared capacity. Omit it when unknown. It is not proof of the actual served window; core's provider-switch preview labels it separately from a user declaration and reserves space for instructions, tools and the answer.",
+        ],
         apiSymbols: [
           "contextSnapshotSchema",
           "ContextSnapshot",
@@ -843,6 +846,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "PluginProviderDeclaration",
           "AvailableModel",
           "AvailableModel.reasoningDiscovery",
+          "AvailableModel.experimental_contextWindowTokens",
           "ModelServiceTier",
           "providerInstallationStatusParamsSchema",
           "ProviderInstallationStatusParams",
@@ -1669,6 +1673,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Check lexical containment separately with experimental_isHostPathWithin({ rootPath, candidatePath }): resolution allows .. escapes, and neither helper resolves symlinks",
           "Cap text with experimental_sliceUtf16Head(value, maxChars) from @get-bb/plugin-sdk, @get-bb/plugin-sdk/app or @get-bb/plugin-sdk/host (and experimental_sliceUtf16Tail from @get-bb/plugin-sdk/host) so a cut never leaves half an emoji, which strict agent providers such as Codex reject",
           "Narrow a rejected bb.sdk call with error instanceof experimental_BbHttpError from @get-bb/plugin-sdk, then read status, code (the server's error code or null) and body; it matches errors thrown by the host's copy of the SDK",
+          "Use bb.sdk.threads.experimental_providerSwitch.preview to inspect the exact partial context for a target provider/model and explicit permissions, then commit that preview with a stable operationId UUID. Core's header and CLI use the same path. Recent visible text or a supplied summary is transferred; hidden input, reasoning, tools and attachment contents are excluded and recognized credentials are redacted. A stale fingerprint needs a new preview. get and recover read or reconcile the saved operation after disconnects; preparation sends no user turn, and the approved packet accompanies the first real request.",
         ],
         apiSymbols: [
           "BbPluginApi",
@@ -1701,6 +1706,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "PluginBbSdk.threads.experimental_listCascade",
           "PluginBbSdk.threads.experimental_regenerateTitle",
           "PluginBbSdk.threads.experimental_headState",
+          "PluginBbSdk.threads.experimental_providerSwitch",
         ],
         firstParty: [
           "Account Pooler [Experimental]",

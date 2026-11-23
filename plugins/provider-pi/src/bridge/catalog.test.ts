@@ -126,6 +126,29 @@ function modelIds(result: { models: { id: string }[] }): string[] {
 }
 
 describe("pi catalog freshness", () => {
+  it("keeps absent and invalid declared context capacities unknown", async () => {
+    const paths = setUpFakeCatalog({});
+    writeFileSync(
+      paths.modelsPath,
+      JSON.stringify(
+        [undefined, null, 0, -1, 1.5, "32768"].map((contextWindow, index) => ({
+          ...FAKE_MODEL,
+          id: `unknown-window-${index}`,
+          contextWindow,
+        })),
+      ),
+    );
+    const catalog = await getPiCatalog(
+      paths.workspace,
+      paths.extensionPath,
+      {},
+    );
+    const result = await catalog.listModels();
+    expect(result.models).toHaveLength(6);
+    for (const model of result.models)
+      expect(model).not.toHaveProperty("experimental_contextWindowTokens");
+  }, 60_000);
+
   it("lists models after an earlier session's tool manifest is deleted", async () => {
     const paths = setUpFakeCatalog({});
     const toolsPath = join(paths.workspace, "previous-session-tools.json");
@@ -152,16 +175,18 @@ describe("pi catalog freshness", () => {
       paths.extensionPath,
       {},
     );
-    expect(modelIds(await catalog.listModels())).toEqual([
-      "fake-provider/fake-model",
-    ]);
+    const initial = await catalog.listModels();
+    expect(modelIds(initial)).toEqual(["fake-provider/fake-model"]);
+    expect(initial.models[0]?.experimental_contextWindowTokens).toBe(200_000);
 
     writeFileSync(paths.modelsPath, JSON.stringify([FAKE_MODEL, ADDED_MODEL]));
 
-    expect(modelIds(await catalog.listModels())).toEqual([
+    const refreshed = await catalog.listModels();
+    expect(modelIds(refreshed)).toEqual([
       "fake-provider/fake-model",
       "added-provider/added-model",
     ]);
+    expect(refreshed.models[1]?.experimental_contextWindowTokens).toBe(64_000);
     expect(readFileSync(paths.spawnCounterPath, "utf8")).toBe("1");
     expect(readLogLines(paths.refreshLogPath)).toEqual([
       JSON.stringify({ allowNetwork: false }),

@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
@@ -8,6 +8,7 @@ import {
   makeEnvironment,
   makeThread,
 } from "./helpers/command-output-fixtures.js";
+import { makeProviderSwitchPreview } from "./helpers/provider-switch-review.js";
 
 vi.mock("@bb/process-utils", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@bb/process-utils")>()),
@@ -79,6 +80,8 @@ const PLACEHOLDER_BY_OPTION: Record<string, string> = {
   "--host": IDS.host,
   "--thread": IDS.thread,
   "--project": IDS.project,
+  "--operation-id": "00000000-0000-4000-8000-000000000012",
+  "--preview-file": "provider-review.json",
 };
 
 const ARGUMENTS_BY_COMMAND: Record<string, readonly string[]> = {
@@ -571,6 +574,17 @@ describe("every command against failing server responses", () => {
     previousCwd = process.cwd();
     scratch = mkdtempSync(join(tmpdir(), "bb-cli-failing-server-"));
     process.chdir(scratch);
+    writeFileSync(
+      "provider-review.json",
+      JSON.stringify({
+        operationId: "00000000-0000-4000-8000-000000000012",
+        preview: makeProviderSwitchPreview({
+          threadId: IDS.thread,
+          environmentId: IDS.environment,
+          hostId: IDS.host,
+        }),
+      }),
+    );
   });
 
   afterAll(() => {

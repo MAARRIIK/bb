@@ -1,5 +1,9 @@
 import type { OperationResponse } from "@bb/server-contract";
 import {
+  createProviderSwitchArea,
+  type ExperimentalProviderSwitchArea,
+} from "./provider-switch.js";
+import {
   type PromptInput,
   type PendingInteraction,
   type PendingInteractionResolution,
@@ -620,6 +624,7 @@ export interface ThreadQueueArea {
 }
 
 export interface ThreadsArea {
+  experimental_providerSwitch: ExperimentalProviderSwitchArea;
   archive(args: ThreadActionArgs): Promise<ThreadArchiveResult>;
   archiveAll(args: ThreadActionArgs): Promise<ThreadArchiveAllResult>;
   childSummary(args: ThreadStatusArgs): Promise<ThreadChildSummaryResult>;
@@ -1304,6 +1309,7 @@ export function createThreadsArea(args: CreateSdkAreaArgs): ThreadsArea {
     },
   };
   return {
+    experimental_providerSwitch: createProviderSwitchArea(args),
     archive: archiveAll,
     archiveAll,
     async childSummary(input) {

@@ -65,6 +65,7 @@ import {
 } from "@bb/shared-ui/context-selection";
 import { usePaneContext } from "./PaneContext";
 import { PaneMaximizeButton } from "./PaneMaximizeButton";
+import { ThreadProviderSwitch } from "./ThreadProviderSwitch";
 
 const THREAD_HEADER_ACTION_BUTTON_CLASS = cn(
   COARSE_POINTER_TOOLBAR_ACTION_BUTTON_CLASS,
@@ -300,6 +301,18 @@ export function ThreadDetailHeader({
         data-thread-header-workflow-actions=""
       >
         {pluginActions}
+        {environmentId !== null ? (
+          <ThreadProviderSwitch
+            key={threadId}
+            threadId={threadId}
+            environmentId={environmentId}
+            className={HEADER_ICON_BUTTON_CLASS}
+            disabled={
+              thread.archivedAt !== null ||
+              (thread.status !== "idle" && thread.status !== "error")
+            }
+          />
+        ) : null}
         {!usesResponsiveActionOverflow && workspaceOpenButton ? (
           <span className="inline-flex" data-thread-header-responsive-action="">
             {workspaceOpenButton}

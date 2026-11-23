@@ -20,6 +20,7 @@ export interface PiCatalogModel {
   provider: string;
   reasoning: boolean;
   supportedThinkingLevels: readonly string[];
+  contextWindowTokens: number | null;
 }
 
 interface BuildPiAvailableModelsArgs {
@@ -57,6 +58,9 @@ function buildPiAvailableModel(model: PiCatalogModel): AvailableModel {
     model: canonicalId,
     displayName: model.name,
     routeProviderId: model.provider,
+    ...(model.contextWindowTokens === null
+      ? {}
+      : { experimental_contextWindowTokens: model.contextWindowTokens }),
     description: describePiModel(model),
     reasoningDiscovery: "known",
     supportedReasoningEfforts,

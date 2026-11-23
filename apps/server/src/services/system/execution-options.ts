@@ -464,6 +464,7 @@ export function resolveSystemExecutionOptions(
           requiredModel: query.selectedModel ?? null,
           selectedModel: query.selectedModel,
         },
+    null,
   );
 }
 
@@ -472,16 +473,22 @@ export function resolveSystemExecutionOptionsForValidation(
   query: SystemExecutionOptionsRequest,
   requiredModel: string | null,
 ): Promise<SystemExecutionOptionsResponse> {
-  return resolveExecutionOptions(deps, query, {
-    kind: "validation",
-    requiredModel,
-  });
+  return resolveExecutionOptions(
+    deps,
+    query,
+    {
+      kind: "validation",
+      requiredModel,
+    },
+    query.providerId ?? null,
+  );
 }
 
 async function resolveExecutionOptions(
   deps: LoggedWorkSessionDeps,
   query: SystemExecutionOptionsRequest,
   access: ProviderModelCatalogAccess,
+  onlyProviderId: string | null,
 ): Promise<SystemExecutionOptionsResponse> {
   if (query.providerId === undefined) {
     await deps.providerRegistry.whenRegistrationsSettled();
@@ -492,7 +499,10 @@ async function resolveExecutionOptions(
     requireProject(deps.db, query.projectId);
   }
   const { hostId, hostLookupError, providersPromise } =
-    resolveSystemProviderInfosPlan(deps, query);
+    resolveSystemProviderInfosPlan(deps, {
+      ...query,
+      ...(onlyProviderId === null ? {} : { onlyProviderId }),
+    });
   const cwd =
     query.environmentId !== undefined
       ? (requireEnvironment(deps.db, query.environmentId).path ?? undefined)

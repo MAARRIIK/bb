@@ -1,4 +1,14 @@
 import {
+  providerSwitchPreviewRequestSchema,
+  providerSwitchCommitRequestSchema,
+  providerSwitchOperationRequestSchema,
+  type ProviderSwitchPreviewRequest,
+  type ProviderSwitchCommitRequest,
+  type ProviderSwitchOperationRequest,
+  type ProviderSwitchPreview,
+  type ProviderSwitchReceipt,
+} from "./api/provider-switch.js";
+import {
   machineEnvironmentSetSchema,
   machineEnvironmentDeleteSchema,
   type MachineEnvironmentSet,
@@ -1633,6 +1643,38 @@ export const publicApiRoutes = {
       method: "post",
       request: noRequest<PathId>(),
       response: jsonResponse<OperationResponse>(),
+    }),
+    providerSwitchPreview: defineRoute({
+      path: "/threads/:id/provider-switch/preview",
+      method: "post",
+      request: jsonRequest<PathId, ProviderSwitchPreviewRequest>(
+        providerSwitchPreviewRequestSchema,
+      ),
+      response: jsonResponse<ProviderSwitchPreview>(),
+    }),
+    providerSwitchCommit: defineRoute({
+      path: "/threads/:id/provider-switch",
+      method: "post",
+      request: jsonRequest<PathId, ProviderSwitchCommitRequest>(
+        providerSwitchCommitRequestSchema,
+      ),
+      response: jsonResponse<ProviderSwitchReceipt>(),
+    }),
+    providerSwitchGet: defineRoute({
+      path: "/threads/:id/provider-switch",
+      method: "get",
+      request: queryRequest<PathId, ProviderSwitchOperationRequest>(
+        providerSwitchOperationRequestSchema,
+      ),
+      response: jsonResponse<ProviderSwitchReceipt>(),
+    }),
+    providerSwitchRecover: defineRoute({
+      path: "/threads/:id/provider-switch/recover",
+      method: "post",
+      request: jsonRequest<PathId, ProviderSwitchOperationRequest>(
+        providerSwitchOperationRequestSchema,
+      ),
+      response: jsonResponse<ProviderSwitchReceipt>(),
     }),
     cancelPlan: defineRoute({
       path: "/threads/:id/plan/cancel",
