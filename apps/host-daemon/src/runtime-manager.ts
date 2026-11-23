@@ -671,6 +671,7 @@ export class RuntimeManager {
     return (
       entry.terminals.size > 0 ||
       entry.runtime.getLiveThreadIds().length > 0 ||
+      entry.runtime.hasPendingProviderSessionTransition() ||
       entry.runtime.hasOpenBackgroundWork()
     );
   }

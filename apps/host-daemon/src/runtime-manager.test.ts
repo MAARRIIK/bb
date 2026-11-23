@@ -172,6 +172,21 @@ function createFakeRuntime() {
   let openBackgroundWork = false;
   const pendingTurnStartThreadIds = new Set<string>();
   return {
+    async prepareProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async adoptProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async rollbackProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async finalizeProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
+    async discardPreparedProviderSession() {
+      throw new Error("Unexpected prepared provider session control");
+    },
     ensureProvider: vi.fn(async (_args: EnsureProviderArgs) => undefined),
     startThread: vi.fn(async (_args: StartThreadArgs) => ({
       providerThreadId: "provider-1",
@@ -226,6 +241,7 @@ function createFakeRuntime() {
         ...pendingTurnStartThreadIds,
       ]),
     ],
+    hasPendingProviderSessionTransition: () => false,
     hasOpenBackgroundWork: () => openBackgroundWork,
     listOpenBackgroundWork: () => [],
     shutdown: vi.fn(async () => undefined),

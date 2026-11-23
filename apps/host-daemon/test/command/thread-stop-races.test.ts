@@ -339,6 +339,176 @@ function createRaceRouter(harness: RaceHarness): CommandRouter {
   });
 }
 
+describe("provider session transition commands", () => {
+  it("retains the old and prepared sessions across a shell environment refresh", async () => {
+    const harness = await createRaceHarness();
+    const start = threadStartCommand(harness, {
+      threadId: "t-retained-transition",
+    });
+    await dispatchCommand(start, harness.dispatchOptions);
+    const runtime = harness.requireRuntime();
+    const original = runtime.getProviderSession(start.threadId);
+    const {
+      type: _type,
+      input: _input,
+      requestId: _requestId,
+      ...context
+    } = start;
+    const prepare = {
+      ...context,
+      type: "thread.session.prepare" as const,
+      leaseId: "retained-lease",
+      providerId: "replacement",
+      providerSessionId: "retained-generation",
+      expectedSource: { providerId: start.providerId, providerSessionId: null },
+    };
+    await dispatchCommand(prepare, harness.dispatchOptions);
+    await harness.manager.replaceBaseShellEnv({
+      ...harness.manager.getShellEnv(),
+      BB_TRANSITION_FIXTURE: "refreshed",
+    });
+    expect(
+      harness.manager
+        .get(ENVIRONMENT_ID)
+        ?.runtime.getProviderSession(start.threadId),
+    ).toEqual(original);
+    await dispatchCommand(
+      {
+        type: "thread.session.discard",
+        environmentId: ENVIRONMENT_ID,
+        threadId: start.threadId,
+        leaseId: prepare.leaseId,
+      },
+      harness.dispatchOptions,
+    );
+    expect(runtime.getProviderSession(start.threadId)).toEqual(original);
+    expect(runtime.hasPendingProviderSessionTransition()).toBe(false);
+  });
+
+  it("serializes activation with queued turns and keeps the original native session available for rollback", async () => {
+    const harness = await createRaceHarness();
+    const router = createRaceRouter(harness);
+    const start = threadStartCommand(harness, { threadId: "t-transition" });
+    await dispatchCommand(start, harness.dispatchOptions);
+    const runtime = harness.requireRuntime();
+    const original = runtime.getProviderSession(start.threadId);
+    expect(original).not.toBeNull();
+    const {
+      type: _type,
+      input: _input,
+      requestId: _requestId,
+      ...context
+    } = start;
+    const preparation = {
+      ...context,
+      type: "thread.session.prepare" as const,
+      leaseId: "transition-lease",
+      providerId: "replacement",
+      providerSessionId: "replacement-generation",
+      expectedSource: { providerId: start.providerId, providerSessionId: null },
+      bridgeLaunch: await scriptedEchoDispatchLaunch({
+        scripted: { startDelayMs: 150 },
+      }),
+    };
+    const preparing = routerCommand(router, preparation);
+    await vi.waitFor(() =>
+      expect(harness.record.last("thread/start")?.params).toMatchObject({
+        threadId: "t-transition:prepare:transition-lease",
+      }),
+    );
+    const renaming = routerCommand(router, {
+      type: "thread.rename",
+      environmentId: ENVIRONMENT_ID,
+      threadId: start.threadId,
+      source: preparation.expectedSource,
+      title: "Same visible thread",
+    });
+    await expect(preparing).resolves.toMatchObject({ ok: true });
+    await expect(renaming).resolves.toMatchObject({ ok: true });
+    expect(runtime.getProviderSession(start.threadId)).toEqual(original);
+    const target = runtime.getProviderSession(
+      "t-transition:prepare:transition-lease",
+    );
+    if (!target) throw new Error("Preparation did not retain its target");
+    const control = {
+      environmentId: ENVIRONMENT_ID,
+      threadId: start.threadId,
+      leaseId: preparation.leaseId,
+      target,
+    };
+    await expect(
+      routerCommand(router, { ...control, type: "thread.session.adopt" }),
+    ).resolves.toMatchObject({ ok: true, result: target });
+    const submit = turnSubmitCommand(harness, {
+      threadId: start.threadId,
+      inputText: "Continue on the replacement",
+    });
+    submit.resumeContext = { ...submit.resumeContext, ...target };
+    const blocked = await routerCommand(router, submit);
+    expect(blocked.ok).toBe(false);
+    expect(runtime.getActiveTurnId(start.threadId)).toBeNull();
+    await expect(
+      routerCommand(router, {
+        ...control,
+        type: "thread.session.rollback",
+        restoreSource: preparation.expectedSource,
+      }),
+    ).resolves.toMatchObject({ ok: true, result: { session: original } });
+    expect(runtime.getProviderSession(start.threadId)).toEqual(original);
+    expect(runtime.hasPendingProviderSessionTransition()).toBe(false);
+    await expect(
+      routerCommand(router, {
+        ...preparation,
+        leaseId: "final-lease",
+        providerSessionId: "final-generation",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+    const finalTarget = runtime.getProviderSession(
+      "t-transition:prepare:final-lease",
+    );
+    if (!finalTarget)
+      throw new Error("Second preparation did not retain its target");
+    const finalControl = {
+      ...control,
+      leaseId: "final-lease",
+      target: finalTarget,
+    };
+    await expect(
+      routerCommand(router, { ...finalControl, type: "thread.session.adopt" }),
+    ).resolves.toMatchObject({ ok: true });
+    submit.resumeContext = { ...submit.resumeContext, ...finalTarget };
+    submit.requestId = nextClientRequestId();
+    const finalizing = routerCommand(router, {
+      ...finalControl,
+      type: "thread.session.finalize",
+    });
+    const continued = routerCommand(router, submit);
+    await expect(finalizing).resolves.toMatchObject({ ok: true });
+    await expect(continued).resolves.toMatchObject({ ok: true });
+    await vi.waitFor(() =>
+      expect(
+        harness.events.some(
+          (event) =>
+            event.type === "turn/completed" &&
+            event.threadId === start.threadId,
+        ),
+      ).toBe(true),
+    );
+    expect(runtime.getProviderSession(start.threadId)).toEqual(finalTarget);
+    expect(
+      harness.events.every((event) => event.threadId === start.threadId),
+    ).toBe(true);
+    expect(recordedThreadStops(harness)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          threadId: "t-transition:prepare:transition-lease",
+        }),
+        expect.objectContaining({ threadId: "t-transition" }),
+      ]),
+    );
+  });
+});
+
 describe("thread.stop race semantics", () => {
   it("interrupts the turn of a submit that was still in flight when the stop arrived", async () => {
     const harness = await createRaceHarness();

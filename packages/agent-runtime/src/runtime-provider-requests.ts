@@ -90,6 +90,12 @@ export class RuntimeProviderRequests {
       }
     }
   }
+
+  hasPendingThread(threadId: string): boolean {
+    return [...this.pending.values()].some((calls) =>
+      [...calls.values()].some((call) => call.threadId === threadId),
+    );
+  }
 }
 
 export type RuntimeProviderRequestKind = "interactive request" | "tool call";

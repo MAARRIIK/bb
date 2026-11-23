@@ -78,6 +78,7 @@ import {
   deleteThreadStorage,
   ensureThreadRuntime,
   prepareThreadRewind,
+  prepareProviderSession,
   startThread,
   submitTurn,
 } from "./command-handlers/thread.js";
@@ -419,6 +420,11 @@ async function withRetainedThreadEnvironment<TResult>(
   command: CommandOf<
     | "thread.rewind.discard"
     | "thread.rewind.prepare"
+    | "thread.session.prepare"
+    | "thread.session.adopt"
+    | "thread.session.rollback"
+    | "thread.session.finalize"
+    | "thread.session.discard"
     | "thread.start"
     | "turn.submit"
   >,
@@ -478,6 +484,54 @@ async function withResolvedBridgeLaunch<TResult>(
 }
 
 const commandHandlers: CommandHandlerMap = {
+  "thread.session.prepare": (command, options) =>
+    withRetainedThreadEnvironment(command, options, () =>
+      prepareProviderSession(command, options),
+    ),
+  "thread.session.adopt": (command, options) =>
+    withRetainedThreadEnvironment(command, options, async () => {
+      const entry = await options.runtimeManager.getOrAwait(
+        command.environmentId,
+      );
+      if (!entry)
+        throw new ExpectedCommandDispatchError(
+          "provider_session_unavailable",
+          "Prepared provider environment is unavailable",
+        );
+      return entry.runtime.adoptProviderSession(command);
+    }),
+  "thread.session.finalize": (command, options) =>
+    withRetainedThreadEnvironment(command, options, async () => {
+      const entry = await options.runtimeManager.getOrAwait(
+        command.environmentId,
+      );
+      if (!entry)
+        throw new ExpectedCommandDispatchError(
+          "provider_session_unavailable",
+          "Prepared provider environment is unavailable",
+        );
+      await entry.runtime.finalizeProviderSession(command);
+      return {};
+    }),
+  "thread.session.rollback": (command, options) =>
+    withRetainedThreadEnvironment(command, options, async () => {
+      const entry = await options.runtimeManager.getOrAwait(
+        command.environmentId,
+      );
+      return {
+        session: entry
+          ? await entry.runtime.rollbackProviderSession(command)
+          : null,
+      };
+    }),
+  "thread.session.discard": (command, options) =>
+    withRetainedThreadEnvironment(command, options, async () => {
+      const entry = await options.runtimeManager.getOrAwait(
+        command.environmentId,
+      );
+      await entry?.runtime.discardPreparedProviderSession(command);
+      return {};
+    }),
   "thread.rewind.discard": (command, options) =>
     withRetainedThreadEnvironment(command, options, () =>
       discardThreadRewind(command, options),
