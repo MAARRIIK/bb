@@ -311,6 +311,8 @@ export function registerSystemRoutes(
         : undefined;
     const updatedSettings = appSettingsSchema.parse({
       ...settings,
+      interfaceLanguage:
+        settings.interfaceLanguage ?? current.interfaceLanguage,
       idleProviderSessionTimeoutMinutes:
         settings.idleProviderSessionTimeoutMinutes === undefined
           ? current.idleProviderSessionTimeoutMinutes

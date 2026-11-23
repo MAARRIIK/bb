@@ -1,0 +1,97 @@
+import type { ResolvedInterfaceLanguage } from "@bb/domain";
+
+const russian = new Map<string, string>(
+  Object.entries({
+    Settings: "Настройки",
+    General: "Основные",
+    Providers: "Провайдеры",
+    "AI services": "Сервисы ИИ",
+    Appearance: "Оформление",
+    Keyboard: "Клавиатура",
+    Browser: "Браузер",
+    Files: "Файлы",
+    Projects: "Проекты",
+    Machines: "Машины",
+    Mobile: "Мобильные устройства",
+    "Environment variables": "Переменные окружения",
+    Updates: "Обновления",
+    "Installed plugins": "Установленные плагины",
+    "Plugin marketplaces": "Каталоги плагинов",
+    Experiments: "Эксперименты",
+    Community: "Сообщество",
+    "Archived threads": "Архив диалогов",
+    Archived: "Архив",
+    Plugins: "Плагины",
+    "This phone": "Этот телефон",
+    "This device": "Это устройство",
+    "Back to app": "Вернуться в приложение",
+    Search: "Поиск",
+    "Search settings": "Поиск настроек",
+    "Clear settings search": "Очистить поиск настроек",
+    "Settings search results": "Результаты поиска настроек",
+    "No settings found": "Настройки не найдены",
+    Language: "Язык",
+    "Interface language": "Язык интерфейса",
+    "Choose interface language": "Выбрать язык интерфейса",
+    "System language": "Как в системе",
+    "Use this device's preferred supported language.":
+      "Использовать поддерживаемый язык этого устройства.",
+    "Use English for the interface.": "Показывать интерфейс на английском.",
+    "Use Russian for the interface.": "Показывать интерфейс на русском.",
+    "Applies to connected clients without restarting. Code, filenames and model replies are unchanged.":
+      "Применяется на подключённых устройствах без перезапуска. Код, имена файлов и ответы моделей сохраняют исходный язык.",
+    "Russian translations currently cover settings navigation and selected general and appearance controls. Other text uses English while translation continues.":
+      "Сейчас переведены навигация настроек и часть основных настроек и оформления. Остальной текст остаётся на английском до завершения перевода.",
+    "Threads & editing": "Диалоги и редактирование",
+    "Navigate to threads on creation": "Открывать диалог после создания",
+    "Default thread followup behavior": "Поведение Enter в активном диалоге",
+    "What Enter does in the prompt box while the thread runs.":
+      "Действие клавиши Enter в поле ввода во время работы агента.",
+    "Thread archive confirmation": "Подтверждать архивацию диалога",
+    "Show messages from before a context clear":
+      "Показывать сообщения до очистки контекста",
+    "Resume interrupted threads after a restart":
+      "Продолжать прерванные диалоги после перезапуска",
+    "Summarize shell commands": "Краткие описания команд терминала",
+    "New branch prefix": "Префикс новых веток",
+    "Setup guide": "Начальная настройка",
+    "Replay setup guide": "Повторить начальную настройку",
+    Links: "Ссылки",
+    "Open links in the in-app browser":
+      "Открывать ссылки во встроенном браузере",
+    "Rewrite localhost links": "Переписывать ссылки localhost",
+    Terminals: "Терминалы",
+    "Copy on select": "Копировать при выделении",
+    "Privacy & diagnostics": "Конфиденциальность и диагностика",
+    "Streamer mode": "Режим трансляции",
+    "Share anonymous usage data":
+      "Отправлять анонимную статистику использования",
+    "Show diagnostic events": "Показывать диагностические события",
+    Theme: "Тема",
+    Palette: "Палитра",
+    "Favicon color": "Цвет значка вкладки",
+    Navigation: "Навигация",
+    "Sidebar thread list": "Список диалогов в боковой панели",
+    "Sidebar footer": "Нижняя часть боковой панели",
+    "Fade inactive splits": "Затемнять неактивные панели",
+    "Source code": "Исходный код",
+    Diffs: "Изменения",
+    Light: "Светлая",
+    Dark: "Тёмная",
+    System: "Системная",
+    Steer: "Уточнить задачу",
+    Queue: "Добавить в очередь",
+    Save: "Сохранить",
+    Cancel: "Отмена",
+    Reset: "Сбросить",
+    Default: "По умолчанию",
+    "Reset to default": "Вернуть значение по умолчанию",
+  }),
+);
+
+export function translateInterfaceText(
+  message: string,
+  language: ResolvedInterfaceLanguage,
+): string {
+  return language === "ru" ? (russian.get(message) ?? message) : message;
+}

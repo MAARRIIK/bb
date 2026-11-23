@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { PluginActionContextProvider } from "./lib/plugin-action-context-provider";
 import { App } from "./App";
+import { AppLanguageProvider } from "./lib/interface-language";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { ApplicationUrlDialog } from "./components/ApplicationUrlDialog";
 import { AppToaster } from "./components/AppToaster";
@@ -51,13 +52,15 @@ createRoot(document.getElementById("root")!, {
   <StrictMode>
     <AppErrorBoundary>
       <QueryClientProvider client={appQueryClient}>
-        <BrowserRouter>
-          <PluginActionContextProvider>
-            <App />
-          </PluginActionContextProvider>
-          <AppToaster />
-          <ApplicationUrlDialog />
-        </BrowserRouter>
+        <AppLanguageProvider>
+          <BrowserRouter>
+            <PluginActionContextProvider>
+              <App />
+            </PluginActionContextProvider>
+            <AppToaster />
+            <ApplicationUrlDialog />
+          </BrowserRouter>
+        </AppLanguageProvider>
       </QueryClientProvider>
     </AppErrorBoundary>
   </StrictMode>,

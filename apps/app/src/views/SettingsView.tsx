@@ -1,4 +1,6 @@
 import { ApplicationLinkApprovalsSettings } from "@/components/settings/ApplicationLinkApprovalsSettings";
+import { LanguageSettingsSection } from "@/components/settings/LanguageSettingsSection";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import { MobileAppSection } from "@/components/settings/MobileAppSection";
 import { MachineEnvironmentSettings } from "@/components/settings/MachineEnvironmentSettings";
 import { MachineAccessSettings } from "@/components/settings/MachineAccessSettings";
@@ -713,6 +715,7 @@ export function AppearanceSettingsSection({
   onThemePreferenceChange,
   themePreference,
 }: AppearanceSettingsSectionProps) {
+  const { t } = useInterfaceTranslation();
   const paletteSelectedRef = useRef(false);
   const previewPalette = (themeId: string | null) => {
     if (themeId === null && paletteSelectedRef.current) return;
@@ -733,9 +736,9 @@ export function AppearanceSettingsSection({
                   variant="outline"
                   size="sm"
                   className={SETTINGS_DROPDOWN_TRIGGER_CLASS}
-                  aria-label="Theme"
+                  aria-label={t("Theme")}
                 >
-                  {THEME_PREFERENCE_LABELS[themePreference]}
+                  {t(THEME_PREFERENCE_LABELS[themePreference])}
                   <Icon
                     name="ChevronDown"
                     className="size-3.5 text-muted-foreground"
@@ -751,7 +754,7 @@ export function AppearanceSettingsSection({
                     key={option.value}
                     onSelect={() => onThemePreferenceChange(option.value)}
                   >
-                    {option.label}
+                    {t(option.label)}
                     <Icon
                       name="Check"
                       className={cn(
@@ -898,6 +901,7 @@ export function GeneralSettingsSection({
   rewriteLocalhostLinks,
   steerActiveThreadOnEnter,
 }: GeneralSettingsSectionProps) {
+  const { t } = useInterfaceTranslation();
   const localhostRewriteDescription = localhostLinkRewriteDescription(
     typeof window === "undefined" ? undefined : window.location.hostname,
   );
@@ -928,7 +932,7 @@ export function GeneralSettingsSection({
                   disabled={generalSettingsDisabled}
                   aria-label={FOLLOW_UP_BEHAVIOR_SETTING_LABEL}
                 >
-                  {steerActiveThreadOnEnter ? "Steer" : "Queue"}
+                  {t(steerActiveThreadOnEnter ? "Steer" : "Queue")}
                   <Icon
                     name="ChevronDown"
                     className="size-3.5 text-muted-foreground"
@@ -1458,6 +1462,13 @@ export function SettingsView() {
   } else {
     content = (
       <>
+        <LanguageSettingsSection
+          preference={generalSettings.interfaceLanguage}
+          disabled={systemConfigQuery.data === undefined}
+          onChange={(interfaceLanguage) =>
+            updateGeneralSettingsMutation.mutate({ interfaceLanguage })
+          }
+        />
         <GeneralSettingsSection
           confirmThreadArchive={generalSettings.confirmThreadArchive}
           onConfirmThreadArchiveChange={(enabled) =>

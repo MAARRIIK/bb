@@ -1,4 +1,5 @@
 import { useCorePageTitle } from "./core-page-title";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import { type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -344,11 +345,14 @@ const routeTitles: Record<string, { title: string }> = {
   "/skills": { title: "Skills" },
 };
 
-function resolveRouteTitle(pathname: string): { title: string } | undefined {
-  if (matchPath(`${SETTINGS_ROUTE_PATH}/*`, pathname)) {
-    return routeTitles[SETTINGS_ROUTE_PATH];
-  }
-  return routeTitles[pathname];
+function resolveRouteTitle(
+  pathname: string,
+  translate: (message: string) => string,
+): { title: string } | undefined {
+  const route = matchPath(`${SETTINGS_ROUTE_PATH}/*`, pathname)
+    ? routeTitles[SETTINGS_ROUTE_PATH]
+    : routeTitles[pathname];
+  return route ? { title: translate(route.title) } : undefined;
 }
 
 interface AppHeaderProps {
@@ -469,6 +473,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 }
 
 function AppLayoutContent({ children }: AppLayoutProps) {
+  const { t } = useInterfaceTranslation();
   const quickCreateProject = useQuickCreateProjectController();
   const isCompactViewport = useIsCompactViewport();
   const store = useStore();
@@ -680,7 +685,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
             ? {
                 title: projectLabel ?? projectId,
               }
-            : (resolveRouteTitle(location.pathname) ?? { title: "" });
+            : (resolveRouteTitle(location.pathname, t) ?? { title: "" });
 
   const documentTitle = (() => {
     if (focusedPageTitle) {
@@ -709,7 +714,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
     if (projectId) {
       return projectLabel ?? projectId;
     }
-    const routeTitle = resolveRouteTitle(location.pathname)?.title;
+    const routeTitle = resolveRouteTitle(location.pathname, t)?.title;
     return routeTitle && routeTitle.length > 0 ? routeTitle : "BB";
   })();
   const currentThreadPendingInteractionsQuery = useThreadPendingInteractions(

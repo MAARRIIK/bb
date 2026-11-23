@@ -8,6 +8,45 @@ import { seedHostSession, seedPrimaryHost } from "../helpers/seed.js";
 import { createMockHubSocket } from "../helpers/mock-hub-socket.js";
 
 describe("general settings", () => {
+  it("persists interface language, rejects unsupported values and preserves it for older clients", async () => {
+    await withTestHarness(async (harness) => {
+      const put = (settings: object) =>
+        harness.app.request("/api/v1/settings/general", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(settings),
+        });
+      for (const interfaceLanguage of ["en", "system", "ru"]) {
+        const response = await put({
+          ...defaultAppSettings,
+          interfaceLanguage,
+        });
+        expect(response.status).toBe(200);
+        const config = systemConfigResponseSchema.parse(
+          await readJson(await harness.app.request("/api/v1/system/config")),
+        );
+        expect(config.generalSettings.interfaceLanguage).toBe(
+          interfaceLanguage,
+        );
+      }
+      const { interfaceLanguage, ...legacy } = defaultAppSettings;
+      expect(interfaceLanguage).toBe("system");
+      expect((await put({ ...legacy, showKeyboardHints: false })).status).toBe(
+        200,
+      );
+      for (const invalid of ["fr", "", null, true]) {
+        expect(
+          (await put({ ...defaultAppSettings, interfaceLanguage: invalid }))
+            .status,
+        ).toBe(400);
+      }
+      expect(getAppSettings(harness.db)).toMatchObject({
+        interfaceLanguage: "ru",
+        showKeyboardHints: false,
+      });
+    });
+  });
+
   it("persists idle timeout changes, pushes them to daemons and preserves them for older clients", async () => {
     await withTestHarness(async (harness) => {
       const { host, session } = seedHostSession(harness.deps);
@@ -285,10 +324,7 @@ it("preserves telemetry opt-out when older clients update other settings", async
   });
 });
 
-it.each([
-  "confirmThreadArchive",
-  "summarizeShellCommands",
-] as const)(
+it.each(["confirmThreadArchive", "summarizeShellCommands"] as const)(
   "persists %s opt-out and preserves it for older clients",
   async (key) => {
     await withTestHarness(async (harness) => {

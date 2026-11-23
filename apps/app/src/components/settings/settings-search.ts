@@ -40,6 +40,19 @@ export const SETTINGS_SEARCH_INDEX: Record<
     keywords: ["preferences"],
     settings: [
       {
+        title: "Interface language",
+        keywords: [
+          "language",
+          "locale",
+          "translation",
+          "Russian",
+          "English",
+          "русский",
+          "язык",
+          "перевод",
+        ],
+      },
+      {
         title: "Navigate to threads on creation",
         keywords: ["new thread", "open", "background"],
       },

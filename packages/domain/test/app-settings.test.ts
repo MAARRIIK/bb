@@ -4,7 +4,26 @@ import {
   defaultAppSettings,
   managedBranchPrefixSchema,
   MANAGED_BRANCH_PREFIX_MAX_LENGTH,
+  resolveInterfaceLanguage,
+  type InterfaceLanguage,
 } from "../src/app-settings.js";
+
+describe("interface language resolution", () => {
+  it.each<[InterfaceLanguage, string[], string]>([
+    ["ru", ["en-US"], "ru"],
+    ["en", ["ru-RU"], "en"],
+    ["system", ["fr-FR", "ru-RU", "en-US"], "ru"],
+    ["system", ["en-GB", "ru"], "en"],
+    ["system", ["RU_ru"], "ru"],
+    ["system", ["fr-FR"], "en"],
+    ["system", [], "en"],
+  ])(
+    "resolves %s with device languages %j to %s",
+    (preference, languages, expected) => {
+      expect(resolveInterfaceLanguage(preference, languages)).toBe(expected);
+    },
+  );
+});
 
 describe("managedBranchPrefixSchema", () => {
   it("accepts prefixes that start a valid branch name", () => {

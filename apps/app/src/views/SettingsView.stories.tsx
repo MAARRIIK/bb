@@ -11,6 +11,7 @@ import {
   type ExperimentUpdates,
   defaultAppSettings,
   type AppSettings,
+  type InterfaceLanguage,
 } from "@bb/domain";
 import type {
   WorkspaceOpenTarget,
@@ -53,6 +54,7 @@ import {
 import { MachineSettingsView } from "./MachineSettingsView";
 import { ProjectDetailSettingsView } from "./ProjectDetailSettingsView";
 import { ProvidersSettingsSection } from "@/components/settings/ProvidersSettingsSection";
+import { LanguageSettingsSection } from "@/components/settings/LanguageSettingsSection";
 
 export default {
   title: "settings/Settings",
@@ -198,9 +200,16 @@ function GeneralSettingsStory({
   const [resumeThreadsAfterRestart, setResumeThreadsAfterRestart] =
     useState(false);
   const [terminalCopyOnSelect, setTerminalCopyOnSelect] = useState(true);
+  const [interfaceLanguage, setInterfaceLanguage] =
+    useState<InterfaceLanguage>("system");
 
   return (
     <>
+      <LanguageSettingsSection
+        preference={interfaceLanguage}
+        disabled={false}
+        onChange={setInterfaceLanguage}
+      />
       <GeneralSettingsSection
         resumeThreadsAfterRestart={resumeThreadsAfterRestart}
         onResumeThreadsAfterRestartChange={setResumeThreadsAfterRestart}
