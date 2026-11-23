@@ -1,4 +1,5 @@
 import { appQueryClient } from "@/lib/app-query-client";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import { applicationLinkApprovalsQueryKey } from "@/hooks/cache-owners/application-link-approvals-cache-owner";
 import { useQuery } from "@tanstack/react-query";
 import { useId } from "react";
@@ -9,6 +10,7 @@ import { appToast } from "@/components/ui/app-toast";
 import { SettingsWithControl } from "@/components/ui/settings-section";
 
 export function ApplicationLinkApprovalsSettings() {
+  const { t } = useInterfaceTranslation();
   const listLabelId = useId();
   const approvals = useQuery(
     {
@@ -23,8 +25,8 @@ export function ApplicationLinkApprovalsSettings() {
     try {
       await applicationLinkApprovals.revoke(scheme);
     } catch (error) {
-      appToast.error("Couldn't remove app link approval", {
-        description: error instanceof Error ? error.message : "Try again.",
+      appToast.error(t("Couldn't remove app link approval"), {
+        description: error instanceof Error ? error.message : t("Try again."),
       });
     }
   };
@@ -36,14 +38,14 @@ export function ApplicationLinkApprovalsSettings() {
         controlPlacement="below"
       >
         {approvals.isPending ? (
-          <p className="text-xs text-subtle-foreground">Loading…</p>
+          <p className="text-xs text-subtle-foreground">{t("Loading…")}</p>
         ) : approvals.isError ? (
           <p className="text-xs text-destructive-text">
             {approvals.error.message}
           </p>
         ) : approvals.data.length === 0 ? (
           <p className="text-xs text-subtle-foreground">
-            No apps are always allowed.
+            {t("No apps are always allowed.")}
           </p>
         ) : (
           <div className="space-y-1">
@@ -51,7 +53,7 @@ export function ApplicationLinkApprovalsSettings() {
               id={listLabelId}
               className="text-xs font-medium text-subtle-foreground"
             >
-              Always allowed
+              {t("Always allowed")}
             </p>
             <ul
               aria-labelledby={listLabelId}
@@ -69,7 +71,7 @@ export function ApplicationLinkApprovalsSettings() {
                     size="icon"
                     variant="ghost"
                     className="-mr-2 size-8 shrink-0 text-subtle-foreground"
-                    aria-label={`Remove ${scheme} approval`}
+                    aria-label={t("Remove {scheme} approval", { scheme })}
                     onClick={() => {
                       void revoke(scheme);
                     }}

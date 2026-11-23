@@ -5,6 +5,7 @@ import {
   InterfaceLanguageProvider,
   useInterfaceTranslation,
 } from "./interface-language";
+import { translateInterfaceText } from "./interface-translations";
 
 function LanguageExample() {
   const { t } = useInterfaceTranslation();
@@ -23,6 +24,23 @@ afterEach(() => {
 });
 
 describe("interface language", () => {
+  it("interpolates literal data without recursively translating or replacing its contents", () => {
+    const values = { title: "Settings/{source}/$&", source: "my-plugin" };
+    expect(
+      translateInterfaceText("Chooses {title} ({source}).", "ru", values),
+    ).toBe("Выбирает Settings/{source}/$& (my-plugin).");
+    expect(
+      translateInterfaceText("Chooses {title} ({source}).", "en", values),
+    ).toBe("Chooses Settings/{source}/$& (my-plugin).");
+    expect(
+      translateInterfaceText(
+        "Unknown {title}: {missing} {toString}",
+        "ru",
+        values,
+      ),
+    ).toBe("Unknown Settings/{source}/$&: {missing} {toString}");
+  });
+
   it("changes live without translating user content and restores document language on unmount", () => {
     const previousLanguage = document.documentElement.lang;
     const view = render(

@@ -1,5 +1,16 @@
 import { PickerLoadingRows } from "@/components/pickers/PickerLoadingRows";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import { defineSplit } from "@/lib/define-split";
+
+function MicrophonePreferencesLoading() {
+  const { t } = useInterfaceTranslation();
+  return (
+    <PickerLoadingRows
+      label={t("Loading microphones")}
+      rowDataAttribute="data-microphone-loading-row"
+    />
+  );
+}
 
 export const MicrophonePreferencesSplit = defineSplit<{
   open: boolean;
@@ -10,11 +21,6 @@ export const MicrophonePreferencesSplit = defineSplit<{
     import("./MicrophonePreferences").then(
       (module) => module.MicrophonePreferences,
     ),
-  loading: () => (
-    <PickerLoadingRows
-      label="Loading microphones"
-      rowDataAttribute="data-microphone-loading-row"
-    />
-  ),
+  loading: MicrophonePreferencesLoading,
   tier: "intent",
 });

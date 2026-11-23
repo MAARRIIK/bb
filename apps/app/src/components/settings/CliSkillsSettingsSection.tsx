@@ -1,5 +1,10 @@
 import { useMemo, useState } from "react";
-import type { Host } from "@bb/domain";
+import type { Host, ResolvedInterfaceLanguage } from "@bb/domain";
+import { useInterfaceTranslation } from "@/lib/interface-language";
+import {
+  translateInterfaceText,
+  type InterfaceTranslator,
+} from "@/lib/interface-translations";
 import type {
   CliSkillMachineStatus,
   SystemCliSkillsStatusResponse,
@@ -33,21 +38,29 @@ function installDescription(hasConnectedMachine: boolean): string {
 
 export function summarizeMachineStatuses(
   statuses: readonly CliSkillMachineStatus[],
+  language: ResolvedInterfaceLanguage = "en",
 ): string | null {
+  const t: InterfaceTranslator = (message, values) =>
+    translateInterfaceText(message, language, values);
   const known = statuses.filter((status) => status !== "unknown");
   if (known.length === 0) return null;
   const installed = known.filter((status) => status === "installed").length;
   if (installed === known.length) {
     return known.length > 1
-      ? `Installed on ${known.length} machines`
-      : "Installed";
+      ? t("Installed on {count} machines", { count: known.length })
+      : t("Installed");
   }
   if (installed > 0) {
-    return `Installed on ${installed} of ${known.length} machines`;
+    return t("Installed on {installed} of {total} machines", {
+      installed,
+      total: known.length,
+    });
   }
-  return known.some((status) => status === "outdated")
-    ? "Out of date"
-    : "Not installed";
+  return t(
+    known.some((status) => status === "outdated")
+      ? "Out of date"
+      : "Not installed",
+  );
 }
 
 export function CliSkillsSettingsSectionContent({
@@ -56,6 +69,7 @@ export function CliSkillsSettingsSectionContent({
   pending,
   statusBadge,
 }: CliSkillsSettingsSectionContentProps) {
+  const { t } = useInterfaceTranslation();
   return (
     <SettingsSection title="Skills">
       <SettingsWithControl
@@ -70,23 +84,26 @@ export function CliSkillsSettingsSectionContent({
           size="sm"
           disabled={!hasConnectedMachine || pending}
           onClick={onOpenPicker}
-          aria-label={`Install ${CLI_SKILLS_SETTING_LABEL}`}
+          aria-label={t("Install bb CLI skills")}
         >
-          {pending ? "Installing…" : "Install"}
+          {t(pending ? "Installing…" : "Install")}
         </Button>
       </SettingsWithControl>
     </SettingsSection>
   );
 }
 
-function reportInstallResults(result: SystemInstallCliSkillsResponse): void {
+function reportInstallResults(
+  result: SystemInstallCliSkillsResponse,
+  t: InterfaceTranslator,
+): void {
   const installed = result.results.filter((entry) => entry.ok);
   const failed = result.results.filter((entry) => !entry.ok);
   if (installed.length > 0) {
     appToast.success(
-      `Installed the bb CLI skills on ${installed
-        .map((entry) => entry.hostName)
-        .join(", ")}`,
+      t("Installed the bb CLI skills on {hosts}", {
+        hosts: installed.map((entry) => entry.hostName).join(", "),
+      }),
     );
   }
   for (const entry of failed) {
@@ -103,6 +120,7 @@ function statusByHostId(
 }
 
 export function CliSkillsSettingsSection() {
+  const { t, language } = useInterfaceTranslation();
   const hostsQuery = useHosts();
   const statusQuery = useCliSkillsStatus();
   const installCliSkills = useInstallCliSkills();
@@ -118,7 +136,7 @@ export function CliSkillsSettingsSection() {
       <CliSkillsSettingsSectionContent
         hasConnectedMachine={hosts.some((host) => host.status === "connected")}
         pending={installCliSkills.isPending}
-        statusBadge={summarizeMachineStatuses([...statuses.values()])}
+        statusBadge={summarizeMachineStatuses([...statuses.values()], language)}
         onOpenPicker={() => setPickerOpen(true)}
       />
       <InstallCliSkillsDialog
@@ -134,7 +152,7 @@ export function CliSkillsSettingsSection() {
             {
               onSuccess: (result) => {
                 setPickerOpen(false);
-                reportInstallResults(result);
+                reportInstallResults(result, t);
                 void statusQuery.refetch();
               },
             },

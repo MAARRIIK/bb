@@ -1,4 +1,5 @@
 import type { ComponentProps } from "react";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import { Button } from "@bb/shared-ui/button";
 import { Icon } from "@bb/shared-ui/icon";
 import { PopoverContent } from "@bb/shared-ui/popover";
@@ -16,22 +17,23 @@ export function MicrophonePreferencesPopoverContent({
   warning: string | null;
   onCaptureReady?: () => void;
 }) {
+  const { t } = useInterfaceTranslation();
   return (
     <PopoverContent
-      aria-label="Voice preferences"
-      mobileTitle="Voice preferences"
+      aria-label={t("Voice preferences")}
+      mobileTitle={t("Voice preferences")}
       sideOffset={8}
       className="w-80 rounded-xl p-4 shadow-lg"
       {...props}
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold">Microphone</h2>
+          <h2 className="text-sm font-semibold">{t("Microphone")}</h2>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Close voice preferences"
+            aria-label={t("Close voice preferences")}
             onClick={onClose}
           >
             <Icon name="X" className="size-4" />

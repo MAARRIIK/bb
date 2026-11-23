@@ -171,7 +171,7 @@ export function SettingsWithControl({
             <p className="min-w-0 text-sm font-normal text-foreground">
               {t(label)}
             </p>
-            {labelBadge ? <SettingsBadge>{labelBadge}</SettingsBadge> : null}
+            {labelBadge ? <SettingsBadge>{t(labelBadge)}</SettingsBadge> : null}
           </div>
           {description ? (
             <p className="mt-0.5 text-xs leading-snug text-subtle-foreground/75">

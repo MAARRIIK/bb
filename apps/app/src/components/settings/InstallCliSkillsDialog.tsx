@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import type { Host } from "@bb/domain";
 import type { CliSkillMachineStatus } from "@bb/server-contract";
 import { Button } from "@bb/shared-ui/button";
@@ -47,6 +48,7 @@ function InstallCliSkillsDialogContent({
   pending,
   statusByHostId,
 }: InstallCliSkillsDialogContentProps) {
+  const { t } = useInterfaceTranslation();
   const connectedHostIds = useMemo(
     () => hosts.filter(isConnected).map((host) => host.id),
     [hosts],
@@ -61,11 +63,16 @@ function InstallCliSkillsDialogContent({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Install bb CLI skills</DialogTitle>
+        <DialogTitle>{t("Install bb CLI skills")}</DialogTitle>
         <DialogDescription>
           {choosable
-            ? "Choose the machines to install them onto. Each one gets the skills in ~/.agents/skills and ~/.claude/skills, replacing any copy already there."
-            : `The skills go in ~/.agents/skills and ~/.claude/skills on ${hosts[0]?.name ?? "the selected machine"}, replacing any copy already there.`}
+            ? t(
+                "Choose the machines to install them onto. Each one gets the skills in ~/.agents/skills and ~/.claude/skills, replacing any copy already there.",
+              )
+            : t(
+                "The skills go in ~/.agents/skills and ~/.claude/skills on {host}, replacing any copy already there.",
+                { host: hosts[0]?.name ?? t("the selected machine") },
+              )}
         </DialogDescription>
       </DialogHeader>
 
@@ -98,7 +105,7 @@ function InstallCliSkillsDialogContent({
                 <span className="min-w-0 truncate">{host.name}</span>
                 {statusLabel === null ? null : (
                   <span className="ml-auto shrink-0 text-xs text-subtle-foreground">
-                    {statusLabel}
+                    {t(statusLabel)}
                   </span>
                 )}
               </label>
@@ -114,14 +121,14 @@ function InstallCliSkillsDialogContent({
           disabled={pending}
           onClick={onCancel}
         >
-          Cancel
+          {t("Cancel")}
         </Button>
         <Button
           type="button"
           disabled={pending || selected.length === 0}
           onClick={() => onInstall([...selected])}
         >
-          {pending ? "Installing…" : "Install"}
+          {t(pending ? "Installing…" : "Install")}
         </Button>
       </DialogFooter>
     </>

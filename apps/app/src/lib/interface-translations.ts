@@ -1,5 +1,10 @@
 import type { ResolvedInterfaceLanguage } from "@bb/domain";
 
+export type InterfaceTranslator = (
+  message: string,
+  values?: Readonly<Record<string, string | number>>,
+) => string;
+
 const russian = new Map<string, string>(
   Object.entries({
     Settings: "Настройки",
@@ -86,12 +91,191 @@ const russian = new Map<string, string>(
     Reset: "Сбросить",
     Default: "По умолчанию",
     "Reset to default": "Вернуть значение по умолчанию",
+    "Ask before archiving a thread with unarchived child threads.":
+      "Запрашивать подтверждение, если у диалога есть неархивированные дочерние диалоги.",
+    "Earlier messages stay in the thread for you to read. The agent doesn't see them.":
+      "Ранние сообщения остаются в диалоге для чтения. Агент их не видит.",
+    "Resume threads interrupted by an update, crash or restart, and tell the agent what was cut off. Queued messages send afterward.":
+      "Продолжать диалоги, прерванные обновлением, сбоем или перезапуском, и сообщать агенту о прерывании. Затем отправляются сообщения из очереди.",
+    "Show short summaries for commands that read, list, or search files. Turn off to show command text and let you expand each command to view its output.":
+      "Показывать краткие описания команд чтения, просмотра и поиска файлов. При отключении отображается текст команды; её можно раскрыть и посмотреть вывод.",
+    "Walk through connecting an agent, adding projects, plugins, and devices again.":
+      "Ещё раз пройти подключение агента, добавление проектов, плагинов и устройств.",
+    "Show setup guide": "Открыть начальную настройку",
+    "Enter adds a follow-up. It runs when the agent stops. Command+Enter (Ctrl+Enter on Windows and Linux) steers the run.":
+      "Enter добавляет запрос в очередь до остановки агента. Command+Enter (Ctrl+Enter в Windows и Linux) уточняет текущую задачу.",
+    "Enter steers the run now. Command+Enter (Ctrl+Enter on Windows and Linux) adds a follow-up for later.":
+      "Enter уточняет текущую задачу. Command+Enter (Ctrl+Enter в Windows и Linux) добавляет запрос в очередь.",
+    "Open web links inside bb.": "Открывать веб-ссылки внутри bb.",
+    "When enabled, localhost URLs are rewritten to use the same host or IP address you use to open BB. For example: {source} → {target}":
+      "Заменять localhost в ссылках на адрес, по которому открыт BB. Например: {source} → {target}",
+    "Automatically copy selected terminal text and show a notification. Does not affect text elsewhere in the app. Linux middle-click paste uses the primary selection independently.":
+      "Автоматически копировать выделенный текст терминала и показывать уведомление. В остальном приложении выделение работает как обычно. Вставка средней кнопкой в Linux использует отдельный буфер выделения.",
+    "Hide the custom models from config.json in every model picker, so a screen share does not show them.":
+      "Скрывать пользовательские модели из config.json во всех списках моделей во время демонстрации экрана.",
+    "Send anonymous usage data, such as app starts, setup progress and feature use, to help improve bb. Turning this off takes effect immediately for this server.":
+      "Отправлять анонимные сведения о запусках, настройке и использовании функций для улучшения bb. Отключение сразу применяется на этом сервере.",
+    "Show provider environment resolution and unhandled provider events for troubleshooting.":
+      "Показывать определение окружения провайдера и необработанные события для диагностики.",
+    "No prefix": "Без префикса",
+    "This prefix cannot start a valid git branch name.":
+      "Префикс должен образовывать допустимое имя ветки Git.",
+    "bb puts this in front of every branch it creates for a worktree, such as {branch}. Leave it empty for no prefix.":
+      "bb добавляет префикс к именам веток рабочих копий, например {branch}. Оставьте поле пустым, чтобы не использовать префикс.",
+    "Palettes change bb's colors, including syntax colors in diffs and file previews. Choose a built-in palette or create one from a prompt.":
+      "Палитры меняют цвета bb, включая подсветку кода в изменениях и просмотре файлов. Выберите встроенную палитру или создайте свою по описанию.",
+    "Tint browser tabs to tell instances apart.":
+      "Различайте экземпляры BB по цвету значка вкладки.",
+    Interface: "Интерфейс",
+    Create: "Создать",
+    Red: "Красный",
+    Orange: "Оранжевый",
+    Yellow: "Жёлтый",
+    Green: "Зелёный",
+    Teal: "Бирюзовый",
+    Blue: "Синий",
+    Purple: "Фиолетовый",
+    Pink: "Розовый",
+    "Fade out splits that do not have focus.": "Затемнять неактивные панели.",
+    "Sidebar navigation": "Навигация в боковой панели",
+    "What draws New thread, Plugins, Skills, and plugin pages in the sidebar.":
+      "Выберите оформление кнопки нового диалога, плагинов, навыков и страниц плагинов в боковой панели.",
+    "Which plugin draws your threads in the sidebar.":
+      "Плагин, который отображает список диалогов в боковой панели.",
+    "Choose automatic activation, BB's viewer, or a specific plugin on this device.":
+      "Автоматический выбор, встроенный просмотрщик BB или определённый плагин на этом устройстве.",
+    "Syntax highlighting and gutters from the bb code theme.":
+      "Подсветка синтаксиса и поля редактора из темы кода bb.",
+    "Applies to file diffs in threads, the diff panel, and plugin views.":
+      "Применяется к изменениям файлов в диалогах, панели изменений и плагинах.",
+    "Unified and split diffs from the bb code theme.":
+      "Объединённый и раздельный просмотр изменений из темы кода bb.",
+    Composer: "Поле ввода",
+    "The prompt box in threads, the New thread screen, and message editors.":
+      "Поле запроса в диалогах, на экране нового диалога и при редактировании сообщений.",
+    Automatic: "Автоматически",
+    "built-in": "встроенный",
+    "bb (built-in)": "bb (встроенный)",
+    "Chooses {title} ({source}).": "Выбирает {title} ({source}).",
+    "{title} (built-in)": "{title} (встроенный)",
+    "From the {plugin} plugin.": "Из плагина {plugin}.",
+    "{plugin} plugin. {description}": "Плагин {plugin}. {description}",
+    "Drag to reorder.": "Перетащите, чтобы изменить порядок.",
+    "Reorder {label}": "Изменить порядок: {label}",
+    "Show {label} in footer": "Показывать внизу боковой панели: {label}",
+    "Mobile apps": "Мобильные приложения",
+    "Report a bug": "Сообщить об ошибке",
+    "App links": "Ссылки приложений",
+    "BB asks before opening links like linear:// in another app. Approvals stay on this device and aren't synced.":
+      "BB запрашивает разрешение перед открытием ссылок вроде linear:// в другом приложении. Разрешения хранятся только на этом устройстве.",
+    "No apps are always allowed.": "Постоянные разрешения не выданы.",
+    "Always allowed": "Всегда разрешено",
+    "Remove {scheme} approval": "Отозвать разрешение для {scheme}",
+    "Couldn't remove app link approval":
+      "Не удалось отозвать разрешение для ссылки приложения",
+    "Try again.": "Повторите попытку.",
+    "Loading…": "Загрузка…",
+    "Command line": "Командная строка",
+    "bb CLI skills": "Навыки для bb CLI",
+    Skills: "Навыки",
+    Install: "Установить",
+    Remove: "Удалить",
+    Installed: "Установлено",
+    "Installing…": "Установка…",
+    "Out of date": "Нужно обновление",
+    "Not installed": "Не установлено",
+    Disconnected: "Нет подключения",
+    "Install bb CLI": "Установить bb CLI",
+    "Remove bb CLI": "Удалить bb CLI",
+    "Install bb CLI skills": "Установить навыки bb CLI",
+    "Installed at {path}. You can control bb from any terminal, and so can agents outside bb, such as Claude Code or Codex.":
+      "Установлено в {path}. Управлять bb можно из любого терминала и через внешних агентов, например Claude Code или Codex.",
+    "Installed at {path}, but its folder is not on your PATH. Add the folder to your PATH to use bb outside bb.":
+      "Установлено в {path}, но каталог отсутствует в PATH. Добавьте его в PATH, чтобы пользоваться bb за пределами приложения.",
+    "Install the bb CLI for use outside bb. You can control bb from any terminal, and so can agents outside bb, such as Claude Code or Codex. Threads in bb already have it.":
+      "Установите bb CLI для работы из любого терминала и через внешних агентов, например Claude Code или Codex. В диалогах bb команда уже доступна.",
+    "Already installed for use outside bb at {path}, by npm.":
+      "Уже установлено через npm в {path} для работы за пределами bb.",
+    "The bb machine on this computer added a bb at {path} that can run an older bb. Install replaces it with this one.":
+      "Агент машины добавил команду в {path}, которая может запускать старую версию bb. Установка заменит её текущей.",
+    "Another bb at {path} comes first on your PATH. Remove it to install this one.":
+      "В PATH раньше находится другая команда bb: {path}. Удалите её, чтобы установить текущую.",
+    "Install them into ~/.agents/skills and ~/.claude/skills so agents outside bb can use the bb CLI.":
+      "Установите навыки в ~/.agents/skills и ~/.claude/skills, чтобы внешние агенты могли работать с bb CLI.",
+    "Connect a machine to install them into ~/.agents/skills and ~/.claude/skills.":
+      "Подключите машину для установки в ~/.agents/skills и ~/.claude/skills.",
+    "Installed on {count} machines": "Установлено на устройствах: {count}",
+    "Installed on {installed} of {total} machines":
+      "Установлено: {installed} из {total}",
+    "Installed the bb CLI skills on {hosts}":
+      "Навыки bb CLI установлены: {hosts}",
+    "Choose the machines to install them onto. Each one gets the skills in ~/.agents/skills and ~/.claude/skills, replacing any copy already there.":
+      "Выберите машины. Навыки будут установлены в ~/.agents/skills и ~/.claude/skills на каждой, заменяя существующие копии.",
+    "The skills go in ~/.agents/skills and ~/.claude/skills on {host}, replacing any copy already there.":
+      "Навыки будут установлены в ~/.agents/skills и ~/.claude/skills на машине {host}, заменяя существующие копии.",
+    "the selected machine": "выбранная машина",
+    "Voice Input": "Голосовой ввод",
+    Microphone: "Микрофон",
+    Unsupported: "Не поддерживается",
+    "System default": "По умолчанию в системе",
+    "This browser does not expose microphone devices.":
+      "В этом браузере недоступен выбор микрофона.",
+    "Loading microphones.": "Загрузка микрофонов.",
+    "Loading microphones": "Загрузка микрофонов",
+    "Load microphones": "Обновить список микрофонов",
+    "Check microphone access": "Проверить доступ к микрофону",
+    "to see available devices.": "для просмотра доступных устройств.",
+    "Preferred microphone is disconnected. Using another input until it reconnects.":
+      "Выбранный микрофон отключён. До его подключения используется другой вход.",
+    "Used for prompt voice input.":
+      "Используется для голосового ввода запросов.",
+    "Voice preferences": "Настройки голосового ввода",
+    "Close voice preferences": "Закрыть настройки голосового ввода",
+    "Allow mic access in your settings.":
+      "Разрешите доступ к микрофону в настройках браузера.",
+    "Can't open this mic. Choose another.":
+      "Не удалось подключить этот микрофон. Выберите другой.",
+    "Live microphone preview": "Проверка сигнала микрофона",
+    "Live preview": "Проверка сигнала",
+    Unavailable: "Недоступно",
+    Listening: "Прослушивание",
+    "Connecting…": "Подключение…",
+    "This browser can't use a mic.": "В этом браузере недоступен микрофон.",
+    "Connecting to microphone…": "Подключение к микрофону…",
+    "No audio detected. Try another mic.":
+      "Сигнал не обнаружен. Попробуйте другой микрофон.",
+    "Speak to check your microphone.":
+      "Произнесите что-нибудь для проверки микрофона.",
+    "Input device": "Устройство ввода",
+    "Preferred microphone (unavailable)": "Выбранный микрофон (недоступен)",
+    "Preferred microphone unavailable. Using another input until it returns.":
+      "Выбранный микрофон недоступен. До его подключения используется другой вход.",
+    "Microphone permission denied": "Доступ к микрофону запрещён",
+    "No microphones found": "Микрофоны не найдены",
+    "Microphone devices unavailable": "Микрофоны недоступны",
+    Rail: "Панель значков",
+    "Icons on the left edge": "Значки у левого края",
+    "Top list": "Список сверху",
+    "Labeled rows above the thread list":
+      "Строки с названиями над списком диалогов",
+    "Thread list": "Список диалогов",
+    "Pinned threads, custom sections, projects, machines, and nested threads.":
+      "Закреплённые диалоги, свои разделы, проекты, машины и вложенные диалоги.",
+    "bb's composer: rich text, @-mentions, slash commands, voice and attachments.":
+      "Поле ввода bb: форматирование текста, @-упоминания, команды через /, голос и вложения.",
   }),
 );
 
 export function translateInterfaceText(
   message: string,
   language: ResolvedInterfaceLanguage,
+  values?: Readonly<Record<string, string | number>>,
 ): string {
-  return language === "ru" ? (russian.get(message) ?? message) : message;
+  const translated =
+    language === "ru" ? (russian.get(message) ?? message) : message;
+  return values === undefined
+    ? translated
+    : translated.replace(/\{(\w+)\}/g, (placeholder, key: string) =>
+        Object.hasOwn(values, key) ? String(values[key]) : placeholder,
+      );
 }

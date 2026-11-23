@@ -94,8 +94,9 @@ General. Machine-related keys (`machineServerUrl`, `defaultMachineAccess`,
 - `interfaceLanguage` (`system`, `en`, or `ru`, default `system`) controls the
   interface language on connected clients without restarting. System mode picks
   the first supported device language, with English as fallback. Set Russian with
-  `bb settings general interfaceLanguage ru`. The initial translation covers
-  settings navigation and selected general/appearance controls; untranslated text falls
+  `bb settings general interfaceLanguage ru`. The current translation covers
+  settings navigation, general/appearance controls and descriptions, their pickers,
+  CLI installation dialogs and microphone preferences; untranslated text falls
   back to English. Agent replies and code keep their original language.
 
 - `showDiagnosticEvents` (default false) shows provider environment resolution

@@ -330,6 +330,7 @@ function FaviconColorSettingsControl({
   faviconColor,
   onFaviconColorChange,
 }: FaviconColorSettingsControlProps) {
+  const { t } = useInterfaceTranslation();
   return (
     <SettingsWithControl
       label="Favicon color"
@@ -341,13 +342,13 @@ function FaviconColorSettingsControl({
             variant="outline"
             size="sm"
             className={SETTINGS_DROPDOWN_TRIGGER_CLASS}
-            aria-label="Favicon color"
+            aria-label={t("Favicon color")}
             disabled={disabled}
           >
             <span className="flex min-w-0 items-center gap-2">
               <FaviconColorPreview value={faviconColor} />
               <span className="min-w-0 truncate">
-                {FAVICON_COLOR_LABELS[faviconColor]}
+                {t(FAVICON_COLOR_LABELS[faviconColor])}
               </span>
             </span>
             <Icon
@@ -359,6 +360,7 @@ function FaviconColorSettingsControl({
         <DropdownMenuContent
           align="end"
           className={SETTINGS_DROPDOWN_CONTENT_CLASS}
+          mobileTitle={t("Favicon color")}
         >
           {FAVICON_COLOR_OPTIONS.map((option) => (
             <DropdownMenuItem
@@ -366,7 +368,7 @@ function FaviconColorSettingsControl({
               onSelect={() => onFaviconColorChange(option.value)}
             >
               <FaviconColorPreview value={option.value} />
-              {option.label}
+              {t(option.label)}
               <Icon
                 name="Check"
                 className={cn(
@@ -642,6 +644,7 @@ function ManagedBranchPrefixSetting({
   onChange,
   value,
 }: ManagedBranchPrefixSettingProps) {
+  const { t } = useInterfaceTranslation();
   const [draft, setDraft] = useState(value);
   const [committedValue, setCommittedValue] = useState(value);
   if (value !== committedValue) {
@@ -665,10 +668,15 @@ function ManagedBranchPrefixSetting({
       label={MANAGED_BRANCH_PREFIX_SETTING_LABEL}
       description={
         valid ? (
-          `bb puts this in front of every branch it creates for a worktree, such as ${draft}${MANAGED_BRANCH_PREFIX_EXAMPLE_SLUG}. Leave it empty for no prefix.`
+          t(
+            "bb puts this in front of every branch it creates for a worktree, such as {branch}. Leave it empty for no prefix.",
+            {
+              branch: `${draft}${MANAGED_BRANCH_PREFIX_EXAMPLE_SLUG}`,
+            },
+          )
         ) : (
           <span className="text-destructive" role="alert">
-            This prefix cannot start a valid git branch name.
+            {t("This prefix cannot start a valid git branch name.")}
           </span>
         )
       }
@@ -676,10 +684,10 @@ function ManagedBranchPrefixSetting({
     >
       <Input
         value={draft}
-        aria-label={MANAGED_BRANCH_PREFIX_SETTING_LABEL}
+        aria-label={t(MANAGED_BRANCH_PREFIX_SETTING_LABEL)}
         aria-invalid={!valid}
         disabled={disabled}
-        placeholder="No prefix"
+        placeholder={t("No prefix")}
         className={cn(
           "h-8 font-mono text-xs",
           !valid && "border-destructive focus-visible:ring-destructive",
@@ -748,6 +756,7 @@ export function AppearanceSettingsSection({
               <DropdownMenuContent
                 align="end"
                 className={SETTINGS_DROPDOWN_CONTENT_CLASS}
+                mobileTitle={t("Theme")}
               >
                 {THEME_PREFERENCE_OPTIONS.map((option) => (
                   <DropdownMenuItem
@@ -792,11 +801,13 @@ export function AppearanceSettingsSection({
                   variant="outline"
                   size="sm"
                   className={SETTINGS_DROPDOWN_TRIGGER_CLASS}
-                  aria-label="Palette"
+                  aria-label={t("Palette")}
                   disabled={appearanceDisabled}
                 >
                   <span className="min-w-0 truncate">
-                    {appPaletteLabel(appearance, pluginThemes)}
+                    {appearance.themeId === "default"
+                      ? t("Default")
+                      : appPaletteLabel(appearance, pluginThemes)}
                   </span>
                   <Icon
                     name="ChevronDown"
@@ -807,6 +818,7 @@ export function AppearanceSettingsSection({
               <DropdownMenuContent
                 align="end"
                 className={SETTINGS_DROPDOWN_CONTENT_CLASS}
+                mobileTitle={t("Palette")}
               >
                 {builtInThemes.map((entry) => (
                   <PaletteMenuItem
@@ -816,7 +828,7 @@ export function AppearanceSettingsSection({
                     onPreview={previewPalette}
                     onSelect={selectPalette}
                   >
-                    {entry.name}
+                    {entry.id === "default" ? t("Default") : entry.name}
                   </PaletteMenuItem>
                 ))}
                 {customThemes.map((name) => (
@@ -850,7 +862,7 @@ export function AppearanceSettingsSection({
                     name="Plus"
                     className={COARSE_POINTER_ICON_SIZE_CLASS}
                   />
-                  Create
+                  {t("Create")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -901,9 +913,10 @@ export function GeneralSettingsSection({
   rewriteLocalhostLinks,
   steerActiveThreadOnEnter,
 }: GeneralSettingsSectionProps) {
-  const { t } = useInterfaceTranslation();
+  const { t, language } = useInterfaceTranslation();
   const localhostRewriteDescription = localhostLinkRewriteDescription(
     typeof window === "undefined" ? undefined : window.location.hostname,
+    language,
   );
   return (
     <>
@@ -915,7 +928,7 @@ export function GeneralSettingsSection({
             <Switch
               checked={navigateToThreadAfterCreate}
               onCheckedChange={onNavigateToThreadAfterCreateChange}
-              aria-label={NAVIGATE_TO_THREAD_AFTER_CREATE_SETTING_LABEL}
+              aria-label={t(NAVIGATE_TO_THREAD_AFTER_CREATE_SETTING_LABEL)}
             />
           </SettingsWithControl>
 
@@ -930,7 +943,7 @@ export function GeneralSettingsSection({
                   size="sm"
                   className={SETTINGS_DROPDOWN_TRIGGER_CLASS}
                   disabled={generalSettingsDisabled}
-                  aria-label={FOLLOW_UP_BEHAVIOR_SETTING_LABEL}
+                  aria-label={t(FOLLOW_UP_BEHAVIOR_SETTING_LABEL)}
                 >
                   {t(steerActiveThreadOnEnter ? "Steer" : "Queue")}
                   <Icon
@@ -942,6 +955,7 @@ export function GeneralSettingsSection({
               <DropdownMenuContent
                 align="end"
                 className={cn(SETTINGS_DROPDOWN_CONTENT_CLASS, "max-w-72")}
+                mobileTitle={t(FOLLOW_UP_BEHAVIOR_SETTING_LABEL)}
               >
                 {FOLLOW_UP_BEHAVIOR_OPTIONS.map((option) => (
                   <DropdownMenuItem
@@ -952,9 +966,9 @@ export function GeneralSettingsSection({
                     }
                   >
                     <span className="min-w-0">
-                      <span className="block">{option.label}</span>
+                      <span className="block">{t(option.label)}</span>
                       <span className="block text-2xs leading-snug text-subtle-foreground">
-                        {option.description}
+                        {t(option.description)}
                       </span>
                     </span>
                     <Icon
@@ -980,7 +994,7 @@ export function GeneralSettingsSection({
               checked={confirmThreadArchive}
               disabled={generalSettingsDisabled}
               onCheckedChange={onConfirmThreadArchiveChange}
-              aria-label="Thread archive confirmation"
+              aria-label={t("Thread archive confirmation")}
             />
           </SettingsWithControl>
 
@@ -992,7 +1006,7 @@ export function GeneralSettingsSection({
               checked={keepHistoryAfterContextClear}
               disabled={generalSettingsDisabled}
               onCheckedChange={onKeepHistoryAfterContextClearChange}
-              aria-label="Show messages from before a context clear"
+              aria-label={t("Show messages from before a context clear")}
             />
           </SettingsWithControl>
 
@@ -1004,7 +1018,7 @@ export function GeneralSettingsSection({
               checked={resumeThreadsAfterRestart}
               disabled={generalSettingsDisabled}
               onCheckedChange={onResumeThreadsAfterRestartChange}
-              aria-label="Resume interrupted threads after a restart"
+              aria-label={t("Resume interrupted threads after a restart")}
             />
           </SettingsWithControl>
 
@@ -1016,7 +1030,7 @@ export function GeneralSettingsSection({
               checked={summarizeShellCommands}
               disabled={generalSettingsDisabled}
               onCheckedChange={onSummarizeShellCommandsChange}
-              aria-label="Summarize shell commands"
+              aria-label={t("Summarize shell commands")}
             />
           </SettingsWithControl>
 
@@ -1031,7 +1045,7 @@ export function GeneralSettingsSection({
               disabled={generalSettingsDisabled}
               onClick={onReplaySetupGuide}
             >
-              Show setup guide
+              {t("Show setup guide")}
             </Button>
           </SettingsWithControl>
         </div>
@@ -1046,7 +1060,7 @@ export function GeneralSettingsSection({
               <Switch
                 checked={openLinksInAppBrowser}
                 onCheckedChange={onOpenLinksInAppBrowserChange}
-                aria-label={IN_APP_BROWSER_LINK_SETTING_LABEL}
+                aria-label={t(IN_APP_BROWSER_LINK_SETTING_LABEL)}
               />
             </SettingsWithControl>
           ) : null}
@@ -1063,7 +1077,7 @@ export function GeneralSettingsSection({
               <Switch
                 checked={rewriteLocalhostLinks}
                 onCheckedChange={onRewriteLocalhostLinksChange}
-                aria-label={REWRITE_LOCALHOST_LINKS_SETTING_LABEL}
+                aria-label={t(REWRITE_LOCALHOST_LINKS_SETTING_LABEL)}
               />
             </SettingsWithControl>
           ) : null}
@@ -1079,7 +1093,7 @@ export function GeneralSettingsSection({
             checked={terminalCopyOnSelect}
             disabled={generalSettingsDisabled}
             onCheckedChange={onTerminalCopyOnSelectChange}
-            aria-label="Copy on select"
+            aria-label={t("Copy on select")}
           />
         </SettingsWithControl>
       </SettingsSection>
@@ -1105,6 +1119,7 @@ export function PrivacySettingsSection({
   telemetryEnabled,
   onTelemetryEnabledChange,
 }: PrivacySettingsSectionProps) {
+  const { t } = useInterfaceTranslation();
   return (
     <SettingsSection title="Privacy & diagnostics">
       <div className="space-y-5">
@@ -1116,7 +1131,7 @@ export function PrivacySettingsSection({
             checked={streamerMode}
             disabled={disabled}
             onCheckedChange={onStreamerModeChange}
-            aria-label={STREAMER_MODE_SETTING_LABEL}
+            aria-label={t(STREAMER_MODE_SETTING_LABEL)}
           />
         </SettingsWithControl>
 
@@ -1128,7 +1143,7 @@ export function PrivacySettingsSection({
             checked={telemetryEnabled}
             disabled={disabled}
             onCheckedChange={onTelemetryEnabledChange}
-            aria-label="Share anonymous usage data"
+            aria-label={t("Share anonymous usage data")}
           />
         </SettingsWithControl>
 
@@ -1140,7 +1155,7 @@ export function PrivacySettingsSection({
             checked={enabled}
             disabled={disabled}
             onCheckedChange={onEnabledChange}
-            aria-label={DIAGNOSTIC_EVENTS_SETTING_LABEL}
+            aria-label={t(DIAGNOSTIC_EVENTS_SETTING_LABEL)}
           />
         </SettingsWithControl>
       </div>
