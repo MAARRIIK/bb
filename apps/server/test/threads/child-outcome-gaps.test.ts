@@ -80,6 +80,7 @@ async function postChildTurnEvent(
       sessionId: args.sessionId,
       eventGroups: groupHostDaemonEvents([
         {
+          providerId: "codex",
           threadId: args.threadId,
           event:
             args.status === null
@@ -178,6 +179,7 @@ describe("child outcomes without provider completion", () => {
             sessionId: session.id,
             eventGroups: groupHostDaemonEvents([
               {
+                providerId: "codex",
                 threadId: child.id,
                 event: {
                   type: "turn/completed",
@@ -433,6 +435,7 @@ describe("child parent-notification policy", () => {
             sessionId: session.id,
             eventGroups: groupHostDaemonEvents(
               children.map(({ child, parentNotifications }) => ({
+                providerId: "codex",
                 threadId: child.id,
                 event: {
                   type: "turn/completed",

@@ -436,6 +436,7 @@ describe("createServerClient", () => {
         sessionId: "session-1",
         eventGroups: [
           {
+            providerId: "codex",
             threadId: "thr_123",
             events: [
               {
@@ -478,6 +479,7 @@ describe("createServerClient", () => {
     await expect(
       client.postEvents([
         {
+          providerId: "codex",
           threadId: "thr_123",
           event: {
             type: "turn/started",

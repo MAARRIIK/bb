@@ -259,7 +259,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
 
     const runtimeEvents: ThreadEvent[] = [];
     let ingest: Promise<void> = Promise.resolve();
-    const ingestEvent = (event: ThreadEvent): void => {
+    const ingestEvent = (event: ThreadEvent, providerId: string): void => {
       ingest = ingest.then(async () => {
         const response = await harness.app.request("/internal/session/events", {
           method: "POST",
@@ -267,7 +267,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
           body: JSON.stringify({
             sessionId: session.id,
             eventGroups: groupHostDaemonEvents([
-              { threadId: event.threadId, event },
+              { providerId, threadId: event.threadId, event },
             ]),
           }),
         });
@@ -277,9 +277,9 @@ describe("echo-provider canary: plugin install → server command → runtime �
     const toolCalls: ToolCallRequest[] = [];
     const runtimeInstance = createAgentRuntime({
       workspacePath: workspaceDir,
-      onEvent: (event) => {
+      onEvent: (event, providerId) => {
         runtimeEvents.push(event);
-        ingestEvent(event);
+        ingestEvent(event, providerId);
       },
       onToolCall: async (request): Promise<ToolCallResponse> => {
         toolCalls.push(request);
@@ -518,6 +518,7 @@ describe("echo-provider canary: plugin install → server command → runtime �
         sessionId: session.id,
         eventGroups: groupHostDaemonEvents([
           {
+            providerId: PROVIDER_ID,
             threadId: thread.id,
             event: {
               type: "item/completed",

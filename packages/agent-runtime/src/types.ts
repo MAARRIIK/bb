@@ -72,7 +72,7 @@ export interface AgentRuntimeOptions {
 
   skillRoots?: readonly AgentRuntimeSkillRoot[];
 
-  onEvent: (event: ThreadEvent) => void;
+  onEvent: (event: ThreadEvent, providerId: string) => void;
 
   onToolCall: (
     request: ToolCallRequest,

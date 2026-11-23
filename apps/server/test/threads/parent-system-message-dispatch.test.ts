@@ -99,6 +99,7 @@ describe("parent system message dispatch", () => {
                 sessionId: session.id,
                 eventGroups: groupHostDaemonEvents([
                   {
+                    providerId: "codex",
                     threadId: thread.id,
                     event: {
                       ...event,

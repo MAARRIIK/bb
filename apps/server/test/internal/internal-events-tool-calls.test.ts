@@ -80,6 +80,7 @@ function systemErrorEnvelopes(
   count: number,
 ): HostDaemonEventEnvelope[] {
   return Array.from({ length: count }, (_, index) => ({
+    providerId: "codex",
     threadId,
     event: {
       type: "system/error",
@@ -209,6 +210,7 @@ async function runDirectorySwitchTurn(
     sessionId: session.id,
     events: [
       {
+        providerId: "codex",
         threadId: thread.id,
         event: {
           type: "turn/completed",
@@ -411,6 +413,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -489,6 +492,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/completed",
@@ -537,6 +541,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -546,6 +551,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -556,6 +562,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/completed",
@@ -652,6 +659,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -662,6 +670,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/completed",
@@ -722,6 +731,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: childThread.id,
             event: {
               type: "turn/started",
@@ -731,6 +741,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: childThread.id,
             event: {
               type: "turn/started",
@@ -741,6 +752,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: childThread.id,
             event: {
               type: "turn/completed",
@@ -810,6 +822,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: childThread.id,
             event: {
               type: "turn/started",
@@ -819,6 +832,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: childThread.id,
             event: {
               type: "turn/completed",
@@ -880,6 +894,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: childThread.id,
             event: {
               type: "turn/started",
@@ -889,6 +904,7 @@ describe("internal event and tool-call routes", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: childThread.id,
             event: {
               type: "turn/completed",
@@ -950,6 +966,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -1031,6 +1048,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: { type: "turn/started", ...agentTurn },
           },
@@ -1043,6 +1061,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/completed",
@@ -1073,6 +1092,7 @@ describe("internal event and tool-call routes", () => {
       });
       const eventBatch: HostDaemonEventEnvelope[] = [
         {
+          providerId: "codex",
           threadId: thread.id,
           event: {
             type: "turn/started",
@@ -1082,6 +1102,7 @@ describe("internal event and tool-call routes", () => {
           },
         },
         {
+          providerId: "codex",
           threadId: thread.id,
           event: {
             type: "turn/completed",
@@ -1175,6 +1196,7 @@ describe("internal event and tool-call routes", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/completed",

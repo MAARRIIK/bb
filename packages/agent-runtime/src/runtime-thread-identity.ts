@@ -45,7 +45,10 @@ interface StampThreadEventScopeArgs {
 }
 
 export class RuntimeThreadIdentityRegistry {
-  private readonly threadToProvider = new Map<string, string>();
+  private readonly threadToProviderState = new Map<
+    string,
+    RuntimeProviderIdentityState
+  >();
   private readonly threadToProviderThread = new Map<string, string>();
 
   createProviderState(
@@ -58,12 +61,20 @@ export class RuntimeThreadIdentityRegistry {
   }
 
   registerThreadProvider(args: RegisterThreadProviderArgs): void {
-    this.threadToProvider.set(args.threadId, args.providerId);
+    if (args.providerId !== args.providerState.providerId) {
+      throw new Error("Provider identity state does not match provider");
+    }
+    const previous = this.threadToProviderState.get(args.threadId);
+    if (previous !== args.providerState) {
+      previous?.threadIds.delete(args.threadId);
+      this.threadToProviderThread.delete(args.threadId);
+    }
+    this.threadToProviderState.set(args.threadId, args.providerState);
     args.providerState.threadIds.add(args.threadId);
   }
 
   resolveProviderForThread(threadId: string): string {
-    const providerId = this.threadToProvider.get(threadId);
+    const providerId = this.threadToProviderState.get(threadId)?.providerId;
     if (!providerId) {
       throw new Error(`No provider associated with thread "${threadId}"`);
     }
@@ -75,7 +86,7 @@ export class RuntimeThreadIdentityRegistry {
   }
 
   getProviderSession(threadId: string): AgentRuntimeProviderSession | null {
-    const providerId = this.threadToProvider.get(threadId);
+    const providerId = this.threadToProviderState.get(threadId)?.providerId;
     const providerThreadId = this.threadToProviderThread.get(threadId);
     if (!providerId || !providerThreadId) {
       return null;
@@ -170,19 +181,22 @@ export class RuntimeThreadIdentityRegistry {
       return false;
     }
     return (
-      this.threadToProvider.has(threadId) &&
+      this.threadToProviderState.has(threadId) &&
       !providerState.threadIds.has(threadId)
     );
   }
 
   clearThread(threadId: string): void {
-    this.threadToProvider.delete(threadId);
+    this.threadToProviderState.get(threadId)?.threadIds.delete(threadId);
+    this.threadToProviderState.delete(threadId);
     this.threadToProviderThread.delete(threadId);
   }
 
   forgetThread(args: ForgetThreadArgs): void {
     args.providerState.threadIds.delete(args.threadId);
-    this.clearThread(args.threadId);
+    if (this.threadToProviderState.get(args.threadId) === args.providerState) {
+      this.clearThread(args.threadId);
+    }
   }
 }
 

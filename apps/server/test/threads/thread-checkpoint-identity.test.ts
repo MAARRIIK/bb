@@ -92,7 +92,11 @@ describe("checkpoint identity through runtime, ingestion, and editing", () => {
               body: JSON.stringify({
                 sessionId: session.id,
                 eventGroups: groupHostDaemonEvents(
-                  batch.map((event) => ({ threadId: event.threadId, event })),
+                  batch.map((event) => ({
+                    providerId: "codex",
+                    threadId: event.threadId,
+                    event,
+                  })),
                 ),
               }),
             },

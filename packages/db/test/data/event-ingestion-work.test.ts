@@ -51,6 +51,7 @@ it.each(["daemon", "stored", "import", "copy"] as const)(
               tx,
               inputs.map((input) => ({
                 ...input,
+                providerId: "benchmark",
                 data: JSON.stringify(input.data),
                 environmentId: null,
                 providerThreadId: null,

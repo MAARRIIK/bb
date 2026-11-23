@@ -17,10 +17,7 @@ const QUEUE_DEPTH_WARN_THRESHOLD = 512;
 const QUEUE_DEPTH_WARN_MIN_AGE_MS = 5_000;
 const QUEUE_AGE_WARN_THRESHOLD_MS = 30_000;
 
-export interface EventSinkInput {
-  event: ThreadEvent;
-  threadId: string;
-}
+export type EventSinkInput = HostDaemonEventEnvelope;
 
 export interface EventPostResult {
   acceptedEvents: HostDaemonEventBatchResponse["acceptedEvents"];
@@ -395,7 +392,11 @@ export function createEventSink(options: CreateEventSinkOptions): EventSink {
       }
       const immediate = shouldFlushThreadEventImmediately(input.event);
       queue.push({
-        envelope: { threadId: input.threadId, event: input.event },
+        envelope: {
+          threadId: input.threadId,
+          providerId: input.providerId,
+          event: input.event,
+        },
         immediate,
         queuedAt: now(),
       });

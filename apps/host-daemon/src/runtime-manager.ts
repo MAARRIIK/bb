@@ -179,7 +179,11 @@ export interface RuntimeManagerOptions {
   applyMachineEnvironment?: (
     shell: NonNullable<AgentRuntimeOptions["shellEnv"]>,
   ) => NonNullable<AgentRuntimeOptions["shellEnv"]>;
-  onEvent?: (args: { environmentId: string; event: ThreadEvent }) => void;
+  onEvent?: (args: {
+    environmentId: string;
+    event: ThreadEvent;
+    providerId: string;
+  }) => void;
   threadStorageRootPath?: string | null;
   onInjectedSkillsChanged?: (args: InjectedSkillsChangedNotification) => void;
   onDataDirSkillsWatchError?: (args: {
@@ -1275,10 +1279,11 @@ export class RuntimeManager {
       shellEnv,
       threadStorageRootPath: this.options.threadStorageRootPath ?? undefined,
       bridgeBundleDir: this.options.bridgeBundleDir,
-      onEvent: (event) => {
+      onEvent: (event, providerId) => {
         this.options.onEvent?.({
           environmentId: args.environmentId,
           event,
+          providerId,
         });
       },
       onToolCall:
@@ -1308,6 +1313,7 @@ export class RuntimeManager {
             this.options.onEvent?.({
               environmentId: args.environmentId,
               event,
+              providerId: info.providerId,
             });
           }
         }

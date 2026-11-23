@@ -532,7 +532,11 @@ class FakeDaemon {
         body: JSON.stringify({
           sessionId: this.sessionId,
           eventGroups: groupHostDaemonEvents(
-            events.map((event) => ({ threadId: event.threadId, event })),
+            events.map((event) => ({
+              providerId: "codex",
+              threadId: event.threadId,
+              event,
+            })),
           ),
         }),
       },

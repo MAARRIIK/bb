@@ -801,6 +801,7 @@ describe("startup queue waits", () => {
           sessionId,
           eventGroups: groupHostDaemonEvents([
             {
+              providerId: "codex",
               threadId: thread.id,
               event: {
                 type: "turn/started",
@@ -929,6 +930,7 @@ describe("startup queue waits", () => {
           sessionId,
           eventGroups: groupHostDaemonEvents([
             {
+              providerId: "codex",
               threadId: thread.id,
               event: {
                 type: "turn/started",
@@ -1034,6 +1036,7 @@ describe("startup queue waits", () => {
           sessionId,
           eventGroups: groupHostDaemonEvents([
             {
+              providerId: "codex",
               threadId: thread.id,
               event: {
                 type: "turn/started",
@@ -1372,7 +1375,11 @@ async function postProviderEvents(
     body: JSON.stringify({
       sessionId,
       eventGroups: groupHostDaemonEvents(
-        events.map((event) => ({ threadId: event.threadId, event })),
+        events.map((event) => ({
+          providerId: "codex",
+          threadId: event.threadId,
+          event,
+        })),
       ),
     }),
   });
@@ -2205,6 +2212,7 @@ describe("competing turn refusals", () => {
           sessionId: fixture.sessionId,
           eventGroups: groupHostDaemonEvents([
             {
+              providerId: "codex",
               threadId: fixture.thread.id,
               event: {
                 type: "turn/completed",
@@ -2520,7 +2528,11 @@ describe("turn held open for background work", () => {
       body: JSON.stringify({
         sessionId: args.sessionId,
         eventGroups: groupHostDaemonEvents(
-          args.events.map((event) => ({ threadId: args.threadId, event })),
+          args.events.map((event) => ({
+            providerId: "codex",
+            threadId: args.threadId,
+            event,
+          })),
         ),
       }),
     });

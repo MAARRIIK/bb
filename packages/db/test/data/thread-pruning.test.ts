@@ -948,6 +948,7 @@ describe("thread pruning", () => {
       const result = f.db.transaction((tx) =>
         appendDaemonEventsInTransaction(tx, [
           {
+            providerId: "codex",
             threadId: f.thread.id,
             environmentId: null,
             scope: turnScope("turn"),
@@ -959,6 +960,7 @@ describe("thread pruning", () => {
             data: '{"diff":"never stored"}',
           },
           {
+            providerId: "codex",
             threadId: f.thread.id,
             environmentId: null,
             scope: turnScope("turn"),

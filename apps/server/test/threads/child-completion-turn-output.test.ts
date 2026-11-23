@@ -53,6 +53,7 @@ function childTurnEvents(
   const compaction: HostDaemonEventEnvelope[] = turn.compacted
     ? [
         {
+          providerId: "codex",
           threadId: childId,
           event: {
             type: "item/completed",
@@ -70,6 +71,7 @@ function childTurnEvents(
   return [
     ...compaction,
     ...turn.messages.map((message, index) => ({
+      providerId: "codex",
       threadId: childId,
       event: {
         type: "item/completed" as const,
@@ -87,6 +89,7 @@ function childTurnEvents(
       },
     })),
     {
+      providerId: "codex",
       threadId: childId,
       event: {
         type: "turn/completed" as const,

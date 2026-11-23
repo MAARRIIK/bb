@@ -132,6 +132,7 @@ describe("turn trace", () => {
         });
         await postEvents(harness, sessionId, [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -145,6 +146,7 @@ describe("turn trace", () => {
 
         await postEvents(harness, sessionId, [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "item/agentMessage/delta",
@@ -205,6 +207,7 @@ describe("turn trace", () => {
         });
         await postEvents(harness, sessionId, [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "item/agentMessage/delta",
@@ -241,6 +244,7 @@ describe("turn trace", () => {
         });
         await postEvents(harness, sessionId, [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -250,6 +254,7 @@ describe("turn trace", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "item/agentMessage/delta",

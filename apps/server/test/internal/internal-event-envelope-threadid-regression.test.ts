@@ -164,6 +164,7 @@ describe("internal event envelope threadId regression", () => {
             [untitled.id, titled.id].map((threadId) =>
               createTestDaemonEventEnvelope({
                 threadId,
+                providerId: threadId === untitled.id ? "acp-opencode" : "codex",
                 event: {
                   type: "thread/name/updated",
                   threadId,

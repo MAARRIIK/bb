@@ -11,7 +11,7 @@ import {
   hasRootStoredTurnStarted,
   isTurnAimedAtByEarlierStop,
   listStoredTurnCompletedKeys,
-  listThreadEnvironmentAssignmentsOnHost,
+  listThreadRuntimeAssignmentsOnHost,
   MissingStoredTurnStartedError,
 } from "@bb/db";
 import type {
@@ -282,6 +282,7 @@ function toStoredEvent(args: ToStoredEventArgs): AppendDaemonEventInput {
   return {
     threadId: envelope.threadId,
     environmentId: args.environmentId,
+    providerId: envelope.providerId,
     ...resolveProviderIdentifiers(envelope.event),
     scope,
     type,
@@ -708,23 +709,20 @@ function resolvePostableEventBatchEntries(
     };
   }
 
-  const ownedThreads = listThreadEnvironmentAssignmentsOnHost(deps.db, {
+  const ownedThreads = listThreadRuntimeAssignmentsOnHost(deps.db, {
     hostId: args.hostId,
     threadIds,
   });
 
-  const canonicalEnvironmentIdByThreadId = new Map<string, string | null>();
-  for (const ownedThread of ownedThreads) {
-    canonicalEnvironmentIdByThreadId.set(
-      ownedThread.threadId,
-      ownedThread.environmentId,
-    );
-  }
+  const assignmentByThreadId = new Map(
+    ownedThreads.map((thread) => [thread.threadId, thread]),
+  );
 
   const entries: PostableEventBatchEntry[] = [];
   const rejectedEvents: HostDaemonRejectedEvent[] = [];
   for (const [eventIndex, entry] of args.events.entries()) {
-    if (!canonicalEnvironmentIdByThreadId.has(entry.threadId)) {
+    const assignment = assignmentByThreadId.get(entry.threadId);
+    if (!assignment) {
       rejectedEvents.push({
         eventIndex,
         reason: "thread_not_owned_by_host",
@@ -732,11 +730,22 @@ function resolvePostableEventBatchEntries(
       });
       continue;
     }
-    const canonicalEnvironmentId =
-      canonicalEnvironmentIdByThreadId.get(entry.threadId) ?? null;
+    const unscoped = entry.providerId === null;
+    if (
+      unscoped
+        ? entry.event.type !== "system/thread-provisioning"
+        : entry.providerId !== assignment.providerId
+    ) {
+      rejectedEvents.push({
+        eventIndex,
+        reason: unscoped ? "missing_provider" : "provider_mismatch",
+        threadId: entry.threadId,
+      });
+      continue;
+    }
     entries.push({
       envelope: entry,
-      environmentId: canonicalEnvironmentId,
+      environmentId: assignment.environmentId,
       eventIndex,
     });
   }
@@ -848,7 +857,7 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
             rejectedEvents: summarizeRejectedDaemonEvents(rejectedEvents),
             sessionId: session.id,
           },
-          "Rejected daemon events for threads outside the session host",
+          "Rejected daemon events with invalid thread ownership or provider origin",
         );
       }
       const validatedEnvelopes = validatePresentationIcons(
@@ -858,7 +867,7 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
           entries.map((entry) => entry.envelope),
         ),
       );
-      const labelledEntries = entries
+      const validatedEntries = entries
         .map((entry, index) => {
           const validated = validatedEnvelopes[index];
           if (validated === undefined) {
@@ -872,6 +881,28 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
           };
         })
         .map((entry) => preserveTerminalProvisioningStatus(deps, entry));
+      const current = resolvePostableEventBatchEntries(deps, {
+        hostId: session.hostId,
+        events: validatedEntries.map((entry) => entry.envelope),
+      });
+      const originalEventIndex = (index: number): number => {
+        const entry = validatedEntries[index];
+        if (entry === undefined) {
+          throw new Error("Missing validated daemon event entry");
+        }
+        return entry.eventIndex;
+      };
+      rejectedEvents.push(
+        ...current.rejectedEvents.map((entry) => ({
+          ...entry,
+          eventIndex: originalEventIndex(entry.eventIndex),
+        })),
+      );
+      rejectedEvents.sort((left, right) => left.eventIndex - right.eventIndex);
+      const labelledEntries = current.entries.map((entry) => ({
+        ...entry,
+        eventIndex: originalEventIndex(entry.eventIndex),
+      }));
       const eventInputs = labelledEntries.map((entry) => {
         return toStoredEvent({
           envelope: entry.envelope,
@@ -950,7 +981,7 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
                 "Missing inserted event index for accepted daemon event",
               );
             }
-            const entry = entries[inputIndex];
+            const entry = labelledEntries[inputIndex];
             if (entry === undefined) {
               throw new Error("Missing daemon event entry for accepted event");
             }

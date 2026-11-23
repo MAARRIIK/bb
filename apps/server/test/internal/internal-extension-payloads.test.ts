@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
-import { events } from "@bb/db";
+import { events, threads } from "@bb/db";
+import { createDeferredPromise } from "@bb/test-helpers";
 import { threadScope, turnScope, type ExtensionKind } from "@bb/domain";
 import {
   groupHostDaemonEvents,
@@ -75,7 +76,9 @@ function registerExtensionProvider(
   });
 }
 
-async function setup() {
+async function setup(
+  stateSchema = z.object({ status: z.enum(["active", "done"]) }),
+) {
   const harness = await createTestAppHarness();
   registerExtensionProvider(harness, {
     pluginId: PLUGIN_ID,
@@ -84,7 +87,7 @@ async function setup() {
     extensionKinds: {
       goal: {
         item: z.object({ objective: z.string().min(1) }),
-        state: z.object({ status: z.enum(["active", "done"]) }),
+        state: stateSchema,
       },
       tags: { item: z.array(z.string()) },
     },
@@ -147,6 +150,7 @@ function extensionItemEvent(
   kind: ExtensionKind = GOAL_KIND,
 ): HostDaemonEventEnvelope {
   return {
+    providerId: PROVIDER_ID,
     threadId,
     event: {
       type: "item/started",
@@ -172,6 +176,7 @@ function extensionStateEvent(
   kind: ExtensionKind = GOAL_KIND,
 ): HostDaemonEventEnvelope {
   return {
+    providerId: PROVIDER_ID,
     threadId,
     event: {
       type: "thread/extensionState/updated",
@@ -186,6 +191,7 @@ function extensionStateEvent(
 
 function turnStarted(threadId: string): HostDaemonEventEnvelope {
   return {
+    providerId: PROVIDER_ID,
     threadId,
     event: {
       type: "turn/started",
@@ -197,6 +203,41 @@ function turnStarted(threadId: string): HostDaemonEventEnvelope {
 }
 
 describe("extension payload ingest validation", () => {
+  it("rechecks the provider after an asynchronous extension validator finishes", async () => {
+    const validating = createDeferredPromise<void>();
+    const release = createDeferredPromise<void>();
+    const { harness, session, thread } = await setup(
+      z.object({ status: z.enum(["active", "done"]) }).superRefine(async () => {
+        validating.resolve();
+        await release.promise;
+      }),
+    );
+    try {
+      const responsePromise = post(harness, session.id, [
+        extensionStateEvent(thread.id, { status: "active" }),
+      ]);
+      await validating.promise;
+      harness.db
+        .update(threads)
+        .set({ providerId: "codex" })
+        .where(eq(threads.id, thread.id))
+        .run();
+      release.resolve();
+      const response = await responsePromise;
+      expect(response.status).toBe(200);
+      expect(await readJson(response)).toEqual({
+        acceptedEvents: [],
+        rejectedEvents: [
+          { eventIndex: 0, threadId: thread.id, reason: "provider_mismatch" },
+        ],
+      });
+      expect(storedRows(harness, thread.id)).toEqual([]);
+    } finally {
+      release.resolve();
+      await harness.cleanup();
+    }
+  });
+
   it("persists an extension item and state whose payloads match the declared schemas", async () => {
     const { harness, session, thread } = await setup();
     try {
@@ -204,6 +245,7 @@ describe("extension payload ingest validation", () => {
         turnStarted(thread.id),
         extensionItemEvent(thread.id, { objective: "Ship it" }),
         {
+          providerId: PROVIDER_ID,
           threadId: thread.id,
           event: {
             type: "thread/extensionState/updated",
@@ -242,6 +284,7 @@ describe("extension payload ingest validation", () => {
         turnStarted(thread.id),
         extensionItemEvent(thread.id, { objective: 42 }),
         {
+          providerId: PROVIDER_ID,
           threadId: thread.id,
           event: {
             type: "thread/extensionState/updated",
@@ -548,9 +591,15 @@ describe("extension kind ownership at ingest", () => {
         status: "active",
       });
       const foreign = await post(harness, session.id, [
-        turnStarted(other.id),
-        extensionItemEvent(other.id, { objective: "Ship it" }),
-        extensionStateEvent(other.id, { status: "active" }),
+        { ...turnStarted(other.id), providerId: OTHER_PROVIDER_ID },
+        {
+          ...extensionItemEvent(other.id, { objective: "Ship it" }),
+          providerId: OTHER_PROVIDER_ID,
+        },
+        {
+          ...extensionStateEvent(other.id, { status: "active" }),
+          providerId: OTHER_PROVIDER_ID,
+        },
       ]);
       expect(foreign.status).toBe(200);
       await expect(readJson(foreign)).resolves.toMatchObject({
@@ -634,9 +683,15 @@ describe("extension kind ownership at ingest", () => {
         status: "active",
       });
       const response = await post(harness, session.id, [
-        turnStarted(orphan.id),
-        extensionItemEvent(orphan.id, { objective: "Ship it" }),
-        extensionStateEvent(orphan.id, { status: "active" }),
+        { ...turnStarted(orphan.id), providerId: "unregistered" },
+        {
+          ...extensionItemEvent(orphan.id, { objective: "Ship it" }),
+          providerId: "unregistered",
+        },
+        {
+          ...extensionStateEvent(orphan.id, { status: "active" }),
+          providerId: "unregistered",
+        },
       ]);
       expect(response.status).toBe(200);
       const rows = storedRows(harness, orphan.id);

@@ -622,11 +622,12 @@ export async function createHostDaemonApp(
     shellEnv: options.runtimeShellEnv,
     applyMachineEnvironment: (shell) =>
       machineEnvironment.shellEnvironment(shell),
-    onEvent: ({ environmentId, event }) => {
+    onEvent: ({ environmentId, event, providerId }) => {
       try {
         eventSink.emit({
           threadId: event.threadId,
           event,
+          providerId,
         });
       } catch (error) {
         if (error instanceof EventSinkDisposedError) {

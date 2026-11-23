@@ -7,6 +7,56 @@ import {
 } from "./runtime-thread-identity.js";
 
 describe("RuntimeThreadIdentityRegistry", () => {
+  it.each(["codex", "claude-code"])(
+    "detaches the old process when a thread moves to a new %s process",
+    (providerId) => {
+      const registry = new RuntimeThreadIdentityRegistry();
+      const previous = registry.createProviderState({ providerId: "codex" });
+      const next = registry.createProviderState({ providerId });
+      registry.registerThreadProvider({
+        threadId: "thread-1",
+        providerId: "codex",
+        providerState: previous,
+      });
+      registry.recordProviderThreadIdentity({
+        threadId: "thread-1",
+        providerState: previous,
+        providerThreadId: "previous-session",
+      });
+      registry.registerThreadProvider({
+        threadId: "thread-1",
+        providerId,
+        providerState: next,
+      });
+      expect(previous.threadIds.has("thread-1")).toBe(false);
+      expect(registry.getProviderSession("thread-1")).toBeNull();
+      expect(
+        registry.resolveProviderEventThreadId({
+          providerState: previous,
+          sourceThreadId: "thread-1",
+          eventThreadId: "previous-session",
+        }),
+      ).toBeUndefined();
+      expect(() =>
+        registry.recordProviderThreadIdentity({
+          threadId: "thread-1",
+          providerState: previous,
+          providerThreadId: "late-session",
+        }),
+      ).toThrow();
+      registry.recordProviderThreadIdentity({
+        threadId: "thread-1",
+        providerState: next,
+        providerThreadId: "next-session",
+      });
+      registry.forgetThread({ threadId: "thread-1", providerState: previous });
+      expect(registry.getProviderSession("thread-1")).toEqual({
+        providerId,
+        providerThreadId: "next-session",
+      });
+    },
+  );
+
   it("records provider ownership and resolves provider thread identities", () => {
     const registry = new RuntimeThreadIdentityRegistry();
     const providerState = registry.createProviderState({ providerId: "codex" });
