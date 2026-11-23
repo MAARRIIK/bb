@@ -1,6 +1,7 @@
 import type { DbConnection } from "../../src/index.js";
 
 export function dropProviderProvenanceColumns(db: DbConnection): void {
+  db.$client.exec("DROP TABLE IF EXISTS thread_provider_transitions");
   for (const { table, column } of [
     { table: "events", column: "provider_session_id" },
     { table: "threads", column: "provider_session_id" },

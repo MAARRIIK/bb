@@ -1,3 +1,4 @@
+import { providerTransitionRecoverySweep } from "../threads/provider-transitions.js";
 import {
   threadPruningSweep,
   THREAD_PRUNING_SWEEP_LIMITS,
@@ -618,6 +619,13 @@ export function createThreadEventPruningJob(
 }
 
 export const PERIODIC_SWEEP_JOBS: readonly PeriodicSweepJob[] = [
+  {
+    cadenceMs: 0,
+    category: "durable-intent-retry",
+    name: "provider-transitions",
+    background: true,
+    sweep: providerTransitionRecoverySweep,
+  },
   {
     cadenceMs: 0,
     category: "durable-intent-retry",

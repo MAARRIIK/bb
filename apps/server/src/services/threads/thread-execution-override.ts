@@ -1,3 +1,7 @@
+import { requireProviderTransitionSettled } from "./provider-transition-guard.js";
+import { requireThreadProviderSessionSource } from "./thread-provider-session-source.js";
+import { withThreadSendGuard } from "./thread-session-guard.js";
+import { requireCurrentProviderSession } from "../../internal/provider-session.js";
 import {
   getThreadExecutionOverride,
   setThreadExecutionOverride,
@@ -119,30 +123,45 @@ export async function applyThreadExecutionOverride(
   deps: LoggedWorkSessionDeps,
   args: ApplyThreadExecutionOverrideArgs,
 ): Promise<void> {
-  const { thread, patch } = args;
+  return withThreadSendGuard(args.thread.id, async () => {
+    const { thread, patch } = args;
 
-  const models = await loadThreadProviderModels(
-    deps,
-    thread,
-    typeof patch.model === "string" ? patch.model : null,
-  );
-  const existing = getThreadExecutionOverride(deps.db, thread.id) ?? {
-    modelOverride: null,
-    reasoningLevelOverride: null,
-  };
+    requireProviderTransitionSettled(deps.db, thread.id);
+    const source = requireThreadProviderSessionSource(deps.db, thread.id);
+    if (source.providerId !== thread.providerId)
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Provider session has changed; this request is no longer current",
+      );
+    const models = await loadThreadProviderModels(
+      deps,
+      thread,
+      typeof patch.model === "string" ? patch.model : null,
+    );
+    const existing = getThreadExecutionOverride(deps.db, thread.id) ?? {
+      modelOverride: null,
+      reasoningLevelOverride: null,
+    };
 
-  const next = resolveThreadExecutionOverrideUpdate(deps.providerRegistry, {
-    existing,
-    patch,
-    models,
-    providerId: thread.providerId,
-    fallbackModel: resolveThreadFallbackModel(deps, thread),
-  });
+    const next = resolveThreadExecutionOverrideUpdate(deps.providerRegistry, {
+      existing,
+      patch,
+      models,
+      providerId: thread.providerId,
+      fallbackModel: resolveThreadFallbackModel(deps, thread),
+    });
 
-  setThreadExecutionOverride(deps.db, {
-    threadId: thread.id,
-    modelOverride: next.modelOverride,
-    reasoningLevelOverride: next.reasoningLevelOverride,
+    requireProviderTransitionSettled(deps.db, thread.id);
+    requireCurrentProviderSession(
+      requireThreadProviderSessionSource(deps.db, thread.id),
+      source,
+    );
+    setThreadExecutionOverride(deps.db, {
+      threadId: thread.id,
+      modelOverride: next.modelOverride,
+      reasoningLevelOverride: next.reasoningLevelOverride,
+    });
   });
 }
 

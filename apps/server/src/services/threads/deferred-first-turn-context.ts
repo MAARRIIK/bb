@@ -1,6 +1,9 @@
+import { isDeepStrictEqual } from "node:util";
 import {
   findStoredEventRow,
+  getCurrentProviderTransition,
   getLastStoredTurnRequestEvent,
+  getLatestCompletedThreadContextClearSequence,
   getThread,
 } from "@bb/db";
 import type { DbQueryConnection } from "@bb/db";
@@ -10,7 +13,9 @@ import { parseStoredTurnRequestEvent } from "./thread-events.js";
 
 export interface DeferredFirstTurnContext {
   input: PromptInput[];
-  requestSequence: number;
+  origin:
+    | { kind: "request"; sequence: number }
+    | { kind: "provider-transition"; id: string };
 }
 
 export interface PromptWithGroups {
@@ -37,7 +42,29 @@ export function resolveDeferredFirstTurnContext(
   db: DbQueryConnection,
   threadId: string,
 ): DeferredFirstTurnContext | null {
-  const row = getLastStoredTurnRequestEvent(db, threadId);
+  const row = getLastStoredTurnRequestEvent(db, threadId, "current-session");
+  const clearedAt =
+    getLatestCompletedThreadContextClearSequence(db, { threadId }) ?? 0;
+  if (row === null) {
+    const transition = getCurrentProviderTransition(db, threadId);
+    if (
+      transition?.phase !== "completed" ||
+      clearedAt > transition.contextThroughSequence
+    )
+      return null;
+    return {
+      origin: { kind: "provider-transition", id: transition.id },
+      input: [
+        {
+          type: "text",
+          text: transition.contextText,
+          mentions: [],
+          visibility: "agent-only",
+        },
+      ],
+    };
+  }
+  if (row.sequence <= clearedAt) return null;
   if (!row || row.type !== "client/turn/requested") {
     return null;
   }
@@ -66,7 +93,10 @@ export function resolveDeferredFirstTurnContext(
   ) {
     return null;
   }
-  return { input: context, requestSequence: row.sequence };
+  return {
+    input: context,
+    origin: { kind: "request", sequence: row.sequence },
+  };
 }
 
 export function prependDeferredFirstTurnContext(
@@ -99,10 +129,10 @@ export function prependDeferredFirstTurnContext(
 
 export function requireDeferredFirstTurnContextCurrent(
   db: DbQueryConnection,
-  args: { requestSequence: number; threadId: string },
+  args: { origin: DeferredFirstTurnContext["origin"]; threadId: string },
 ): void {
   const current = resolveDeferredFirstTurnContext(db, args.threadId);
-  if (current?.requestSequence === args.requestSequence) {
+  if (current && isDeepStrictEqual(current.origin, args.origin)) {
     return;
   }
   throw new ApiError(

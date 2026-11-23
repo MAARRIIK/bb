@@ -1,3 +1,4 @@
+import { requireProviderTransitionSettled } from "./provider-transition-guard.js";
 import { createEventId, getThread, type DbTransaction } from "@bb/db";
 import {
   THREAD_CONTEXT_CLEAR_OPERATION,
@@ -18,6 +19,7 @@ function requireClearableThread(
   deps: LoggedPendingInteractionWorkSessionDeps,
   threadId: string,
 ) {
+  requireProviderTransitionSettled(deps.db, threadId);
   const thread = getThread(deps.db, threadId);
   if (!thread) {
     throw new ApiError(404, "invalid_request", "Thread not found");

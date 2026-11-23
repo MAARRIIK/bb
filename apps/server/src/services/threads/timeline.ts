@@ -69,6 +69,7 @@ import {
   hydrateRetainedEventOutputRows,
   hydrateRetainedEventOutputRowsWithinDataByteLimit,
   getEnvironment,
+  getThread,
   getLatestCompletedThreadContextClearSequence,
   getThreadConversationOutlineRecord,
   getThreadEventRewriteGeneration,
@@ -193,6 +194,8 @@ export function resolveThreadTimelineSurface(
     cursorKey,
     cacheKey: JSON.stringify([
       cursorKey,
+      thread.providerId,
+      getThread(db, thread.id)?.providerSessionId ?? null,
       options.planCommand ?? null,
       options.compactionOfferEnabled,
       options.extensionStateKinds ?? [],

@@ -1,3 +1,4 @@
+import { requireProviderTransitionSettled } from "./provider-transition-guard.js";
 import { createHash, randomUUID } from "node:crypto";
 import {
   deleteThreadEventSuffixInTransaction,
@@ -436,6 +437,7 @@ export async function editThreadMessage(
       requestSequence: committed.requestSequence,
     };
   }
+  requireProviderTransitionSettled(deps.db, args.thread.id);
   if (
     deps.pendingInteractions.hasTurnBoundPendingThreadInteraction(
       args.thread.id,
