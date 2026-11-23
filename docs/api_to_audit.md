@@ -17,8 +17,8 @@ a "Docs:" line has no owning doc, so it keeps the essential contract itself.
 ## Switching providers in one conversation
 
 `bb.sdk.threads.experimental_providerSwitch` exposes `preview`, `commit`, `get`
-and `recover`. Core's thread header and `bb thread provider` use this same SDK
-area and the server's `provider-switch` service. A preview selects visible recent
+and `recover`. Core's thread header, composer model picker and
+`bb thread provider` use this same SDK area and the server's `provider-switch` service. A preview selects visible recent
 text or a supplied summary, redacts recognized credentials, excludes hidden
 input, reasoning, tools and attachment contents, and reports a conservative
 UTF-8 byte estimate. It preserves a history cursor and fingerprint. Commit

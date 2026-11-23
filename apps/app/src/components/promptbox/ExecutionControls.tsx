@@ -13,6 +13,7 @@ import { formatModelLabel } from "@/hooks/useThreadCreationOptions";
 import {
   ModelReasoningPicker,
   type ModelReasoningPickerHandoff,
+  type ModelReasoningPickerProviderSwitch,
 } from "@/components/pickers/ModelReasoningPicker";
 import { type PickerOption } from "@/components/pickers/OptionPicker";
 import type { ModelPickerOption } from "@/components/pickers/model-picker-option";
@@ -77,6 +78,7 @@ export interface ExecutionControlsProps {
   agentOptions?: ExecutionAgentOptionsConfig;
   reasoning: ExecutionReasoningConfig;
   handoff?: ModelReasoningPickerHandoff;
+  providerSwitch?: ModelReasoningPickerProviderSwitch;
   disabled?: boolean;
 }
 
@@ -88,6 +90,7 @@ export const ExecutionControls = memo(function ExecutionControls({
   agentOptions,
   reasoning,
   handoff,
+  providerSwitch,
   disabled,
 }: ExecutionControlsProps) {
   const handleServiceTierChange = serviceTier?.onChange ?? (() => {});
@@ -141,6 +144,7 @@ export const ExecutionControls = memo(function ExecutionControls({
           muted
           disabled={disabled}
           handoff={handoff}
+          providerSwitch={providerSwitch}
         />
       ) : null}
     </>

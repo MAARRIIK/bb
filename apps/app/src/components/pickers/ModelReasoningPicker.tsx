@@ -87,6 +87,7 @@ import type {
   SessionOptionMenuSection,
 } from "./SessionOptionsMenu";
 import { isNonImeKey } from "@bb/shared-ui/lib/ime-keyboard";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 
 const NO_AGENT_SECTIONS: readonly SessionOptionMenuSection[] = [];
 function ignoreAgentOptionChange(): void {}
@@ -99,7 +100,7 @@ interface ResolvedProviderPreview {
   serviceTierOptions: readonly ProviderOptionDescriptor[];
 }
 
-export interface ModelReasoningPickerHandoffSelection {
+export interface ModelReasoningPickerSelection {
   providerId: string;
   model: string;
   reasoningLevel: ReasoningLevel;
@@ -110,7 +111,12 @@ export interface ModelReasoningPickerHandoff {
   active: boolean;
   onStart: () => void;
   onExit: () => void;
-  onSelect: (selection: ModelReasoningPickerHandoffSelection) => void;
+  onSelect: (selection: ModelReasoningPickerSelection) => void;
+}
+
+export interface ModelReasoningPickerProviderSwitch {
+  disabled: boolean;
+  onSelect: (selection: ModelReasoningPickerSelection) => void;
 }
 
 const FAILED_TO_LOAD_MODELS_LABEL = "Failed to load models";
@@ -213,6 +219,7 @@ interface ModelReasoningPickerProps {
   align?: "start" | "center" | "end";
   disabled?: boolean;
   handoff?: ModelReasoningPickerHandoff;
+  providerSwitch?: ModelReasoningPickerProviderSwitch;
 }
 
 export function ModelReasoningPicker({
@@ -248,7 +255,9 @@ export function ModelReasoningPicker({
   align = "start",
   disabled,
   handoff,
+  providerSwitch,
 }: ModelReasoningPickerProps) {
+  const { t } = useInterfaceTranslation();
   const isCompactViewport = useIsCompactViewport();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -276,7 +285,7 @@ export function ModelReasoningPicker({
   const [browsingHandoff, setHandoffMode] = useState(false);
   const handoffMode =
     handoff !== undefined && (handoff.active || browsingHandoff);
-  const [handoffReasoningLevel, setHandoffReasoningLevel] =
+  const [browsedReasoningLevel, setBrowsedReasoningLevel] =
     useState<ReasoningLevel | null>(null);
 
   if (trackedSelectedProviderId !== selectedProviderId) {
@@ -286,7 +295,7 @@ export function ModelReasoningPicker({
         handoff !== undefined &&
         selectedProviderId !== handoff.sourceProviderId,
     );
-    setHandoffReasoningLevel(null);
+    setBrowsedReasoningLevel(null);
     setPreviewProviderId(null);
     setShowMoreModels(false);
     setMoreModelsOpenedBy(null);
@@ -365,6 +374,8 @@ export function ModelReasoningPicker({
 
   const isPreviewing =
     previewProviderId !== null && previewProviderId !== selectedProviderId;
+  const isProviderSwitchPreview =
+    providerSwitch !== undefined && isPreviewing && !handoffMode;
   const previewQuery = useProviderPreviewExecutionOptions({
     enabled: isPreviewing,
     ...providerRouting,
@@ -390,7 +401,9 @@ export function ModelReasoningPicker({
   const previewSelectionBlocked =
     isPreviewing &&
     (previewProvider === undefined ||
-      (requireVerifiedProviderPreview && !previewCatalogIsVerified));
+      ((requireVerifiedProviderPreview || isProviderSwitchPreview) &&
+        !previewCatalogIsVerified) ||
+      (isProviderSwitchPreview && providerSwitch.disabled));
 
   const previewSelection = useMemo(
     () =>
@@ -423,13 +436,14 @@ export function ModelReasoningPicker({
   const activeReasoningOptions = isPreviewing
     ? (previewSelection?.reasoningOptions ?? [])
     : reasoningOptions;
-  const activeReasoningValue: ReasoningLevel | "" = handoffMode
-    ? (handoffReasoningLevel ??
-      (isPreviewing ? previewSelection?.reasoningLevel : reasoningValue) ??
-      "")
-    : isPreviewing
-      ? ""
-      : reasoningValue;
+  const activeReasoningValue: ReasoningLevel | "" =
+    handoffMode || isProviderSwitchPreview
+      ? (browsedReasoningLevel ??
+        (isPreviewing ? previewSelection?.reasoningLevel : reasoningValue) ??
+        "")
+      : isPreviewing
+        ? ""
+        : reasoningValue;
   const activeModelLoadError = isPreviewing
     ? (previewQuery.data?.modelLoadError ?? null)
     : (modelLoadError ?? null);
@@ -550,7 +564,7 @@ export function ModelReasoningPicker({
     previewServiceTierOptions,
   ]);
   const activeServiceTierOptions =
-    handoffMode || !hasActiveModelOptions
+    handoffMode || isProviderSwitchPreview || !hasActiveModelOptions
       ? EMPTY_SERVICE_TIER_OPTIONS
       : isPreviewing
         ? previewServiceTierOptions
@@ -575,7 +589,7 @@ export function ModelReasoningPicker({
 
   const resetBrowseState = useCallback(() => {
     setHandoffMode(false);
-    setHandoffReasoningLevel(null);
+    setBrowsedReasoningLevel(null);
     setPreviewProviderId(null);
     setShowMoreModels(false);
     setMoreModelsOpenedBy(null);
@@ -603,11 +617,23 @@ export function ModelReasoningPicker({
           providerId: activeProviderId,
           model,
           reasoningLevel:
-            handoffReasoningLevel ??
+            browsedReasoningLevel ??
             (isPreviewing ? previewSelection?.reasoningLevel : undefined) ??
             reasoningValue,
         });
         setMoreModelsOpenedBy(null);
+        return;
+      }
+      if (isProviderSwitchPreview) {
+        setOpen(false);
+        providerSwitch.onSelect({
+          providerId: activeProviderId,
+          model,
+          reasoningLevel:
+            browsedReasoningLevel ??
+            previewSelection?.reasoningLevel ??
+            reasoningValue,
+        });
         return;
       }
       onModelChange(model);
@@ -618,7 +644,9 @@ export function ModelReasoningPicker({
       activeProviderId,
       handoff,
       handoffMode,
-      handoffReasoningLevel,
+      browsedReasoningLevel,
+      isProviderSwitchPreview,
+      providerSwitch,
       isPreviewing,
       onModelChange,
       previewSelection,
@@ -633,7 +661,7 @@ export function ModelReasoningPicker({
       setPreviewProviderId(
         providerId === selectedProviderId ? null : providerId,
       );
-      setHandoffReasoningLevel(null);
+      setBrowsedReasoningLevel(null);
       setShowMoreModels(false);
       setMoreModelsOpenedBy(null);
       setSearchQuery("");
@@ -643,6 +671,18 @@ export function ModelReasoningPicker({
   );
   const handleProviderSelect = useCallback(
     (providerId: string) => {
+      if (providerSwitch !== undefined && !handoffMode) {
+        setPreviewProviderId(
+          providerId === selectedProviderId ? null : providerId,
+        );
+        setBrowsedReasoningLevel(null);
+        setShowMoreModels(false);
+        setMoreModelsOpenedBy(null);
+        setSearchQuery("");
+        setActiveIndex(-1);
+        setOpen(true);
+        return;
+      }
       if (
         open &&
         handoff !== undefined &&
@@ -660,6 +700,7 @@ export function ModelReasoningPicker({
     },
     [
       handoff,
+      providerSwitch,
       handoffMode,
       handleHandoffProviderSelect,
       onSelectedProviderChange,
@@ -673,7 +714,7 @@ export function ModelReasoningPicker({
   }, [handoff, handleHandoffProviderSelect, selectedProviderId]);
   const exitHandoffMode = useCallback(() => {
     setHandoffMode(false);
-    setHandoffReasoningLevel(null);
+    setBrowsedReasoningLevel(null);
     setPreviewProviderId(null);
     setSearchQuery("");
     handoff?.onExit();
@@ -682,8 +723,8 @@ export function ModelReasoningPicker({
   const handleReasoningSelect = useCallback(
     (level: ReasoningLevel) => {
       if (previewSelectionBlocked) return;
-      if (handoffMode) {
-        setHandoffReasoningLevel(level);
+      if (handoffMode || isProviderSwitchPreview) {
+        setBrowsedReasoningLevel(level);
         if (!isPreviewing) {
           onReasoningChange(level);
         }
@@ -698,6 +739,7 @@ export function ModelReasoningPicker({
     },
     [
       handoffMode,
+      isProviderSwitchPreview,
       isPreviewing,
       previewSelection,
       onModelChange,
@@ -755,11 +797,13 @@ export function ModelReasoningPicker({
     MODEL_CYCLE_COMMANDS,
     (index, { target }) => {
       if (!ownsCycleChord(target)) return false;
-      const options = (handoffMode ? activeModelOptions : modelOptions).filter(
-        (option) => option.disabled !== true,
-      );
+      const options = (
+        handoffMode || isProviderSwitchPreview
+          ? activeModelOptions
+          : modelOptions
+      ).filter((option) => option.disabled !== true);
       const value =
-        handoffMode && isPreviewing
+        (handoffMode || isProviderSwitchPreview) && isPreviewing
           ? (previewSelection?.selectedModel ?? "")
           : modelValue;
       const next =
@@ -767,7 +811,7 @@ export function ModelReasoningPicker({
           ? nextCycleValue(options, value)
           : previousCycleValue(options, value);
       if (next !== null) {
-        if (handoffMode) {
+        if (handoffMode || isProviderSwitchPreview) {
           handleModelSelect(next);
         } else {
           onModelChange(next);
@@ -811,15 +855,20 @@ export function ModelReasoningPicker({
     REASONING_CYCLE_COMMANDS,
     (index, { target }) => {
       if (!ownsCycleChord(target)) return false;
-      const value = handoffMode ? activeReasoningValue : reasoningValue;
+      const value =
+        handoffMode || isProviderSwitchPreview
+          ? activeReasoningValue
+          : reasoningValue;
       if (value === "") return true;
       const next = cycleReasoningValue(
-        handoffMode ? activeReasoningOptions : reasoningOptions,
+        handoffMode || isProviderSwitchPreview
+          ? activeReasoningOptions
+          : reasoningOptions,
         value,
         index === 0 ? "forward" : "backward",
       );
       if (next !== null) {
-        if (handoffMode) {
+        if (handoffMode || isProviderSwitchPreview) {
           handleReasoningSelect(next);
         } else {
           onReasoningChange(next);
@@ -1152,6 +1201,16 @@ export function ModelReasoningPicker({
               highlightedIndex >= 0 ? optionDomId(highlightedIndex) : undefined
             }
           />
+        ) : null}
+
+        {isProviderSwitchPreview ? (
+          <p className="px-3 py-2 text-sm text-muted-foreground" role="status">
+            {t(
+              providerSwitch.disabled
+                ? "A ready workspace and idle conversation are required to switch providers."
+                : "Select a model to review switching in this conversation.",
+            )}
+          </p>
         ) : null}
 
         <ModelReasoningMenu

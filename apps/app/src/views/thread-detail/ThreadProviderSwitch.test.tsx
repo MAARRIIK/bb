@@ -18,7 +18,10 @@ import type {
 } from "@bb/server-contract";
 import { sdk } from "@/lib/sdk";
 import { makeThreadResponse } from "@/test/fixtures/thread-responses";
-import { ThreadProviderSwitch } from "./ThreadProviderSwitch";
+import {
+  ThreadProviderSwitch,
+  ThreadProviderSwitchDialog,
+} from "./ThreadProviderSwitch";
 
 const viewport = vi.hoisted(() => ({ compact: false }));
 
@@ -163,6 +166,111 @@ afterEach(() => {
 });
 
 describe("same-conversation switch controls", () => {
+  it("blocks a second review surface while the same thread has a pending operation", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    clients.push(client);
+    vi.spyOn(
+      sdk.threads.experimental_providerSwitch,
+      "preview",
+    ).mockResolvedValue(preview);
+    vi.spyOn(sdk.threads.experimental_providerSwitch, "get").mockImplementation(
+      async ({ operationId }) => receipt(operationId, "finalizing"),
+    );
+    const commit = vi
+      .spyOn(sdk.threads.experimental_providerSwitch, "commit")
+      .mockImplementation(async ({ operationId }) =>
+        receipt(operationId, "finalizing"),
+      );
+    render(
+      <QueryClientProvider client={client}>
+        {[0, 1].map((id) => (
+          <ThreadProviderSwitchDialog
+            key={id}
+            threadId={thread.id}
+            environmentId="env_switch_ui"
+            open
+            onOpenChange={vi.fn()}
+            selection={{
+              providerId: "pi",
+              model: "pi-model",
+              reasoningLevel: "medium",
+            }}
+          />
+        ))}
+      </QueryClientProvider>,
+    );
+    const permissions = await screen.findAllByRole("combobox", {
+      name: "Permissions",
+    });
+    for (const select of permissions)
+      fireEvent.change(select, { target: { value: "full" } });
+    for (const button of screen.getAllByRole("button", {
+      name: "Preview context",
+    }))
+      fireEvent.click(button);
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("button", { name: "Switch in this conversation" }),
+      ).toHaveLength(2),
+    );
+    const buttons = screen.getAllByRole("button", {
+      name: "Switch in this conversation",
+    });
+    fireEvent.click(buttons[0]!);
+    await waitFor(() => expect(commit).toHaveBeenCalledOnce());
+    expect(buttons[1]).toHaveProperty("disabled", true);
+    fireEvent.click(buttons[1]!);
+    expect(commit).toHaveBeenCalledOnce();
+  });
+  it("starts a composer review with its chosen model and reasoning while requiring explicit permissions", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    clients.push(client);
+    const makePreview = vi
+      .spyOn(sdk.threads.experimental_providerSwitch, "preview")
+      .mockResolvedValue(preview);
+    const commit = vi.spyOn(sdk.threads.experimental_providerSwitch, "commit");
+    render(
+      <QueryClientProvider client={client}>
+        <ThreadProviderSwitchDialog
+          threadId={thread.id}
+          environmentId="env_switch_ui"
+          open
+          onOpenChange={vi.fn()}
+          selection={{
+            providerId: "pi",
+            model: "pi-model",
+            reasoningLevel: "medium",
+          }}
+        />
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByRole("combobox", { name: "Provider" }),
+    ).toHaveProperty("value", "pi");
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveProperty(
+      "value",
+      "pi-model",
+    );
+    expect(
+      screen.getByRole("button", { name: "Preview context" }),
+    ).toHaveProperty("disabled", true);
+    expect(makePreview).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("combobox", { name: "Permissions" }), {
+      target: { value: "full" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Preview context" }));
+    await screen.findByRole("textbox", { name: "Context to transfer" });
+    expect(makePreview).toHaveBeenCalledExactlyOnceWith({
+      threadId: thread.id,
+      ...preview.request,
+      reasoningLevel: "medium",
+    });
+    expect(commit).not.toHaveBeenCalled();
+  });
   it.each([false, true])(
     "reviews exact context and explicitly chooses Pi permissions with compact=%s",
     async (compact) => {

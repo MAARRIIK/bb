@@ -8,6 +8,10 @@ export type InterfaceTranslator = (
 const russian = new Map<string, string>(
   Object.entries({
     "Switch model in this conversation": "Сменить модель в этом диалоге",
+    "Select a model to review switching in this conversation.":
+      "Выбери модель, чтобы посмотреть условия переключения в этом диалоге.",
+    "A ready workspace and idle conversation are required to switch providers.":
+      "Для смены провайдера нужна готовая рабочая папка и диалог без активной работы.",
     "Keep this chat and workspace. Review the context before a fresh agent session is prepared.":
       "Диалог и рабочая папка сохранятся. Проверь передаваемый контекст перед подготовкой новой сессии агента.",
     Provider: "Провайдер",

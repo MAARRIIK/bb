@@ -39,6 +39,7 @@ import {
   buildModelNavRows,
   ModelReasoningPicker,
   type ModelReasoningPickerHandoff,
+  type ModelReasoningPickerProviderSwitch,
 } from "./ModelReasoningPicker";
 import { ModelReasoningMenu } from "./ModelReasoningMenuSplit";
 import type { PickerOption } from "./OptionPicker";
@@ -208,6 +209,7 @@ function renderPicker({
   splitPane = false,
   muted = false,
   handoff,
+  providerSwitch,
   agentSections,
   onAgentOptionChange = vi.fn(),
 }: {
@@ -235,6 +237,7 @@ function renderPicker({
   splitPane?: boolean;
   muted?: boolean;
   handoff?: ModelReasoningPickerHandoff;
+  providerSwitch?: ModelReasoningPickerProviderSwitch;
   agentSections?: readonly SessionOptionMenuSection[];
   onAgentOptionChange?: (optionId: string, value: SessionOptionChoice) => void;
 } = {}) {
@@ -281,6 +284,7 @@ function renderPicker({
         serviceTierSupportByProvider={serviceTierSupportByProvider}
         muted={muted}
         handoff={handoff}
+        providerSwitch={providerSwitch}
         agentSections={agentSections}
         onAgentOptionChange={onAgentOptionChange}
       />
@@ -1041,6 +1045,122 @@ describe("ModelReasoningPicker", () => {
     expect(screen.queryByRole("button", { name: "Exit handoff" })).toBeNull();
     expect(screen.queryByText("Opus 4.7")).toBeNull();
     expect(screen.getByRole("button", { name: "5.5" })).not.toBeNull();
+  });
+
+  it.each([
+    { compact: false, keyboard: false },
+    { compact: true, keyboard: false },
+    { compact: false, keyboard: true },
+  ])(
+    "requests a same-conversation review with compact=$compact keyboard=$keyboard without changing the source",
+    async ({ compact, keyboard }) => {
+      const requestReview = vi.fn();
+      const handoffSelect = vi.fn();
+      const onStart = vi.fn();
+      const {
+        onSelectedProviderChange,
+        onModelChange,
+        onReasoningChange,
+        onServiceTierChange,
+      } = renderPicker({
+        compact,
+        providerSwitch: { disabled: false, onSelect: requestReview },
+        handoff: {
+          sourceProviderId: "codex",
+          active: false,
+          onStart,
+          onExit: vi.fn(),
+          onSelect: handoffSelect,
+        },
+      });
+      if (keyboard) {
+        const trigger = screen.getByRole("button", {
+          name: "Provider, model and reasoning",
+        });
+        trigger.focus();
+        act(() => {
+          expect(
+            commandHandlers.get("modelPicker.cycleProvider")?.({
+              target: trigger,
+            }),
+          ).toBe(true);
+        });
+      } else {
+        fireEvent.click(
+          screen.getByRole("button", { name: "Provider, model and reasoning" }),
+        );
+        fireEvent.click(await screen.findByTitle("Claude Code"));
+      }
+      const model = await screen.findByText("Opus 4.7");
+      expect(screen.getByRole("status").textContent).toContain(
+        "review switching in this conversation",
+      );
+      expect(screen.queryByRole("button", { name: "Exit handoff" })).toBeNull();
+      expect(requestReview).not.toHaveBeenCalled();
+      fireEvent.click(model);
+      expect(requestReview).toHaveBeenCalledExactlyOnceWith({
+        providerId: "claude-code",
+        model: "claude-opus-4-7",
+        reasoningLevel: "medium",
+      });
+      expect(onSelectedProviderChange).not.toHaveBeenCalled();
+      expect(onModelChange).not.toHaveBeenCalled();
+      expect(onReasoningChange).not.toHaveBeenCalled();
+      expect(onServiceTierChange).not.toHaveBeenCalled();
+      expect(handoffSelect).not.toHaveBeenCalled();
+      expect(onStart).not.toHaveBeenCalled();
+    },
+  );
+
+  it("blocks a provider review while the conversation cannot switch", async () => {
+    const requestReview = vi.fn();
+    const { onSelectedProviderChange, onModelChange } = renderPicker({
+      providerSwitch: { disabled: true, onSelect: requestReview },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Provider, model and reasoning" }),
+    );
+    fireEvent.click(screen.getByTitle("Claude Code"));
+    const model = await screen.findByRole("button", { name: "Opus 4.7" });
+    expect(model).toHaveProperty("disabled", true);
+    fireEvent.click(model);
+    expect(requestReview).not.toHaveBeenCalled();
+    expect(onSelectedProviderChange).not.toHaveBeenCalled();
+    expect(onModelChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toContain(
+      "idle conversation",
+    );
+  });
+
+  it("retains an explicit new-thread handoff when same-conversation review is available", async () => {
+    const requestReview = vi.fn();
+    const onStart = vi.fn();
+    const onSelect = vi.fn();
+    renderPicker({
+      providerSwitch: { disabled: false, onSelect: requestReview },
+      handoff: {
+        sourceProviderId: "codex",
+        active: false,
+        onStart,
+        onSelect,
+        onExit: vi.fn(),
+      },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Provider, model and reasoning" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Hand off to new thread" }),
+    );
+    fireEvent.click(screen.getByTitle("Claude Code"));
+    fireEvent.click(await screen.findByText("Opus 4.7"));
+    expect(onStart).toHaveBeenCalledOnce();
+    expect(onSelect).toHaveBeenCalledExactlyOnceWith({
+      providerId: "claude-code",
+      model: "claude-opus-4-7",
+      reasoningLevel: "medium",
+    });
+    expect(requestReview).not.toHaveBeenCalled();
   });
 
   it("commits a handoff model directly from a provider preview", async () => {

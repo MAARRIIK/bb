@@ -72,7 +72,8 @@ import { ThreadWorkflowStack } from "@/components/promptbox/banner/ThreadWorkflo
 import { ThreadBackgroundCommandsCard } from "@/components/promptbox/banner/ThreadBackgroundCommandsCard";
 import { ThreadModelFallbackCard } from "@/components/promptbox/banner/ThreadModelFallbackCard";
 import { InlineMessageEditorFrame } from "@/components/promptbox/InlineMessageEditorFrame";
-import type { ModelReasoningPickerHandoffSelection } from "@/components/pickers/ModelReasoningPicker";
+import type { ModelReasoningPickerSelection } from "@/components/pickers/ModelReasoningPicker";
+import { ThreadProviderSwitchDialog } from "./ThreadProviderSwitch";
 import {
   buildSessionOptionMenuSections,
   sessionOptionViewSelections,
@@ -319,7 +320,7 @@ interface ThreadComposerSelectionState extends CommittedComposerState {
   isHandoffSelection: boolean;
   changeProvider: (providerId: string) => void;
   changeModel: (model: string) => void;
-  handoffSelect: (selection: ModelReasoningPickerHandoffSelection) => void;
+  handoffSelect: (selection: ModelReasoningPickerSelection) => void;
   changeReasoning: (level: ReasoningLevel) => void;
   changeServiceTier: (tier: ServiceTier | undefined) => void;
   changePermissionMode: (mode: PermissionMode) => void;
@@ -737,7 +738,7 @@ export function ThreadDetailPromptArea({
   );
   const [handoffSourceSelection, setHandoffSourceSelection] = useState<{
     threadId: string;
-    execution: ModelReasoningPickerHandoffSelection;
+    execution: ModelReasoningPickerSelection;
     serviceTier: ServiceTier | undefined;
     permissionMode: PermissionMode;
     overriddenFallbackIdentity: string | null;
@@ -943,7 +944,7 @@ export function ThreadDetailPromptArea({
     [fallbackIdentity, selectedProviderId, setSelectedProviderId, beginHandoff],
   );
   const handleHandoffSelect = useCallback(
-    (selection: ModelReasoningPickerHandoffSelection) => {
+    (selection: ModelReasoningPickerSelection) => {
       if (fallbackIdentity !== null) {
         setOverriddenFallbackIdentity(fallbackIdentity);
       }
@@ -951,6 +952,18 @@ export function ThreadDetailPromptArea({
       setProviderModelReasoning(selection);
     },
     [beginHandoff, fallbackIdentity, setProviderModelReasoning],
+  );
+  const [providerSwitchRequest, setProviderSwitchRequest] = useState<{
+    threadId: string;
+    selection: ModelReasoningPickerSelection;
+  } | null>(null);
+  const [isProviderSwitchOpen, setProviderSwitchOpen] = useState(false);
+  const requestProviderSwitch = useCallback(
+    (selection: ModelReasoningPickerSelection) => {
+      setProviderSwitchRequest({ threadId: thread.id, selection });
+      setProviderSwitchOpen(true);
+    },
+    [thread.id],
   );
   const {
     getCurrent: getCurrentPromptDraft,
@@ -1722,6 +1735,13 @@ export function ThreadDetailPromptArea({
         onExit: exitHandoff,
         onSelect: handleHandoffSelect,
       },
+      providerSwitch: {
+        disabled:
+          thread.environmentId === null ||
+          thread.archivedAt !== null ||
+          (thread.status !== "idle" && thread.status !== "error"),
+        onSelect: requestProviderSwitch,
+      },
       ...(isHandoffSelection || pickerSessionOptionSections.length === 0
         ? {}
         : {
@@ -1738,6 +1758,7 @@ export function ThreadDetailPromptArea({
       executionOptionsRouting,
       hasMultipleProviders,
       handleHandoffSelect,
+      requestProviderSwitch,
       beginHandoff,
       isHandoffSelection,
       exitHandoff,
@@ -1761,12 +1782,15 @@ export function ThreadDetailPromptArea({
       supportsServiceTier,
       serviceTierOptions,
       thread.environmentId,
+      thread.archivedAt,
+      thread.status,
       thread.providerId,
     ],
   );
   const compactExecutionConfig = useMemo(() => {
     const {
       handoff: _handoff,
+      providerSwitch: _providerSwitch,
       provider: { onChange: _onProviderChange, ...lockedProvider },
       ...lockedExecution
     } = bottomExecutionConfig;
@@ -2481,6 +2505,23 @@ export function ThreadDetailPromptArea({
     <>
       {sentMessageEditorPortal}
       {bottomContent}
+      {thread.environmentId !== null ? (
+        <ThreadProviderSwitchDialog
+          key={thread.id}
+          threadId={thread.id}
+          environmentId={thread.environmentId}
+          open={
+            isProviderSwitchOpen &&
+            providerSwitchRequest?.threadId === thread.id
+          }
+          onOpenChange={setProviderSwitchOpen}
+          selection={
+            providerSwitchRequest?.threadId === thread.id
+              ? providerSwitchRequest.selection
+              : null
+          }
+        />
+      ) : null}
     </>
   );
 }
