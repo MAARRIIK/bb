@@ -19,6 +19,9 @@ Lifecycle:
     --self                                 Target current thread
 
   cancel-plan and clear-goal wait for the provider to confirm.
+  Controls apply to the provider session in which they were requested. A
+  refused control from an earlier session should be retried after refreshing
+  the thread; it cannot stop, rename, or archive the new agent's session.
   `thread compact` enqueues the same structured /compact turn used by the
   composer. Follow the thread timeline for the eventual compaction result.
   `thread clear` keeps the BB thread, workspace, durable event history, and

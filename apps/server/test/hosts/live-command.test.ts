@@ -31,6 +31,7 @@ describe("live host command logging", () => {
 
       startLiveHostCommand(harness.deps, {
         command: {
+          source: null,
           type: "thread.rename",
           environmentId: "env-live-command-expected-error",
           threadId: "thr-live-command-expected-error",

@@ -27,7 +27,7 @@ import type {
 } from "@bb/provider-bridge-protocol";
 import { ensurePluginProcessDataDir } from "@bb/process-utils";
 import type { InteractiveResolveCommandInput } from "./interactive-request-registry.js";
-import { RuntimeManager, type RuntimeEntry } from "./runtime-manager.js";
+import type { RuntimeManager, RuntimeEntry } from "./runtime-manager.js";
 import type { FetchProjectAttachment } from "./project-attachments.js";
 import type { SkillTreeTransport } from "./skill-trees.js";
 import type { HostDaemonLogger } from "./logger.js";

@@ -23,6 +23,7 @@ const target = {
 const commands: HostDaemonCommand[] = [
   {
     ...target,
+    source: null,
     type: "thread.archive",
     workspaceContext: { workspacePath: "/tmp/policy" },
     providerId: "codex",
@@ -31,13 +32,19 @@ const commands: HostDaemonCommand[] = [
   },
   {
     ...target,
+    source: null,
     type: "thread.unarchive",
     providerId: "codex",
     providerThreadId: "provider-thread",
     bridgeLaunch: TRANSPORT_TEST_BRIDGE_LAUNCH,
   },
-  { ...target, type: "thread.rename", title: "New title" },
-  { ...target, type: "thread.plan.cancel", expectedTurnId: "turn-policy" },
+  { ...target, source: null, type: "thread.rename", title: "New title" },
+  {
+    ...target,
+    source: null,
+    type: "thread.plan.cancel",
+    expectedTurnId: "turn-policy",
+  },
   { ...target, type: "thread.rewind.discard", leaseId: "lease-policy" },
 ];
 

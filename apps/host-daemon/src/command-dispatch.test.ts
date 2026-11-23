@@ -621,6 +621,7 @@ describe("dispatchCommand", () => {
     const flushDeferred = createDeferredPromise<void>();
     const flush = vi.fn(async () => flushDeferred.promise);
     const command: CommandOf<"thread.stop"> = {
+      source: null,
       type: "thread.stop",
       aimedAt: null,
       intent: "interrupt",
@@ -677,6 +678,7 @@ describe("dispatchCommand", () => {
 
     const result = await dispatchCommand(
       {
+        source: null,
         type: "thread.plan.cancel",
         environmentId: "env-1",
         threadId: "thread-1",
@@ -716,6 +718,7 @@ describe("dispatchCommand", () => {
 
     const result = await dispatchCommand(
       {
+        source: null,
         type: "thread.plan.cancel",
         environmentId: "env-1",
         threadId: "thread-1",
@@ -755,6 +758,7 @@ describe("dispatchCommand", () => {
 
     const result = await dispatchCommand(
       {
+        source: null,
         type: "thread.plan.cancel",
         environmentId: "env-1",
         threadId: "thread-1",
@@ -956,6 +960,7 @@ describe("dispatchCommand", () => {
     });
 
     const command: CommandOf<"thread.stop"> = {
+      source: null,
       type: "thread.stop",
       aimedAt: null,
       intent: "interrupt",
@@ -1011,6 +1016,7 @@ describe("dispatchCommand", () => {
 
     await dispatchCommand(
       {
+        source: null,
         type: "thread.stop",
         aimedAt: null,
         intent: "release",
@@ -1025,6 +1031,7 @@ describe("dispatchCommand", () => {
     runtime.setIdle("thread-1");
     await dispatchCommand(
       {
+        source: null,
         type: "thread.stop",
         aimedAt: null,
         intent: "interrupt",
@@ -1064,6 +1071,7 @@ describe("dispatchCommand", () => {
 
     const result = await dispatchCommand(
       {
+        source: null,
         type: "thread.stop",
         aimedAt: null,
         intent: "release",
@@ -1082,6 +1090,7 @@ describe("dispatchCommand", () => {
 
     const interrupted = await dispatchCommand(
       {
+        source: null,
         type: "thread.stop",
         aimedAt: null,
         intent: "interrupt",
@@ -1102,6 +1111,7 @@ describe("dispatchCommand", () => {
       provisionWorkspace: async () => createWorkspace(),
     });
     const command: CommandOf<"thread.stop"> = {
+      source: null,
       type: "thread.stop",
       aimedAt: null,
       intent: "interrupt",
@@ -1138,6 +1148,7 @@ describe("dispatchCommand", () => {
     oldRuntime.setActiveTurn("thread-1", "turn-old");
 
     const command: CommandOf<"thread.plan.cancel"> = {
+      source: null,
       type: "thread.plan.cancel",
       environmentId: "env-new",
       threadId: "thread-1",
@@ -1176,6 +1187,7 @@ describe("dispatchCommand", () => {
     oldRuntime.setActiveTurn("thread-1", "turn-other");
 
     const command: CommandOf<"thread.plan.cancel"> = {
+      source: null,
       type: "thread.plan.cancel",
       environmentId: "env-new",
       threadId: "thread-1",
@@ -1221,6 +1233,7 @@ describe("dispatchCommand", () => {
     oldRuntime.setActiveTurn("thread-1", "turn-old");
 
     const command: CommandOf<"thread.rename"> = {
+      source: null,
       type: "thread.rename",
       environmentId: "env-new",
       threadId: "thread-1",
@@ -1324,6 +1337,7 @@ describe("dispatchCommand", () => {
       provisionWorkspace: async () => createWorkspace(),
     });
     const command: CommandOf<"thread.rename"> = {
+      source: null,
       type: "thread.rename",
       environmentId: "env-missing-runtime",
       threadId: "thread-1",

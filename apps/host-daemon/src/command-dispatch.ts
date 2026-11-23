@@ -91,6 +91,42 @@ import { userExecutableProcessOptions } from "./user-executable-env.js";
 import type { ServerMoveService } from "./server-move/service.js";
 import { readWorkspaceAgentContext } from "./command-handlers/workspace-agent-context.js";
 import { WorkspaceError } from "bb-environment-provider-host/workspace-git";
+import { requireMatchingProviderSession } from "./command-provider-session.js";
+
+type SessionControlCommand = Extract<
+  HostDaemonCommand,
+  {
+    type:
+      | "thread.stop"
+      | "thread.rename"
+      | "thread.archive"
+      | "thread.unarchive"
+      | "thread.plan.cancel";
+  }
+>;
+
+function requireCommandProviderSession(
+  command: SessionControlCommand,
+  options: CommandDispatchOptions,
+): void {
+  if (
+    "providerId" in command &&
+    command.source !== null &&
+    command.providerId !== command.source.providerId
+  ) {
+    throw new ExpectedCommandDispatchError(
+      "provider_session_mismatch",
+      "Command provider does not match its session source",
+    );
+  }
+  for (const entry of options.runtimeManager.listThreadOwnerEntries(
+    command.threadId,
+  )) {
+    const current = entry.runtime.getProviderSession(command.threadId);
+    if (current !== null)
+      requireMatchingProviderSession(current, command.source);
+  }
+}
 
 const THREAD_STOP_ACTIVE_TURN_WAIT_MS = 5_000;
 
@@ -119,9 +155,12 @@ async function stopThreadRuntime(
   command: RuntimeStopCommand,
   options: CommandDispatchOptions,
 ): Promise<HostDaemonCommandResult<"thread.stop">> {
+  if (command.type === "thread.stop")
+    requireCommandProviderSession(command, options);
   const released =
     await options.runtimeManager.releaseThreadFromOtherEnvironments({
       activeTurn: "interrupt",
+      source: command.type === "thread.stop" ? command.source : undefined,
       environmentId: command.environmentId,
       threadId: command.threadId,
     });
@@ -132,6 +171,8 @@ async function stopThreadRuntime(
   }
   let providerCheckpointId = released.providerCheckpointId;
   if (entry.runtime.hasThread(command.threadId)) {
+    if (command.type === "thread.stop")
+      requireCommandProviderSession(command, options);
     if (
       command.type === "thread.stop" &&
       command.intent === "release" &&
@@ -153,6 +194,8 @@ async function stopThreadRuntime(
       await options.eventSink.flush();
       return { providerCheckpointId, activeTurnRetained: true };
     }
+    if (command.type === "thread.stop")
+      requireCommandProviderSession(command, options);
     const result = await entry.runtime.stopThread({
       threadId: command.threadId,
     });
@@ -467,6 +510,7 @@ const commandHandlers: CommandHandlerMap = {
     return result;
   },
   "thread.plan.cancel": async (command, options) => {
+    requireCommandProviderSession(command, options);
     const owners = options.runtimeManager.listThreadOwnerEntries(
       command.threadId,
     );
@@ -495,6 +539,7 @@ const commandHandlers: CommandHandlerMap = {
     if (!entry) {
       return {};
     }
+    requireCommandProviderSession(command, options);
     await entry.runtime.renameThread({
       threadId: command.threadId,
       title: command.title,
@@ -502,6 +547,7 @@ const commandHandlers: CommandHandlerMap = {
     return {};
   },
   "thread.archive": async (command, options) => {
+    requireCommandProviderSession(command, options);
     const entry = await requireResolvedWorkspaceForCommand({
       environmentId: command.environmentId,
       runtimeManager: options.runtimeManager,
@@ -511,6 +557,7 @@ const commandHandlers: CommandHandlerMap = {
       command.bridgeLaunch,
       options,
     );
+    requireCommandProviderSession(command, options);
     await entry.runtime.archiveThread({
       threadId: command.threadId,
       providerId: command.providerId,
@@ -520,10 +567,12 @@ const commandHandlers: CommandHandlerMap = {
     return {};
   },
   "thread.unarchive": async (command, options) => {
+    requireCommandProviderSession(command, options);
     const bridgeLaunch = await resolveRuntimeBridgeLaunch(
       command.bridgeLaunch,
       options,
     );
+    requireCommandProviderSession(command, options);
     await options.runtimeManager.withProviderMaintenanceRuntime(
       { dataDir: options.dataDir },
       (runtime) =>

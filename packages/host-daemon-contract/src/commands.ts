@@ -17,6 +17,7 @@ import {
   permissionModeSchema,
   promptInputSchema,
   providerForkSchema,
+  providerSessionSourceSchema,
   runtimeThreadExecutionOptionsSchema,
   clientTurnRequestIdSchema,
   jsonObjectSchema,
@@ -367,6 +368,7 @@ export type ThreadStopAim = z.infer<typeof threadStopAimSchema>;
 export const threadStopCommandSchema = hostDaemonThreadTargetSchema
   .extend({
     type: z.literal("thread.stop"),
+    source: providerSessionSourceSchema.nullable().default(null),
     intent: threadStopIntentSchema,
     aimedAt: threadStopAimSchema.nullable(),
   })
@@ -388,6 +390,7 @@ const threadGoalClearCommandSchema = hostDaemonThreadTargetSchema
 const threadPlanCancelCommandSchema = hostDaemonThreadTargetSchema
   .extend({
     type: z.literal("thread.plan.cancel"),
+    source: providerSessionSourceSchema.nullable().default(null),
     expectedTurnId: z.string().min(1),
   })
   .strict();
@@ -395,6 +398,7 @@ const threadPlanCancelCommandSchema = hostDaemonThreadTargetSchema
 const threadRenameCommandSchema = hostDaemonThreadTargetSchema
   .extend({
     type: z.literal("thread.rename"),
+    source: providerSessionSourceSchema.nullable().default(null),
     title: z.string().min(1),
   })
   .strict();
@@ -402,6 +406,7 @@ const threadRenameCommandSchema = hostDaemonThreadTargetSchema
 const threadArchiveCommandSchema = hostDaemonThreadWorkspaceTargetSchema
   .extend({
     type: z.literal("thread.archive"),
+    source: providerSessionSourceSchema.nullable().default(null),
     providerId: z.string().min(1),
     providerThreadId: z.string().min(1),
     bridgeLaunch: hostDaemonBridgeLaunchSchema,
@@ -411,6 +416,7 @@ const threadArchiveCommandSchema = hostDaemonThreadWorkspaceTargetSchema
 const threadUnarchiveCommandSchema = hostDaemonThreadTargetSchema
   .extend({
     type: z.literal("thread.unarchive"),
+    source: providerSessionSourceSchema.nullable().default(null),
     providerId: z.string().min(1),
     providerThreadId: z.string().min(1),
     bridgeLaunch: hostDaemonBridgeLaunchSchema,

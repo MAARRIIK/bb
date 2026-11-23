@@ -290,6 +290,7 @@ function threadStopCommand(
   aimedAt: CommandOf<"thread.stop">["aimedAt"] = null,
 ): CommandOf<"thread.stop"> {
   return {
+    source: null,
     type: "thread.stop",
     aimedAt,
     intent: "interrupt",

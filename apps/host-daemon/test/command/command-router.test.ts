@@ -420,6 +420,7 @@ describe("CommandRouter", () => {
     let stopResolved = false;
     const stopTask = runRouterCommand({
       command: {
+        source: null,
         type: "thread.stop",
         aimedAt: null,
         intent: "interrupt",
@@ -666,6 +667,7 @@ describe("CommandRouter", () => {
     const router = createRouter(harness);
     const stopTask = runRouterCommand({
       command: {
+        source: null,
         type: "thread.stop",
         aimedAt: null,
         intent: "interrupt",

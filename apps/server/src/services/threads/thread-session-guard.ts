@@ -4,6 +4,10 @@ const inFlightByThreadId = new Map<string, number>();
 const activityByThreadId = new Map<string, number>();
 const committingThreadIds = new Set<string>();
 
+export function isThreadSessionCommitInProgress(threadId: string): boolean {
+  return committingThreadIds.has(threadId);
+}
+
 export class ThreadContextChangeInProgressError extends ApiError {
   constructor() {
     super(409, "invalid_request", "Thread session is being changed", true);

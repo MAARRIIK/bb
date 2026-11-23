@@ -7,6 +7,7 @@ import { createAgentRuntime } from "./runtime.js";
 import type { AgentRuntime } from "./types.js";
 import {
   createScriptedEchoLaunch,
+  createScriptedEchoProcessLog,
   createScriptedEchoRuntime,
   fullRuntimeOptions,
   waitForRuntimeState,
@@ -56,6 +57,81 @@ describe("createAgentRuntime multi-thread routing", () => {
   afterEach(() => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
+
+  it.skipIf(process.platform === "win32").each(["stop", "archive"] as const)(
+    "retains the new session when the old %s response arrives after replacement",
+    async (action) => {
+      const events: ThreadEvent[] = [];
+      const processLog = createScriptedEchoProcessLog();
+      const runtime = createScriptedEchoRuntime({
+        runtime: {
+          workspacePath: tmpDir,
+          env: processLog.env,
+          onEvent: (event) => events.push(event),
+        },
+      });
+      let pausedPid: number | null = null;
+      let pending: Promise<unknown> | undefined;
+      try {
+        const first = await runtime.startThread({
+          environmentId: "env-1",
+          threadId: "t1",
+          projectId: "p1",
+          providerId: "fake",
+          providerSessionId: "first-generation",
+          options: fullRuntimeOptions,
+        });
+        const pid = Number(
+          processLog
+            .read()
+            .find((line) => line.startsWith("spawn:"))
+            ?.slice(6),
+        );
+        if (!Number.isSafeInteger(pid) || pid <= 0)
+          throw new Error("Missing test bridge process");
+        process.kill(pid, "SIGSTOP");
+        pausedPid = pid;
+        pending =
+          action === "stop"
+            ? runtime.stopThread({ threadId: "t1" })
+            : runtime.archiveThread({
+                threadId: "t1",
+                providerId: "fake",
+                providerThreadId: first.providerThreadId,
+              });
+        await runtime.startThread({
+          environmentId: "env-1",
+          threadId: "t1",
+          projectId: "p1",
+          providerId: "fake",
+          providerSessionId: "second-generation",
+          options: fullRuntimeOptions,
+        });
+        process.kill(pid, "SIGCONT");
+        pausedPid = null;
+        await pending;
+        expect(runtime.getProviderSession("t1")?.providerSessionId).toBe(
+          "second-generation",
+        );
+        await runtime.runTurn({
+          threadId: "t1",
+          clientRequestId: "creq_2222222223",
+          input: [promptTextInput({ text: "Continue the current session" })],
+          options: fullRuntimeOptions,
+        });
+        await waitForThreadTurnCompleted({
+          events,
+          providerId: "fake",
+          runtime,
+          threadId: "t1",
+        });
+      } finally {
+        if (pausedPid !== null) process.kill(pausedPid, "SIGCONT");
+        await pending?.catch(() => undefined);
+        await runtime.shutdown();
+      }
+    },
+  );
 
   it("keeps successive generations of the same thread isolated in their originating processes", async () => {
     const received: { event: ThreadEvent; source: ProviderSessionSource }[] =

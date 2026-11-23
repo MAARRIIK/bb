@@ -1,3 +1,5 @@
+import type { ProviderSessionSource } from "@bb/domain";
+import { requireThreadProviderSessionSource } from "./thread-provider-session-source.js";
 import {
   getEnvironment,
   getThread,
@@ -57,6 +59,7 @@ import {
 type ExecutionOptionsRequest = ExistingThreadExecutionInputRequest;
 
 export interface ThreadStopCommandArgs {
+  source: ProviderSessionSource;
   aimedAt: ThreadStopAim | null;
   environmentId: string;
   hostId: string;
@@ -459,6 +462,7 @@ export function dispatchThreadRenameCommand(
   startLiveHostCommand(deps, {
     command: {
       type: "thread.rename",
+      source: requireThreadProviderSessionSource(deps.db, args.threadId),
       environmentId: args.environment.id,
       threadId: args.threadId,
       title: args.title,
@@ -549,6 +553,10 @@ export function dispatchArchivedThreadProviderArchiveCommand(
   startLiveHostCommand(deps, {
     command: {
       type: "thread.archive",
+      source: {
+        providerId: thread.providerId,
+        providerSessionId: thread.providerSessionId,
+      },
       environmentId: environment.id,
       threadId: thread.id,
       workspaceContext,
@@ -595,6 +603,7 @@ export function dispatchThreadUnarchiveCommand(
   startLiveHostCommand(deps, {
     command: {
       type: "thread.unarchive",
+      source: requireThreadProviderSessionSource(deps.db, args.thread.id),
       environmentId: args.environment.id,
       threadId: args.thread.id,
       providerId: args.thread.providerId,
@@ -618,6 +627,7 @@ export function buildThreadStopCommand(
 ): Extract<HostDaemonCommand, { type: "thread.stop" }> {
   return {
     type: "thread.stop",
+    source: args.source,
     aimedAt: args.aimedAt,
     environmentId: args.environmentId,
     intent: args.intent,

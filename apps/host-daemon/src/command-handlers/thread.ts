@@ -1,10 +1,8 @@
+import { requireMatchingProviderSession } from "../command-provider-session.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { AgentRuntimeBridgeLaunch } from "@bb/agent-runtime";
-import {
-  flattenPromptInputGroups,
-  type ProviderSessionSource,
-} from "@bb/domain";
+import { flattenPromptInputGroups } from "@bb/domain";
 import { killProcessesWithCwdUnder } from "@bb/process-utils";
 import {
   COMPETING_TURN_ERROR_CODE,
@@ -40,22 +38,6 @@ type ExistingThreadRuntimeCommand =
 
 const TURN_SUBMIT_ACTIVE_TURN_WAIT_MS = 5_000;
 const TURN_SUBMIT_STEER_ATTEMPTS = 2;
-
-function requireMatchingProviderSession(
-  current: ProviderSessionSource | null,
-  expected: ProviderSessionSource,
-): void {
-  if (
-    !current ||
-    current.providerId !== expected.providerId ||
-    current.providerSessionId !== expected.providerSessionId
-  ) {
-    throw new CommandDispatchError(
-      "provider_session_mismatch",
-      "Thread command belongs to another provider session",
-    );
-  }
-}
 
 interface ResumeThreadRuntimeIfMissingArgs {
   command: ExistingThreadRuntimeCommand;
@@ -381,6 +363,7 @@ export async function ensureThreadRuntime(
   const released =
     await options.runtimeManager.releaseThreadFromOtherEnvironments({
       activeTurn: command.type === "turn.submit" ? "interrupt" : "keep",
+      source: resumeContext,
       environmentId: command.environmentId,
       threadId: command.threadId,
     });

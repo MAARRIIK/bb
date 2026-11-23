@@ -21,6 +21,45 @@ import {
   settleTurnSubmitCommandResult,
 } from "../services/threads/thread-lifecycle.js";
 import { notifyWorkspaceMutationResult } from "./environment-changes.js";
+import { getThread, type DbQueryConnection } from "@bb/db";
+import type { ProviderSessionSource } from "@bb/domain";
+import { isCurrentProviderSession } from "./provider-session.js";
+import {
+  acquireThreadSessionActivity,
+  isThreadSessionCommitInProgress,
+} from "../services/threads/thread-session-guard.js";
+
+function commandProviderSession(
+  command: HostDaemonCommand,
+): { threadId: string; source: ProviderSessionSource | null } | null {
+  switch (command.type) {
+    case "thread.start":
+      return { threadId: command.threadId, source: command };
+    case "turn.submit":
+    case "thread.goal.clear":
+      return { threadId: command.threadId, source: command.resumeContext };
+    case "thread.stop":
+    case "thread.plan.cancel":
+    case "thread.rename":
+    case "thread.archive":
+    case "thread.unarchive":
+      return { threadId: command.threadId, source: command.source };
+    default:
+      return null;
+  }
+}
+
+function canApplySessionResult(
+  db: DbQueryConnection,
+  target: { threadId: string; source: ProviderSessionSource | null },
+): boolean {
+  const thread = getThread(db, target.threadId);
+  return (
+    thread !== null &&
+    !isThreadSessionCommitInProgress(target.threadId) &&
+    isCurrentProviderSession(thread, target.source)
+  );
+}
 
 type ParsedCommandType = HostDaemonSettledCommandType;
 type ParsedCommandForType<TType extends ParsedCommandType> = Extract<
@@ -80,13 +119,28 @@ export function handleLiveCommandResultSideEffects<
   if (!handler) {
     return emptyCommandResultSideEffects();
   }
-
-  return (
+  const target = commandProviderSession(args.command);
+  if (target !== null && !canApplySessionResult(deps.db, target))
+    return emptyCommandResultSideEffects();
+  const effects =
     handler({
       deps,
       report: args.report,
       command: args.command,
       execution: args.execution,
-    }) ?? emptyCommandResultSideEffects()
-  );
+    }) ?? emptyCommandResultSideEffects();
+  if (target === null) return effects;
+  return {
+    postCommitActions: effects.postCommitActions.map((action) => ({
+      async run(postCommitDeps) {
+        if (!canApplySessionResult(postCommitDeps.db, target)) return;
+        const release = acquireThreadSessionActivity([target.threadId]);
+        try {
+          await action.run(postCommitDeps);
+        } finally {
+          release();
+        }
+      },
+    })),
+  };
 }

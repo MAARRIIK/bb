@@ -872,10 +872,8 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     providerState: RuntimeProviderProcess["identity"],
     threadId: string,
   ): void {
-    threadIdentityRegistry.forgetThread({
-      providerState,
-      threadId,
-    });
+    if (!threadIdentityRegistry.forgetThread({ providerState, threadId }))
+      return;
     clearThreadRuntimeConfig(threadId);
     turnState.clearThread(threadId);
     backgroundWorkState.clearThread(threadId);
