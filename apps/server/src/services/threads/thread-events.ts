@@ -962,7 +962,11 @@ export function getLastExecutionOptions(
   deps: Pick<AppDeps, "db">,
   threadId: string,
 ): RecordedThreadExecutionOptions | null {
-  const row = getLastStoredTurnRequestEvent(deps.db, threadId);
+  const row = getLastStoredTurnRequestEvent(
+    deps.db,
+    threadId,
+    "current-session",
+  );
 
   return row ? parseStoredTurnRequestEvent(row).execution : null;
 }
