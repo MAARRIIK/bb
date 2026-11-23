@@ -9,6 +9,7 @@ import {
   type RefObject,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import { Button } from "@bb/shared-ui/button";
 import {
   COARSE_POINTER_COMPACT_ICON_BUTTON_CLASS,
@@ -137,6 +138,7 @@ function SettingsSearchField({
   onQueryChange,
   query,
 }: SettingsSearchFieldProps) {
+  const { t } = useInterfaceTranslation();
   const axisClass = useSidebarHeaderControlAxisClass();
 
   return (
@@ -164,8 +166,8 @@ function SettingsSearchField({
         onChange={(event) => onQueryChange(event.target.value)}
         onFocus={onFocus}
         onKeyDown={onKeyDown}
-        placeholder="Search"
-        aria-label="Search settings"
+        placeholder={t("Search")}
+        aria-label={t("Search settings")}
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={listboxId !== undefined}
@@ -185,7 +187,7 @@ function SettingsSearchField({
             COARSE_POINTER_COMPACT_ICON_BUTTON_CLASS,
             "h-6 w-6 shrink-0 text-muted-foreground hover:text-sidebar-foreground",
           )}
-          aria-label="Clear settings search"
+          aria-label={t("Clear settings search")}
           onClick={onClear}
         >
           <Icon name="X" aria-hidden />
@@ -233,6 +235,7 @@ function SettingsSearchResults({
   onOpen,
   results,
 }: SettingsSearchResultsProps) {
+  const { t } = useInterfaceTranslation();
   if (results.length === 0) {
     if (isLoading) return null;
     return (
@@ -240,7 +243,7 @@ function SettingsSearchResults({
         role="status"
         className="px-2 py-6 text-center text-xs text-subtle-foreground"
       >
-        No settings found
+        {t("No settings found")}
       </p>
     );
   }
@@ -249,7 +252,7 @@ function SettingsSearchResults({
     <div
       id={listboxId}
       role="listbox"
-      aria-label="Settings search results"
+      aria-label={t("Settings search results")}
       className="mt-1 space-y-0.5"
     >
       {results.map((item, index) => (
@@ -299,6 +302,7 @@ export function SettingsSidebarContent({
   searchConditions,
   testIdPrefix = "settings",
 }: SettingsSidebarContentProps) {
+  const { t } = useInterfaceTranslation();
   const { activePluginId, activeSection, pluginEntries, sections } = navigation;
   const hasPlugins = pluginEntries.length > 0;
   const navigate = useNavigate();
@@ -315,8 +319,17 @@ export function SettingsSidebarContent({
         pluginEntries,
         pluginSettings: pluginSettingSearch.entries,
         sections,
-      }),
-    [pluginEntries, pluginSettingSearch.entries, searchConditions, sections],
+      }).map((item) =>
+        item.icon.kind === "section"
+          ? {
+              ...item,
+              title: t(item.title),
+              context: item.context === null ? null : t(item.context),
+              keywords: [...item.keywords, item.title],
+            }
+          : item,
+      ),
+    [pluginEntries, pluginSettingSearch.entries, searchConditions, sections, t],
   );
   const results = useMemo(
     () => searchSettings(query, searchItems),
@@ -377,7 +390,7 @@ export function SettingsSidebarContent({
   return (
     <SectionSidebar
       backTo={backTo}
-      title="Settings"
+      title={t("Settings")}
       isResizing={isResizing}
       onResizeMouseDown={onResizeMouseDown}
       testIdPrefix={testIdPrefix}
@@ -421,7 +434,7 @@ export function SettingsSidebarContent({
                 <SectionSidebarRow
                   key={section.id}
                   active={activeSection === section.id}
-                  label={section.label}
+                  label={t(section.label)}
                   to={getSettingsSectionRoutePath(section.id)}
                 >
                   <SectionSidebarIcon name={section.icon} />
@@ -431,7 +444,7 @@ export function SettingsSidebarContent({
           {hasPlugins ? (
             <>
               <div className="mt-4">
-                <SectionSidebarLabel>Plugins</SectionSidebarLabel>
+                <SectionSidebarLabel>{t("Plugins")}</SectionSidebarLabel>
               </div>
               <div className="mt-1 space-y-0.5">
                 {pluginEntries.map((entry) => (
@@ -454,11 +467,11 @@ export function SettingsSidebarContent({
           {canOpenNativeScreen() ? (
             <>
               <div className="mt-4">
-                <SectionSidebarLabel>This phone</SectionSidebarLabel>
+                <SectionSidebarLabel>{t("This phone")}</SectionSidebarLabel>
               </div>
               <div className="mt-1 space-y-0.5">
                 <SectionSidebarActionRow
-                  label="This device"
+                  label={t("This device")}
                   testId="settings-nav-native-device"
                   onClick={() => shellOpenNative("device-settings")}
                 >
@@ -470,7 +483,7 @@ export function SettingsSidebarContent({
           {sections.some((section) => section.id === "archived") ? (
             <>
               <div className="mt-4">
-                <SectionSidebarLabel>Archived</SectionSidebarLabel>
+                <SectionSidebarLabel>{t("Archived")}</SectionSidebarLabel>
               </div>
               <div className="mt-1 space-y-0.5">
                 {sections
@@ -479,7 +492,7 @@ export function SettingsSidebarContent({
                     <SectionSidebarRow
                       key={section.id}
                       active={activeSection === section.id}
-                      label={section.label}
+                      label={t(section.label)}
                       to={getSettingsSectionRoutePath(section.id)}
                     >
                       <SectionSidebarIcon name={section.icon} />

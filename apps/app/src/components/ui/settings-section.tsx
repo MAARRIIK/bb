@@ -1,5 +1,6 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from "react";
 import { cn } from "@bb/shared-ui/lib/utils";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 
 interface SettingsSectionProps {
   action?: ReactNode;
@@ -20,6 +21,7 @@ export function SettingsSection({
   title,
   bodyClassName,
 }: SettingsSectionProps) {
+  const { t } = useInterfaceTranslation();
   return (
     <section
       data-settings-anchor={typeof title === "string" ? title : undefined}
@@ -42,12 +44,12 @@ export function SettingsSection({
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
             <h2 className="min-w-0 text-sm font-semibold text-foreground">
-              {title}
+              {typeof title === "string" ? t(title) : title}
             </h2>
           </div>
           {description ? (
             <p className="mt-0.5 text-xs leading-snug text-subtle-foreground/75">
-              {description}
+              {t(description)}
             </p>
           ) : null}
         </div>
@@ -141,6 +143,7 @@ export function SettingsWithControl({
   controlPlacement = "inline",
   children,
 }: SettingsWithControlProps) {
+  const { t } = useInterfaceTranslation();
   const inline = controlPlacement === "inline";
   const trailing = controlPlacement === "trailing";
   return (
@@ -166,13 +169,13 @@ export function SettingsWithControl({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <p className="min-w-0 text-sm font-normal text-foreground">
-              {label}
+              {t(label)}
             </p>
             {labelBadge ? <SettingsBadge>{labelBadge}</SettingsBadge> : null}
           </div>
           {description ? (
             <p className="mt-0.5 text-xs leading-snug text-subtle-foreground/75">
-              {description}
+              {typeof description === "string" ? t(description) : description}
             </p>
           ) : null}
         </div>

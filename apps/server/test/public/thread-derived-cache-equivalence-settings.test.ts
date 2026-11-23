@@ -22,6 +22,7 @@ type ValueSetting = Exclude<keyof AppSettings, BooleanKey<AppSettings>>;
 const VALUE_SETTING_CHANGES: {
   [K in ValueSetting]-?: (settings: AppSettings) => Pick<AppSettings, K>;
 } = {
+  interfaceLanguage: () => ({ interfaceLanguage: "ru" }),
   providerOrder: () => ({ providerOrder: ["codex", PROVIDER_ID] }),
   defaultProviderId: () => ({ defaultProviderId: "codex" }),
   providerCompletedTurnDisplay: () => ({

@@ -6,6 +6,22 @@ export const MANAGED_BRANCH_PREFIX_MAX_LENGTH = 64;
 
 export const DEFAULT_MANAGED_BRANCH_PREFIX = "bb/";
 
+export const interfaceLanguageSchema = z.enum(["system", "en", "ru"]);
+export type InterfaceLanguage = z.infer<typeof interfaceLanguageSchema>;
+export type ResolvedInterfaceLanguage = Exclude<InterfaceLanguage, "system">;
+
+export function resolveInterfaceLanguage(
+  preference: InterfaceLanguage,
+  languages: readonly string[],
+): ResolvedInterfaceLanguage {
+  if (preference !== "system") return preference;
+  for (const language of languages) {
+    const base = language.toLowerCase().split(/[-_]/)[0];
+    if (base === "en" || base === "ru") return base;
+  }
+  return "en";
+}
+
 export const IDLE_PROVIDER_SESSION_TIMEOUT_MINUTES = [
   0, 5, 10, 30, 60,
 ] as const;
@@ -23,6 +39,7 @@ export const managedBranchPrefixSchema = z
 
 export const appSettingsSchema = z
   .object({
+    interfaceLanguage: interfaceLanguageSchema,
     showKeyboardHints: z.boolean(),
     steerActiveThreadOnEnter: z.boolean(),
     terminalCopyOnSelect: z.boolean(),
@@ -63,6 +80,7 @@ export const appSettingsSchema = z
 export type AppSettings = z.infer<typeof appSettingsSchema>;
 
 export const defaultAppSettings: AppSettings = {
+  interfaceLanguage: "system",
   showKeyboardHints: true,
   steerActiveThreadOnEnter: true,
   terminalCopyOnSelect: true,
@@ -104,6 +122,7 @@ export type ServerAccessOrigin = z.infer<
 
 export const appSettingsUpdateSchema = z.union([
   appSettingsSchema.extend({
+    interfaceLanguage: interfaceLanguageSchema.optional(),
     idleProviderSessionTimeoutMinutes:
       idleProviderSessionTimeoutMinutesSchema.optional(),
     terminalCopyOnSelect: z.boolean().optional(),
@@ -118,6 +137,7 @@ export const appSettingsUpdateSchema = z.union([
     earlyAdopter: z.boolean().optional(),
   }),
   appSettingsSchema.omit({ showDiagnosticEvents: true }).extend({
+    interfaceLanguage: interfaceLanguageSchema.optional(),
     idleProviderSessionTimeoutMinutes:
       idleProviderSessionTimeoutMinutesSchema.optional(),
     terminalCopyOnSelect: z.boolean().optional(),

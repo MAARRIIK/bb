@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import { Button } from "@bb/shared-ui/button";
 import { Icon } from "@bb/shared-ui/icon";
 import { cn } from "@bb/shared-ui/lib/utils";
@@ -13,11 +14,12 @@ export function NavRailSettingsButton({
   isSettingsActive: boolean;
   settingsRoutePath: string;
 }) {
+  const { t } = useInterfaceTranslation();
   const navigate = useNavigate();
   const settingsShortcut = useAppCommandShortcut("settings.open");
   const label = settingsShortcut
-    ? `Settings (${settingsShortcut.label})`
-    : "Settings";
+    ? `${t("Settings")} (${settingsShortcut.label})`
+    : t("Settings");
   return (
     <Tooltip>
       <TooltipTrigger asChild>

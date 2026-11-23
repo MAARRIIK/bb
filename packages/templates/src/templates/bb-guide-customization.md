@@ -91,6 +91,13 @@ and `null` clears a preference that can be unset. Most appear in Settings →
 General. Machine-related keys (`machineServerUrl`, `defaultMachineAccess`,
 `machineGitCredentialsEnabled`) are covered in `bb guide machines`.
 
+- `interfaceLanguage` (`system`, `en`, or `ru`, default `system`) controls the
+  interface language on connected clients without restarting. System mode picks
+  the first supported device language, with English as fallback. Set Russian with
+  `bb settings general interfaceLanguage ru`. The initial translation covers
+  settings navigation and selected general/appearance controls; untranslated text falls
+  back to English. Agent replies and code keep their original language.
+
 - `showDiagnosticEvents` (default false) shows provider environment resolution
   and unhandled provider events in the timeline. Warnings, errors, and model
   fallback stay visible either way.
