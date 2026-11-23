@@ -226,6 +226,7 @@ export type HostDaemonProjectAttachmentContentQuery = z.infer<
 const hostDaemonEventEnvelopeSchema = z
   .object({
     threadId: z.string().min(1),
+    providerId: z.string().min(1).nullable(),
     event: threadEventSchema,
   })
   .strict();
@@ -250,6 +251,7 @@ const hostDaemonWireEventSchema = z
 const hostDaemonEventGroupSchema = z
   .object({
     threadId: z.string().min(1),
+    providerId: z.string().min(1).nullable(),
     events: z.array(hostDaemonWireEventSchema).min(1),
   })
   .strict();
@@ -271,10 +273,17 @@ export function groupHostDaemonEvents(
   const groups: HostDaemonEventGroup[] = [];
   for (const envelope of envelopes) {
     const last = groups.at(-1);
-    if (last?.threadId === envelope.threadId) {
+    if (
+      last?.threadId === envelope.threadId &&
+      last.providerId === envelope.providerId
+    ) {
       last.events.push(envelope.event);
     } else {
-      groups.push({ threadId: envelope.threadId, events: [envelope.event] });
+      groups.push({
+        threadId: envelope.threadId,
+        providerId: envelope.providerId,
+        events: [envelope.event],
+      });
     }
   }
   return groups;
@@ -284,12 +293,18 @@ export function ungroupHostDaemonEvents(
   groups: readonly HostDaemonEventGroup[],
 ): HostDaemonEventEnvelope[] {
   return groups.flatMap((group) =>
-    group.events.map((event) => ({ threadId: group.threadId, event })),
+    group.events.map((event) => ({
+      threadId: group.threadId,
+      providerId: group.providerId,
+      event,
+    })),
   );
 }
 
 const hostDaemonEventRejectionReasonSchema = z.enum([
   "thread_not_owned_by_host",
+  "provider_mismatch",
+  "missing_provider",
 ]);
 
 const hostDaemonRejectedEventSchema = z

@@ -49,6 +49,31 @@ function systemErrorEvent(threadId: string) {
 }
 
 describe("event sink", () => {
+  it("retains the provider captured before a queued event is flushed", async () => {
+    let sessionOpen = false;
+    const postEvents = acceptingPostEvents();
+    const sink = createEventSink({
+      isSessionOpen: () => sessionOpen,
+      logger: createLogger(),
+      postEvents,
+    });
+    const input = {
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    };
+    sink.emit(input);
+    input.providerId = "claude-code";
+    sink.emit(input);
+    sessionOpen = true;
+    await sink.flush();
+    expect(postEvents).toHaveBeenCalledWith([
+      { ...input, providerId: "codex" },
+      { ...input, providerId: "claude-code" },
+    ]);
+    await sink.dispose();
+  });
+
   it("drains successfully skipped diffs without requiring allocated sequences", async () => {
     const postEvents = vi.fn<CreateEventSinkOptions["postEvents"]>(
       async () => ({
@@ -62,6 +87,7 @@ describe("event sink", () => {
       postEvents,
     });
     sink.emit({
+      providerId: "codex",
       threadId: "thr_1",
       event: {
         type: "turn/diff/updated",
@@ -74,11 +100,19 @@ describe("event sink", () => {
     await sink.flush();
     await sink.flush();
     expect(postEvents).toHaveBeenCalledTimes(1);
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
     await sink.flush();
     expect(postEvents).toHaveBeenCalledTimes(2);
     expect(postEvents).toHaveBeenLastCalledWith([
-      { threadId: "thr_1", event: systemErrorEvent("thr_1") },
+      {
+        providerId: "codex",
+        threadId: "thr_1",
+        event: systemErrorEvent("thr_1"),
+      },
     ]);
   });
 
@@ -91,9 +125,21 @@ describe("event sink", () => {
       postEvents,
     });
 
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
-    sink.emit({ threadId: "thr_2", event: systemErrorEvent("thr_2") });
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_2",
+      event: systemErrorEvent("thr_2"),
+    });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
     await sink.flush();
     expect(postEvents).not.toHaveBeenCalled();
     expect(sink.listUndeliveredThreadIds()).toEqual(["thr_1", "thr_2"]);
@@ -103,9 +149,21 @@ describe("event sink", () => {
 
     expect(postEvents).toHaveBeenCalledTimes(1);
     expect(postEvents).toHaveBeenCalledWith([
-      { threadId: "thr_1", event: systemErrorEvent("thr_1") },
-      { threadId: "thr_2", event: systemErrorEvent("thr_2") },
-      { threadId: "thr_1", event: systemErrorEvent("thr_1") },
+      {
+        providerId: "codex",
+        threadId: "thr_1",
+        event: systemErrorEvent("thr_1"),
+      },
+      {
+        providerId: "codex",
+        threadId: "thr_2",
+        event: systemErrorEvent("thr_2"),
+      },
+      {
+        providerId: "codex",
+        threadId: "thr_1",
+        event: systemErrorEvent("thr_1"),
+      },
     ]);
     expect(sink.listUndeliveredThreadIds()).toEqual([]);
   });
@@ -128,14 +186,22 @@ describe("event sink", () => {
       postEvents,
     });
 
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
     await expect(sink.flush()).resolves.toBeUndefined();
 
     await sink.flush();
 
     expect(postEvents).toHaveBeenCalledTimes(2);
     expect(postEvents).toHaveBeenLastCalledWith([
-      { threadId: "thr_1", event: systemErrorEvent("thr_1") },
+      {
+        providerId: "codex",
+        threadId: "thr_1",
+        event: systemErrorEvent("thr_1"),
+      },
     ]);
   });
 
@@ -159,7 +225,11 @@ describe("event sink", () => {
       postEvents,
     });
 
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
     await expect(sink.flush()).resolves.toBeUndefined();
 
     expect(logger.warn).toHaveBeenCalledTimes(1);
@@ -179,15 +249,27 @@ describe("event sink", () => {
     });
 
     for (let index = 0; index < 511; index += 1) {
-      sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+      sink.emit({
+        providerId: "codex",
+        threadId: "thr_1",
+        event: systemErrorEvent("thr_1"),
+      });
     }
     expect(logger.warn).not.toHaveBeenCalled();
 
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
     expect(logger.warn).not.toHaveBeenCalled();
 
     now = 5_000;
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
     expect(logger.warn).toHaveBeenCalledTimes(1);
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ queueAgeMs: 5_000, queueDepth: 513 }),
@@ -205,9 +287,17 @@ describe("event sink", () => {
       postEvents: acceptingPostEvents(),
     });
 
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
     now = 30_000;
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
 
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ queueAgeMs: 30_000, queueDepth: 2 }),
@@ -241,6 +331,7 @@ describe("event sink", () => {
     });
 
     sink.emit({
+      providerId: "codex",
       threadId: "thr_poison",
       event: systemErrorEvent("thr_poison"),
     });
@@ -280,12 +371,25 @@ describe("event sink", () => {
     });
 
     sink.emit({
+      providerId: "codex",
       threadId: "thr_poison",
       event: systemErrorEvent("thr_poison"),
     });
-    sink.emit({ threadId: "thr_a", event: systemErrorEvent("thr_a") });
-    sink.emit({ threadId: "thr_b", event: systemErrorEvent("thr_b") });
-    sink.emit({ threadId: "thr_a", event: systemErrorEvent("thr_a") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_a",
+      event: systemErrorEvent("thr_a"),
+    });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_b",
+      event: systemErrorEvent("thr_b"),
+    });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_a",
+      event: systemErrorEvent("thr_a"),
+    });
 
     await sink.flush();
     expect(postEvents).not.toHaveBeenCalled();
@@ -327,13 +431,21 @@ describe("event sink", () => {
       postEvents,
     });
 
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
     await sink.flush();
     await sink.flush();
 
     expect(postEvents).toHaveBeenCalledTimes(2);
     expect(postEvents).toHaveBeenLastCalledWith([
-      { threadId: "thr_1", event: systemErrorEvent("thr_1") },
+      {
+        providerId: "codex",
+        threadId: "thr_1",
+        event: systemErrorEvent("thr_1"),
+      },
     ]);
   });
 
@@ -364,16 +476,32 @@ describe("event sink", () => {
       postEvents,
     });
 
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
-    sink.emit({ threadId: "thr_2", event: systemErrorEvent("thr_2") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_2",
+      event: systemErrorEvent("thr_2"),
+    });
     await sink.flush();
 
     expect(postEvents).toHaveBeenCalledTimes(1);
 
     await sink.flush();
     expect(postEvents).toHaveBeenLastCalledWith([
-      { threadId: "thr_1", event: systemErrorEvent("thr_1") },
-      { threadId: "thr_2", event: systemErrorEvent("thr_2") },
+      {
+        providerId: "codex",
+        threadId: "thr_1",
+        event: systemErrorEvent("thr_1"),
+      },
+      {
+        providerId: "codex",
+        threadId: "thr_2",
+        event: systemErrorEvent("thr_2"),
+      },
     ]);
   });
 
@@ -386,7 +514,11 @@ describe("event sink", () => {
 
     expect(() => {
       for (let index = 0; index < 1000; index += 1) {
-        sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+        sink.emit({
+          providerId: "codex",
+          threadId: "thr_1",
+          event: systemErrorEvent("thr_1"),
+        });
       }
     }).not.toThrow();
   });
@@ -407,7 +539,11 @@ describe("event sink automatic retries", () => {
       logger: createLogger(),
       postEvents,
     });
-    sink.emit({ threadId: "thr_1", event: systemErrorEvent("thr_1") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: systemErrorEvent("thr_1"),
+    });
   });
 
   afterEach(() => {
@@ -427,14 +563,18 @@ describe("event sink automatic retries", () => {
       scope: turnScope("turn-1"),
       status: "completed",
     } as const;
-    sink.emit({ threadId: "thr_1", event: completion });
+    sink.emit({ providerId: "codex", threadId: "thr_1", event: completion });
     request.reject(new TypeError("fetch failed"));
     await flush;
 
     await vi.advanceTimersByTimeAsync(1000);
     expect(postEvents).toHaveBeenLastCalledWith([
-      { threadId: "thr_1", event: systemErrorEvent("thr_1") },
-      { threadId: "thr_1", event: completion },
+      {
+        providerId: "codex",
+        threadId: "thr_1",
+        event: systemErrorEvent("thr_1"),
+      },
+      { providerId: "codex", threadId: "thr_1", event: completion },
     ]);
     expect(postEvents).toHaveBeenCalledTimes(2);
     expect(vi.getTimerCount()).toBe(0);
@@ -445,7 +585,11 @@ describe("event sink automatic retries", () => {
     await sink.flush();
     let attempts = 1;
     for (const delay of [750, 1500, 3000, 6000, 12000, 22500, 22500]) {
-      sink.emit({ threadId: "thr_2", event: systemErrorEvent("thr_2") });
+      sink.emit({
+        providerId: "codex",
+        threadId: "thr_2",
+        event: systemErrorEvent("thr_2"),
+      });
       await vi.advanceTimersByTimeAsync(delay - 1);
       expect(postEvents).toHaveBeenCalledTimes(attempts);
       await vi.advanceTimersByTimeAsync(1);
@@ -482,7 +626,11 @@ describe("event sink automatic retries", () => {
     await vi.advanceTimersByTimeAsync(2250);
     expect(postEvents).toHaveBeenCalledTimes(3);
     postEvents.mockRejectedValueOnce(new Error("offline again"));
-    sink.emit({ threadId: "thr_2", event: systemErrorEvent("thr_2") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_2",
+      event: systemErrorEvent("thr_2"),
+    });
     await sink.flush();
     await vi.advanceTimersByTimeAsync(750);
     expect(postEvents).toHaveBeenCalledTimes(5);
@@ -497,12 +645,20 @@ describe("event sink automatic retries", () => {
     await sink.flush();
     await vi.advanceTimersByTimeAsync(750);
     expect(postEvents).toHaveBeenCalledTimes(2);
-    sink.emit({ threadId: "thr_2", event: systemErrorEvent("thr_2") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_2",
+      event: systemErrorEvent("thr_2"),
+    });
     const flush = sink.flush();
     await vi.advanceTimersByTimeAsync(60000);
     expect(postEvents).toHaveBeenCalledTimes(3);
     expect(postEvents).toHaveBeenLastCalledWith([
-      { threadId: "thr_2", event: systemErrorEvent("thr_2") },
+      {
+        providerId: "codex",
+        threadId: "thr_2",
+        event: systemErrorEvent("thr_2"),
+      },
     ]);
     request.resolve({ acceptedEvents: [], rejectedEvents: [] });
     await flush;
@@ -548,14 +704,26 @@ describe("event sink stream tick", () => {
       logger: createLogger(),
       postEvents,
     });
-    sink.emit({ threadId: "thr_1", event: textDelta("thr_1", "a") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: textDelta("thr_1", "a"),
+    });
     await vi.advanceTimersByTimeAsync(0);
     expect(postedDeltas(postEvents)).toEqual([["thr_1:a"]]);
 
     await vi.advanceTimersByTimeAsync(10);
-    sink.emit({ threadId: "thr_1", event: textDelta("thr_1", "b") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: textDelta("thr_1", "b"),
+    });
     await vi.advanceTimersByTimeAsync(20);
-    sink.emit({ threadId: "thr_1", event: textDelta("thr_1", "c") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: textDelta("thr_1", "c"),
+    });
     await vi.advanceTimersByTimeAsync(19);
     expect(postEvents).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1);
@@ -576,10 +744,22 @@ describe("event sink stream tick", () => {
       logger: createLogger(),
       postEvents,
     });
-    sink.emit({ threadId: "thr_1", event: textDelta("thr_1", "a") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: textDelta("thr_1", "a"),
+    });
     await vi.advanceTimersByTimeAsync(0);
-    sink.emit({ threadId: "thr_1", event: textDelta("thr_1", "b") });
-    sink.emit({ threadId: "thr_2", event: textDelta("thr_2", "x") });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_1",
+      event: textDelta("thr_1", "b"),
+    });
+    sink.emit({
+      providerId: "codex",
+      threadId: "thr_2",
+      event: textDelta("thr_2", "x"),
+    });
     await vi.advanceTimersByTimeAsync(50);
     expect(postedDeltas(postEvents)).toEqual([["thr_1:a"], ["thr_2:x"]]);
     expect(sink.listUndeliveredThreadIds()).toEqual(["thr_1"]);

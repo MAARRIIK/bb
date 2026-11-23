@@ -298,6 +298,7 @@ function seedDaemonSessionWrites(harness: TestAppHarness, hostId: string) {
     sessionId: session.id,
     eventGroups: groupHostDaemonEvents([
       {
+        providerId: "codex",
         threadId: thread.id,
         event: {
           type: "system/error",

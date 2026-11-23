@@ -918,6 +918,7 @@ describe("thread runtime stop", () => {
           sessionId: session.id,
           eventGroups: groupHostDaemonEvents([
             {
+              providerId: "codex",
               threadId: thread.id,
               event: {
                 type: "thread/identity",
@@ -927,6 +928,7 @@ describe("thread runtime stop", () => {
               },
             },
             {
+              providerId: "codex",
               threadId: thread.id,
               event: {
                 type: "turn/started",
@@ -977,6 +979,7 @@ describe("thread runtime stop", () => {
             sessionId: session.id,
             eventGroups: groupHostDaemonEvents([
               {
+                providerId: "codex",
                 threadId: thread.id,
                 event: {
                   type: "turn/started",

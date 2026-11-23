@@ -1939,12 +1939,15 @@ describe("RuntimeManager", () => {
     if (!onRuntimeEvent || !onProcessExit) {
       throw new Error("Expected runtime callbacks to be captured");
     }
-    onRuntimeEvent({
-      type: "turn/started",
-      threadId: "thread-1",
-      providerThreadId: "provider-1",
-      scope: turnScope("turn-1"),
-    });
+    onRuntimeEvent(
+      {
+        type: "turn/started",
+        threadId: "thread-1",
+        providerThreadId: "provider-1",
+        scope: turnScope("turn-1"),
+      },
+      "codex",
+    );
 
     onProcessExit({
       providerId: "codex",
@@ -1965,6 +1968,7 @@ describe("RuntimeManager", () => {
     expect(emittedEvents).toEqual([
       {
         environmentId: "env-provider-exit",
+        providerId: "codex",
         event: {
           type: "turn/started",
           threadId: "thread-1",
@@ -1974,6 +1978,7 @@ describe("RuntimeManager", () => {
       },
       {
         environmentId: "env-provider-exit",
+        providerId: "codex",
         event: {
           type: "turn/completed",
           threadId: "thread-1",
@@ -1987,6 +1992,7 @@ describe("RuntimeManager", () => {
       },
       {
         environmentId: "env-provider-exit",
+        providerId: "codex",
         event: {
           type: "system/error",
           threadId: "thread-1",
@@ -2103,6 +2109,7 @@ describe("RuntimeManager", () => {
     expect(emittedEvents).toEqual([
       {
         environmentId: "env-pending-turn-exit",
+        providerId: "claude-code",
         event: {
           type: "system/error",
           threadId: "thread-pending",
@@ -2146,12 +2153,15 @@ describe("RuntimeManager", () => {
     if (!onRuntimeEvent || !onProcessExit) {
       throw new Error("Expected runtime callbacks to be captured");
     }
-    onRuntimeEvent({
-      type: "turn/started",
-      threadId: "thread-1",
-      providerThreadId: "provider-1",
-      scope: turnScope("turn-1"),
-    });
+    onRuntimeEvent(
+      {
+        type: "turn/started",
+        threadId: "thread-1",
+        providerThreadId: "provider-1",
+        scope: turnScope("turn-1"),
+      },
+      "codex",
+    );
     emittedEvents.splice(0, emittedEvents.length);
 
     onProcessExit({

@@ -280,7 +280,12 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
   const idleProviderSessionSinceMsByThreadId = new Map<string, number>();
   const pendingTurnStarts = new Map<
     string,
-    { clientRequestId: string; sinceMs: number; watchdogFired: boolean }
+    {
+      clientRequestId: string;
+      providerId: string;
+      sinceMs: number;
+      watchdogFired: boolean;
+    }
   >();
   const turnStartWatchdogThresholdMs =
     options.turnStartWatchdog?.thresholdMs ?? 120_000;
@@ -294,13 +299,16 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
         continue;
       }
       entry.watchdogFired = true;
-      options.onEvent({
-        type: "system/error",
-        threadId,
-        scope: { kind: "thread" },
-        code: "provider_turn_start_timeout",
-        message: `The provider accepted a turn but did not start it within ${Math.round(turnStartWatchdogThresholdMs / 1000)}s. The request may be stalled; stopping the thread interrupts it.`,
-      });
+      options.onEvent(
+        {
+          type: "system/error",
+          threadId,
+          scope: { kind: "thread" },
+          code: "provider_turn_start_timeout",
+          message: `The provider accepted a turn but did not start it within ${Math.round(turnStartWatchdogThresholdMs / 1000)}s. The request may be stalled; stopping the thread interrupts it.`,
+        },
+        entry.providerId,
+      );
     }
   }, options.turnStartWatchdog?.intervalMs ?? 15_000);
   turnStartWatchdogTimer.unref?.();
@@ -344,14 +352,15 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       handleStdoutLine(args.line, args.providerProcess),
     onProcessExit: options.onProcessExit,
     onProviderThreadDetached: (threadId) => {
+      const providerId = threadRuntimeConfigs.get(threadId)?.providerId;
       toolCalls.cancelThread(threadId);
       threadIdentityRegistry.clearThread(threadId);
       clearThreadRuntimeConfig(threadId);
       turnState.clearThread(threadId);
       const settlements = backgroundWorkState.settleThread(threadId);
-      if (!suppressedThreadEventIds.has(threadId)) {
+      if (!suppressedThreadEventIds.has(threadId) && providerId !== undefined) {
         for (const event of settlements) {
-          options.onEvent(event);
+          options.onEvent(event, providerId);
         }
       }
       threadEventGrammar.clearThread(threadId);
@@ -1207,26 +1216,33 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
     droppedContributions: DroppedThreadEnvironmentContribution[];
     entries: ResolvedThreadEnvironmentEntry[];
     providerThreadId: string;
+    providerId: string;
     threadId: string;
   }): void {
-    options.onEvent({
-      type: "provider.env-resolved",
-      threadId: args.threadId,
-      providerThreadId: args.providerThreadId,
-      entries: args.entries,
-      scope: { kind: "thread" },
-    });
-    for (const contribution of args.droppedContributions) {
-      options.onEvent({
-        type: "provider/warning",
+    options.onEvent(
+      {
+        type: "provider.env-resolved",
         threadId: args.threadId,
         providerThreadId: args.providerThreadId,
-        category: "config",
-        summary: `Dropped environment variable "${contribution.name}" from plugin "${contribution.plugin}".`,
-        details:
-          "BB_SERVER_URL is unavailable, so its serverPath contribution was not applied.",
+        entries: args.entries,
         scope: { kind: "thread" },
-      });
+      },
+      args.providerId,
+    );
+    for (const contribution of args.droppedContributions) {
+      options.onEvent(
+        {
+          type: "provider/warning",
+          threadId: args.threadId,
+          providerThreadId: args.providerThreadId,
+          category: "config",
+          summary: `Dropped environment variable "${contribution.name}" from plugin "${contribution.plugin}".`,
+          details:
+            "BB_SERVER_URL is unavailable, so its serverPath contribution was not applied.",
+          scope: { kind: "thread" },
+        },
+        args.providerId,
+      );
     }
   }
 
@@ -1308,7 +1324,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       turnState.observe(normalizedEvent);
       backgroundWorkState.observe(normalizedEvent);
       observeProviderSessionIdleState(normalizedEvent);
-      options.onEvent(normalizedEvent);
+      options.onEvent(normalizedEvent, args.proc.providerId);
       threadGoalState.observe(normalizedEvent);
     }
   }
@@ -1677,6 +1693,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             );
             resolved = result.providerThreadId;
             emitResolvedProviderEnvironment({
+              providerId: proc.providerId,
               droppedContributions: resolvedEnvironment.droppedContributions,
               entries: resolvedEnvironment.entries,
               providerThreadId: resolved,
@@ -1978,6 +1995,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           const plan = proc.adapter.buildCommandPlan(adapterCommand);
           if (plan.kind === "noop") {
             emitResolvedProviderEnvironment({
+              providerId: proc.providerId,
               droppedContributions: resolvedEnvironment.droppedContributions,
               entries: resolvedEnvironment.entries,
               providerThreadId: adapterCommand.providerThreadId,
@@ -2007,6 +2025,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             updateSessionRestoreCapability(threadId, result.sessionRestorable);
             resolved = result.providerThreadId;
             emitResolvedProviderEnvironment({
+              providerId: proc.providerId,
               droppedContributions: resolvedEnvironment.droppedContributions,
               entries: resolvedEnvironment.entries,
               providerThreadId: resolved,
@@ -2091,6 +2110,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           assertThreadCanStartTurn(threadId);
           const pendingTurnStart = {
             clientRequestId,
+            providerId: proc.providerId,
             sinceMs: Date.now(),
             watchdogFired: false,
           };
@@ -2110,13 +2130,16 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
                   }
                   pendingTurnStarts.delete(threadId);
                   markHostedProviderSessionIdle(threadId);
-                  options.onEvent({
-                    type: "system/error",
-                    threadId,
-                    scope: { kind: "thread" },
-                    code: "provider_turn_start_failed",
-                    message: `The provider failed to start the turn after its request timed out: ${error.message}`,
-                  });
+                  options.onEvent(
+                    {
+                      type: "system/error",
+                      threadId,
+                      scope: { kind: "thread" },
+                      code: "provider_turn_start_failed",
+                      message: `The provider failed to start the turn after its request timed out: ${error.message}`,
+                    },
+                    proc.providerId,
+                  );
                 },
               },
               recovery: {
@@ -2145,6 +2168,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
           });
           if (environmentChanged) {
             emitResolvedProviderEnvironment({
+              providerId: proc.providerId,
               droppedContributions: resolvedEnvironment.droppedContributions,
               entries: resolvedEnvironment.entries,
               providerThreadId,
@@ -2257,6 +2281,7 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             });
             if (environmentChanged) {
               emitResolvedProviderEnvironment({
+                providerId: proc.providerId,
                 droppedContributions: resolvedEnvironment.droppedContributions,
                 entries: resolvedEnvironment.entries,
                 providerThreadId,
@@ -2739,9 +2764,16 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       threadGoalState.clear();
       turnState.clear();
       threadEventGrammar.clear();
+      const providerIds = new Map(
+        [...threadRuntimeConfigs].map(([threadId, config]) => [
+          threadId,
+          config.providerId,
+        ]),
+      );
       await providerProcesses.shutdown();
       for (const event of backgroundWorkState.settleAll()) {
-        options.onEvent(event);
+        const providerId = providerIds.get(event.threadId);
+        if (providerId !== undefined) options.onEvent(event, providerId);
       }
     },
   };

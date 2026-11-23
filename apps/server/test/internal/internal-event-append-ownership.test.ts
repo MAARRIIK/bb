@@ -5,6 +5,7 @@ import {
   getHighWaterMarks,
   getLastStoredProviderThreadId,
   listQueuedThreadMessages,
+  threads,
 } from "@bb/db";
 import { threadScope, turnScope } from "@bb/domain";
 import {
@@ -81,6 +82,84 @@ function setupEventRoute() {
 }
 
 describe("internal event append ownership", () => {
+  it("rejects delayed or unattributed provider events without changing current session ownership", async () => {
+    const { harness, session, thread } = await setupEventRoute();
+    const identity = (
+      providerThreadId: string,
+    ): HostDaemonEventEnvelope["event"] => ({
+      type: "thread/identity",
+      threadId: thread.id,
+      providerThreadId,
+      scope: threadScope(),
+    });
+    try {
+      const original = await postEventBatch({
+        harness,
+        sessionId: session.id,
+        events: [
+          {
+            threadId: thread.id,
+            providerId: "codex",
+            event: identity("old-session"),
+          },
+        ],
+      });
+      expect(original.status).toBe(200);
+      harness.db
+        .update(threads)
+        .set({ providerId: "claude-code" })
+        .where(eq(threads.id, thread.id))
+        .run();
+      const response = await postEventBatch({
+        harness,
+        sessionId: session.id,
+        events: [
+          {
+            threadId: thread.id,
+            providerId: "codex",
+            event: identity("late-old-session"),
+          },
+          {
+            threadId: thread.id,
+            providerId: null,
+            event: identity("unknown-session"),
+          },
+          {
+            threadId: thread.id,
+            providerId: "claude-code",
+            event: identity("new-session"),
+          },
+        ],
+      });
+      expect(response.status).toBe(200);
+      expect(await readJson(response)).toEqual({
+        acceptedEvents: [{ eventIndex: 2, threadId: thread.id, sequence: 2 }],
+        rejectedEvents: [
+          { eventIndex: 0, threadId: thread.id, reason: "provider_mismatch" },
+          { eventIndex: 1, threadId: thread.id, reason: "missing_provider" },
+        ],
+      });
+      expect(getLastStoredProviderThreadId(harness.db, thread.id)).toBe(
+        "new-session",
+      );
+      expect(
+        harness.db
+          .select({
+            providerId: events.providerId,
+            providerThreadId: events.providerThreadId,
+          })
+          .from(events)
+          .where(eq(events.threadId, thread.id))
+          .all(),
+      ).toEqual([
+        { providerId: "codex", providerThreadId: "old-session" },
+        { providerId: "claude-code", providerThreadId: "new-session" },
+      ]);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
   it("skips diffs using the existing batch response while retaining edits and provider identity", async () => {
     const { harness, session, thread } = await setupEventRoute();
     try {
@@ -95,6 +174,7 @@ describe("internal event append ownership", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "thread/identity",
@@ -104,6 +184,7 @@ describe("internal event append ownership", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/diff/updated",
@@ -114,6 +195,7 @@ describe("internal event append ownership", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "item/completed",
@@ -136,6 +218,7 @@ describe("internal event append ownership", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "thread/identity",
@@ -145,6 +228,7 @@ describe("internal event append ownership", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/diff/updated",
@@ -171,6 +255,7 @@ describe("internal event append ownership", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/diff/updated",
@@ -225,6 +310,7 @@ describe("internal event append ownership", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: null,
             threadId: thread.id,
             event: {
               type: "system/thread-provisioning",
@@ -270,6 +356,7 @@ describe("internal event append ownership", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "thread/contextWindowUsage/updated",
@@ -329,6 +416,7 @@ describe("internal event append ownership", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "system/error",
@@ -338,6 +426,7 @@ describe("internal event append ownership", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "system/error",
@@ -393,6 +482,7 @@ describe("internal event append ownership", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "thread/tokenUsage/updated",
@@ -419,6 +509,7 @@ describe("internal event append ownership", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "system/error",
@@ -467,6 +558,7 @@ describe("internal event append ownership", () => {
           sessionId: session.id,
           events: [
             {
+              providerId: "codex",
               threadId: thread.id,
               event: {
                 type: "system/error",
@@ -482,6 +574,7 @@ describe("internal event append ownership", () => {
           sessionId: session.id,
           events: [
             {
+              providerId: "codex",
               threadId: thread.id,
               event: {
                 type: "system/error",
@@ -552,6 +645,7 @@ describe("internal event append ownership", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/started",
@@ -561,6 +655,7 @@ describe("internal event append ownership", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "turn/completed",
@@ -611,6 +706,7 @@ describe("internal event append ownership", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "thread/name/updated",
@@ -621,6 +717,7 @@ describe("internal event append ownership", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: "thr_missing",
             event: {
               type: "thread/name/updated",
@@ -631,6 +728,7 @@ describe("internal event append ownership", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: secondThread.id,
             event: {
               type: "thread/name/updated",
@@ -710,6 +808,7 @@ describe("internal event append ownership", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: childThread.id,
             event: {
               type: "system/error",
@@ -805,6 +904,7 @@ describe("internal event append ownership", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: childThread.id,
             event: {
               type: "system/error",
@@ -846,6 +946,7 @@ describe("interaction lifecycle records from the daemon", () => {
       sessionId: args.sessionId,
       events: [
         {
+          providerId: "codex",
           threadId: args.threadId,
           event: {
             type: "system/interaction/lifecycle",
@@ -1011,6 +1112,7 @@ describe("interaction lifecycle records from the daemon", () => {
         sessionId: session.id,
         events: [
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "system/interaction/lifecycle",
@@ -1031,6 +1133,7 @@ describe("interaction lifecycle records from the daemon", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "system/userQuestion/lifecycle",
@@ -1046,6 +1149,7 @@ describe("interaction lifecycle records from the daemon", () => {
             },
           },
           {
+            providerId: "codex",
             threadId: thread.id,
             event: {
               type: "system/permissionGrant/lifecycle",

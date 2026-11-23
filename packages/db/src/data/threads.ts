@@ -716,7 +716,7 @@ export interface MarkThreadDeletedArgs {
   threadId: string;
 }
 
-export interface ListThreadEnvironmentAssignmentsOnHostArgs {
+export interface ListThreadRuntimeAssignmentsOnHostArgs {
   hostId: string;
   threadIds: readonly string[];
 }
@@ -729,7 +729,8 @@ export interface ListActiveHostThreadsArgs {
   hostId: string;
 }
 
-export interface ThreadEnvironmentAssignmentRow {
+export interface ThreadRuntimeAssignmentRow {
+  providerId: string;
   environmentId: string;
   threadId: string;
 }
@@ -1753,10 +1754,10 @@ export function listNonDeletedChildThreads(
   );
 }
 
-export function listThreadEnvironmentAssignmentsOnHost(
+export function listThreadRuntimeAssignmentsOnHost(
   db: DbConnection,
-  args: ListThreadEnvironmentAssignmentsOnHostArgs,
-): ThreadEnvironmentAssignmentRow[] {
+  args: ListThreadRuntimeAssignmentsOnHostArgs,
+): ThreadRuntimeAssignmentRow[] {
   if (args.threadIds.length === 0) {
     return [];
   }
@@ -1764,6 +1765,7 @@ export function listThreadEnvironmentAssignmentsOnHost(
   return db
     .select({
       threadId: threads.id,
+      providerId: threads.providerId,
       environmentId: environments.id,
     })
     .from(threads)

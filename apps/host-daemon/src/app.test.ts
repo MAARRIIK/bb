@@ -1179,6 +1179,7 @@ describe("createHostDaemonApp", () => {
       await app.connection.start();
 
       app.eventSink.emit({
+        providerId: "codex",
         threadId: "thr_app_inactive_session",
         event: {
           type: "turn/started",
@@ -1248,6 +1249,7 @@ describe("createHostDaemonApp", () => {
       });
 
       app.eventSink.emit({
+        providerId: "codex",
         threadId: request.threadId,
         event: {
           type: "turn/started",
@@ -1428,6 +1430,7 @@ describe("createHostDaemonApp", () => {
         sessionId: "session-app-test",
         eventGroups: [
           {
+            providerId: "claude-code",
             threadId: "thr_pending_turn_exit",
             events: [
               {

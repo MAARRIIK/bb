@@ -673,7 +673,11 @@ class Machine {
       body: JSON.stringify({
         sessionId,
         eventGroups: groupHostDaemonEvents(
-          events.map((event) => ({ threadId: event.threadId, event })),
+          events.map((event) => ({
+            providerId: "codex",
+            threadId: event.threadId,
+            event,
+          })),
         ),
       }),
     });

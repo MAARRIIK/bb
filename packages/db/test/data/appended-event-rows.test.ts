@@ -104,6 +104,7 @@ describe("listAppendedEventRows", () => {
       db.transaction((tx) => {
         appendDaemonEventsInTransaction(tx, [
           {
+            providerId: "codex",
             data: JSON.stringify({ text: "rolled back" }),
             environmentId: null,
             itemId: null,

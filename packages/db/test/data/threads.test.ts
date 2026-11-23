@@ -17,7 +17,7 @@ import {
   listRuntimeHostThreadIds,
   listActiveVisiblePinnedThreadRoots,
   listThreadMentionRowsByIds,
-  listThreadEnvironmentAssignmentsOnHost,
+  listThreadRuntimeAssignmentsOnHost,
   listThreadsWithPendingInteractionStateForProjects,
   listThreadsWithPendingInteractionState,
   updateThread,
@@ -1313,7 +1313,7 @@ describe("threads", () => {
     });
 
     expect(
-      listThreadEnvironmentAssignmentsOnHost(db, {
+      listThreadRuntimeAssignmentsOnHost(db, {
         hostId: host.id,
         threadIds: [matchingThread.id, otherThread.id],
       }),
@@ -1321,6 +1321,7 @@ describe("threads", () => {
       {
         threadId: matchingThread.id,
         environmentId: environment.id,
+        providerId: "codex",
       },
     ]);
   });

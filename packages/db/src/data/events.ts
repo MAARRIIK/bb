@@ -170,6 +170,7 @@ export interface AppendDaemonEventInput {
   itemKind: ThreadEventItemType | null;
   parentToolCallId: string | null;
   providerThreadId: string | null;
+  providerId: string | null;
   scope: ThreadEventScope;
   threadId: string;
   type: ThreadEventType;
@@ -811,7 +812,10 @@ function listThreadSearchSegmentsForThreadEvent(args: {
 }
 
 function parseDaemonThreadEvent(
-  input: AppendDaemonEventInput,
+  input: Pick<
+    AppendDaemonEventInput,
+    "data" | "scope" | "threadId" | "type" | "itemKind" | "providerThreadId"
+  >,
 ): ThreadEvent | null {
   if (!canProduceThreadSearchSegments(input)) {
     return null;
@@ -920,7 +924,7 @@ export function appendDaemonEventsInTransaction(
       itemKind: input.itemKind,
       parentToolCallId: input.parentToolCallId,
       providerThreadId: input.providerThreadId,
-      providerId: eventProviderIdForThread(input.threadId),
+      providerId: input.providerId,
       scopeKind: input.scope.kind,
       sequence,
       threadId: input.threadId,
@@ -1152,10 +1156,7 @@ export function copyStoredThreadEventsInTransaction(
         ? null
         : parseDaemonThreadEvent({
             data,
-            environmentId: args.targetEnvironmentId,
-            itemId: row.itemId,
             itemKind: row.itemKind,
-            parentToolCallId: row.parentToolCallId,
             providerThreadId: row.providerThreadId,
             scope:
               row.turnId === null

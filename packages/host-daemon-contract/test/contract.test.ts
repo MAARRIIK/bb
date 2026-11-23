@@ -781,6 +781,7 @@ describe("cache usage wire compatibility", () => {
       sessionId: "session-usage",
       eventGroups: [
         {
+          providerId: "codex",
           threadId: "thread-usage",
           events: [
             {
@@ -1090,11 +1091,34 @@ describe("host-daemon command schemas", () => {
   });
 
   it("uses the current host-daemon protocol version", () => {
-    expect(HOST_DAEMON_PROTOCOL_VERSION).toBe(277);
+    expect(HOST_DAEMON_PROTOCOL_VERSION).toBe(278);
     expect(HOST_ARTIFACT_MAX_BYTES).toBe(256 * 1024 * 1024);
   });
 
-  it("accepts only daemons that preserve optional user questions", () => {
+  it("requires an explicit provider origin in an event batch", () => {
+    const group = {
+      threadId: "thread-origin",
+      events: [
+        {
+          type: "system/error",
+          threadId: "thread-origin",
+          scope: threadScope(),
+          message: "error",
+        },
+      ],
+    };
+    const parse = (eventGroup: object) =>
+      hostDaemonEventBatchRequestSchema.safeParse({
+        sessionId: "session-origin",
+        eventGroups: [eventGroup],
+      }).success;
+    expect(parse(group)).toBe(false);
+    expect(parse({ ...group, providerId: "" })).toBe(false);
+    expect(parse({ ...group, providerId: null })).toBe(true);
+    expect(parse({ ...group, providerId: "codex" })).toBe(true);
+  });
+
+  it("accepts only daemons that carry event provider provenance", () => {
     expect(contract.isCompatibleHostDaemonProtocolVersion(245)).toBe(false);
     expect(contract.isCompatibleHostDaemonProtocolVersion(246)).toBe(false);
     expect(contract.isCompatibleHostDaemonProtocolVersion(247)).toBe(false);
@@ -1127,7 +1151,8 @@ describe("host-daemon command schemas", () => {
     expect(contract.isCompatibleHostDaemonProtocolVersion(274)).toBe(false);
     expect(contract.isCompatibleHostDaemonProtocolVersion(275)).toBe(false);
     expect(contract.isCompatibleHostDaemonProtocolVersion(276)).toBe(false);
-    expect(contract.isCompatibleHostDaemonProtocolVersion(277)).toBe(true);
+    expect(contract.isCompatibleHostDaemonProtocolVersion(277)).toBe(false);
+    expect(contract.isCompatibleHostDaemonProtocolVersion(278)).toBe(true);
     expect(contract.hostDaemonSupportsDesktopBrokerProof(247)).toBe(false);
     expect(contract.hostDaemonSupportsDesktopBrokerProof(248)).toBe(true);
   });
@@ -2994,6 +3019,7 @@ describe("host-daemon session schemas", () => {
         sessionId: "session_123",
         eventGroups: [
           {
+            providerId: "codex",
             threadId: "thr_123",
             events: [
               {
@@ -3020,6 +3046,7 @@ describe("host-daemon session schemas", () => {
         sessionId: "session_123",
         eventGroups: [
           {
+            providerId: "codex",
             threadId: "thr_123",
             events: [
               {
@@ -3098,6 +3125,7 @@ describe("host-daemon session schemas", () => {
         sessionId: "session_123",
         eventGroups: [
           {
+            providerId: "codex",
             threadId: "thr_123",
             events: [
               {
@@ -3117,6 +3145,7 @@ describe("host-daemon session schemas", () => {
       sessionId: "session_123",
       eventGroups: [
         {
+          providerId: "codex",
           threadId: "thr_123",
           events: [
             {

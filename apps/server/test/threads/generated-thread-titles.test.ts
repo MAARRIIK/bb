@@ -617,6 +617,7 @@ describe("generated thread titles", () => {
             sessionId: session.id,
             eventGroups: groupHostDaemonEvents([
               {
+                providerId: "codex",
                 threadId: thread.id,
                 event: {
                   type: "turn/started",
@@ -626,6 +627,7 @@ describe("generated thread titles", () => {
                 },
               },
               {
+                providerId: "codex",
                 threadId: thread.id,
                 event: {
                   type: "turn/completed",

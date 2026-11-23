@@ -32,11 +32,31 @@ function event(index: number): ThreadEvent {
 }
 
 describe("daemon-to-server event payload sizes", () => {
+  it("keeps distinct provider origins and unknown origins separate in a recurring thread", () => {
+    const envelopes: HostDaemonEventEnvelope[] = [
+      { providerId: "codex", threadId: "thr_a", event: event(1) },
+      { providerId: "codex", threadId: "thr_a", event: event(2) },
+      { providerId: "claude-code", threadId: "thr_a", event: event(3) },
+      { providerId: null, threadId: "thr_a", event: event(4) },
+      { providerId: "codex", threadId: "thr_a", event: event(5) },
+    ];
+    const groups = groupHostDaemonEvents(envelopes);
+    expect(
+      groups.map(({ providerId, events }) => [providerId, events.length]),
+    ).toEqual([
+      ["codex", 2],
+      ["claude-code", 1],
+      [null, 1],
+      ["codex", 1],
+    ]);
+    expect(ungroupHostDaemonEvents(groups)).toEqual(envelopes);
+  });
+
   it("preserves event order when a thread recurs after another thread", () => {
     const envelopes: HostDaemonEventEnvelope[] = [
-      { threadId: "thr_a", event: event(1) },
-      { threadId: "thr_b", event: event(2) },
-      { threadId: "thr_a", event: event(3) },
+      { providerId: "codex", threadId: "thr_a", event: event(1) },
+      { providerId: "codex", threadId: "thr_b", event: event(2) },
+      { providerId: "codex", threadId: "thr_a", event: event(3) },
     ];
 
     const groups = groupHostDaemonEvents(envelopes);
@@ -54,6 +74,7 @@ describe("daemon-to-server event payload sizes", () => {
       const events: HostDaemonEventEnvelope[] = Array.from(
         { length: eventCount },
         (_, index) => ({
+          providerId: "codex",
           threadId: "thr_payload_measurement_123456789",
           event: event(index),
         }),
@@ -76,18 +97,18 @@ describe("daemon-to-server event payload sizes", () => {
     expect(measurements).toEqual([
       {
         eventCount: 1,
-        legacyEnvelope: { gzipBytes: 194, jsonBytes: 413 },
-        grouped: { gzipBytes: 198, jsonBytes: 421 },
+        legacyEnvelope: { gzipBytes: 199, jsonBytes: 434 },
+        grouped: { gzipBytes: 208, jsonBytes: 442 },
       },
       {
         eventCount: 10,
-        legacyEnvelope: { gzipBytes: 246, jsonBytes: 3_554 },
-        grouped: { gzipBytes: 247, jsonBytes: 3_049 },
+        legacyEnvelope: { gzipBytes: 252, jsonBytes: 3_764 },
+        grouped: { gzipBytes: 253, jsonBytes: 3_070 },
       },
       {
         eventCount: 50,
-        legacyEnvelope: { gzipBytes: 406, jsonBytes: 17_554 },
-        grouped: { gzipBytes: 407, jsonBytes: 14_769 },
+        legacyEnvelope: { gzipBytes: 416, jsonBytes: 18_604 },
+        grouped: { gzipBytes: 416, jsonBytes: 14_790 },
       },
     ]);
 

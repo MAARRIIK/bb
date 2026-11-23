@@ -68,7 +68,7 @@ import {
   listThreadAncestors,
   listThreadDeletionTree,
   listThreadDescendants,
-  listThreadEnvironmentAssignmentsOnHost,
+  listThreadRuntimeAssignmentsOnHost,
   listThreadMentionRowsByIds,
   listThreadsWithPendingInteractionState,
   listThreadsWithPendingInteractionStateForProjects,
@@ -293,9 +293,9 @@ const THREAD_CASES: readonly QueryCostCase<ThreadsSeed>[] = [
       }),
   },
   {
-    name: `${THREADS}#listThreadEnvironmentAssignmentsOnHost`,
+    name: `${THREADS}#listThreadRuntimeAssignmentsOnHost`,
     run: (db, _fixture, seed) =>
-      listThreadEnvironmentAssignmentsOnHost(db, {
+      listThreadRuntimeAssignmentsOnHost(db, {
         hostId: seed.busiestHostId,
         threadIds: seed.hostAssignmentThreadIds,
       }),
