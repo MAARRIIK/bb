@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ToolCallResponse } from "@bb/domain";
 import type { ServerLogger } from "../../types.js";
+import { acquireThreadSessionActivity } from "../threads/thread-session-guard.js";
 
 export const PLUGIN_TOOL_CALL_AWAITING_USER_RESULT_TEXT =
   "The request is shown to the user. A successful result will arrive separately. Do not ask again or assume an answer. Continue independent work; if blocked, briefly say what you are waiting for and end your turn.";
@@ -60,6 +61,7 @@ export class PluginToolCallRegistry {
   }
 
   run(args: RunPluginToolCallArgs): Promise<ToolCallResponse> {
+    const releaseActivity = acquireThreadSessionActivity([args.threadId]);
     const controller = new AbortController();
     let detachWith: (response: ToolCallResponse) => void = () => undefined;
     const tracked: TrackedPluginToolCall = {
@@ -77,7 +79,9 @@ export class PluginToolCallRegistry {
       let settled = false;
       const abort = () => {
         controller.abort(args.roundTrip.reason);
-        settle(failedToolCallResponse(args.toolName, args.roundTrip.reason));
+        void settle(
+          failedToolCallResponse(args.toolName, args.roundTrip.reason),
+        );
       };
       detachWith = (response) => {
         if (settled || detached || controller.signal.aborted) return;
@@ -86,7 +90,7 @@ export class PluginToolCallRegistry {
         resolve(response);
       };
 
-      const settle = (response: ToolCallResponse) => {
+      const settle = (response: ToolCallResponse): Promise<void> | void => {
         if (settled) return;
         settled = true;
         args.roundTrip.removeEventListener("abort", abort);
@@ -107,22 +111,25 @@ export class PluginToolCallRegistry {
           );
           return;
         }
-        void args.onDetachedResult(response).catch((error: unknown) => {
-          this.logger.warn(
-            {
-              err: error,
-              threadId: args.threadId,
-              callId: args.callId,
-              tool: args.toolName,
-            },
-            "Failed to deliver a detached plugin tool result",
-          );
-        });
+        return Promise.resolve()
+          .then(() => args.onDetachedResult(response))
+          .catch((error: unknown) => {
+            this.logger.warn(
+              {
+                err: error,
+                threadId: args.threadId,
+                callId: args.callId,
+                tool: args.toolName,
+              },
+              "Failed to deliver a detached plugin tool result",
+            );
+          });
       };
 
       args.roundTrip.addEventListener("abort", abort, { once: true });
       if (args.roundTrip.aborted) {
         abort();
+        releaseActivity();
         return;
       }
 
@@ -134,9 +141,11 @@ export class PluginToolCallRegistry {
       } catch (error) {
         invocation = Promise.reject(error);
       }
-      invocation.then(settle, (error: unknown) => {
-        settle(failedToolCallResponse(args.toolName, error));
-      });
+      void invocation
+        .then(settle, (error: unknown) =>
+          settle(failedToolCallResponse(args.toolName, error)),
+        )
+        .finally(releaseActivity);
     });
   }
 

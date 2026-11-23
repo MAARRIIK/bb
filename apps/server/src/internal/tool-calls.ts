@@ -20,6 +20,7 @@ import {
 } from "../services/threads/thread-environment-directory.js";
 import { requireAuthenticatedDaemonSession } from "./session-state.js";
 import { requireCurrentProviderSession } from "./provider-session.js";
+import { acquireThreadSessionActivity } from "../services/threads/thread-session-guard.js";
 
 const textEncoder = new TextEncoder();
 
@@ -76,57 +77,62 @@ export function registerInternalToolCallRoutes(app: Hono, deps: AppDeps): void {
         );
       }
 
-      requireCurrentProviderSession(thread, payload.source);
+      const release = acquireThreadSessionActivity([thread.id]);
+      try {
+        requireCurrentProviderSession(thread, payload.source);
 
-      if (payload.tool === UPDATE_ENVIRONMENT_DIRECTORY_TOOL_NAME) {
-        return context.json(
-          await handleUpdateEnvironmentDirectoryToolCall(deps, {
-            currentEnvironment: environment,
-            input: payload.arguments,
-            thread,
-            turnId: payload.turnId,
-          }),
-        );
-      }
-
-      const pluginTool = findPluginAgentTool(payload.tool);
-      if (pluginTool) {
-        const roundTrip = new AbortController();
-        const response = requirePluginToolCallRegistry().run({
-          pluginId: pluginTool.pluginId,
-          threadId: thread.id,
-          callId: payload.callId,
-          toolName: payload.tool,
-          roundTrip: AbortSignal.any([
-            context.req.raw.signal,
-            roundTrip.signal,
-          ]),
-          invoke: (signal) =>
-            invokePluginAgentTool(pluginTool, {
+        if (payload.tool === UPDATE_ENVIRONMENT_DIRECTORY_TOOL_NAME) {
+          return context.json(
+            await handleUpdateEnvironmentDirectoryToolCall(deps, {
+              currentEnvironment: environment,
               input: payload.arguments,
-              ctx: {
-                threadId: thread.id,
-                projectId: thread.projectId,
-                signal,
-              },
+              thread,
+              turnId: payload.turnId,
             }),
-          onDetachedResult: (result) =>
-            deliverDetachedToolResult(deps, {
-              threadId: thread.id,
-              toolName: payload.tool,
-              presentation: pluginTool.record.presentation,
-              response: result,
-            }),
-        });
-        return streamToolCallResponse(response, roundTrip);
-      }
+          );
+        }
 
-      return context.json({
-        success: false,
-        contentItems: [
-          { type: "inputText", text: `Unsupported tool: ${payload.tool}` },
-        ],
-      });
+        const pluginTool = findPluginAgentTool(payload.tool);
+        if (pluginTool) {
+          const roundTrip = new AbortController();
+          const response = requirePluginToolCallRegistry().run({
+            pluginId: pluginTool.pluginId,
+            threadId: thread.id,
+            callId: payload.callId,
+            toolName: payload.tool,
+            roundTrip: AbortSignal.any([
+              context.req.raw.signal,
+              roundTrip.signal,
+            ]),
+            invoke: (signal) =>
+              invokePluginAgentTool(pluginTool, {
+                input: payload.arguments,
+                ctx: {
+                  threadId: thread.id,
+                  projectId: thread.projectId,
+                  signal,
+                },
+              }),
+            onDetachedResult: (result) =>
+              deliverDetachedToolResult(deps, {
+                threadId: thread.id,
+                toolName: payload.tool,
+                presentation: pluginTool.record.presentation,
+                response: result,
+              }),
+          });
+          return streamToolCallResponse(response, roundTrip);
+        }
+
+        return context.json({
+          success: false,
+          contentItems: [
+            { type: "inputText", text: `Unsupported tool: ${payload.tool}` },
+          ],
+        });
+      } finally {
+        release();
+      }
     },
   );
 }

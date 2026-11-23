@@ -73,7 +73,7 @@ import {
 import { resolvePromptAttachmentReferences } from "../projects/attachments.js";
 import { requestQueuedMessageDispatch } from "./queued-message-dispatch.js";
 import { assertThreadHostAcceptsWork } from "./thread-host-admission.js";
-import { ThreadContextClearInProgressError } from "./thread-context-mutation-guard.js";
+import { ThreadContextChangeInProgressError } from "./thread-session-guard.js";
 
 interface SendQueuedMessageArgs {
   claimPolicy: QueuedThreadMessageGroupClaimPolicy;
@@ -634,7 +634,7 @@ async function sendClaimedQueuedMessageGroup(
     releaseQueuedMessageClaims(deps, queuedMessages);
     if (
       isQueuedMessageAutoSendPausedError(error) ||
-      error instanceof ThreadContextClearInProgressError
+      error instanceof ThreadContextChangeInProgressError
     ) {
       return toThreadQueuedMessage(queuedMessages[0]!);
     }
@@ -717,7 +717,7 @@ export async function sendNextQueuedMessageIfPresent(
     if (
       isQueuedMessageClaimLostError(error) ||
       isQueuedMessageAutoSendPausedError(error) ||
-      error instanceof ThreadContextClearInProgressError
+      error instanceof ThreadContextChangeInProgressError
     ) {
       return false;
     }

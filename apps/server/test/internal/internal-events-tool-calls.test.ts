@@ -55,6 +55,7 @@ import { setPluginAgentContributions } from "../../src/services/plugins/plugin-a
 import type { PluginAgentToolRecord } from "../../src/services/plugins/plugin-api.js";
 import { runEnvironmentProvisioningSweep } from "../../src/services/system/periodic-sweeps.js";
 import { resumeEnvironmentProvisioningForHost } from "../../src/services/environments/environment-engine.js";
+import { withThreadContextChangeGuard } from "../../src/services/threads/thread-session-guard.js";
 
 async function postEventBatch(args: {
   acceptEncoding?: string;
@@ -366,14 +367,24 @@ describe("internal event and tool-call routes", () => {
               }),
             },
           );
+          expect(response.status).toBe(200);
+          await expect(
+            withThreadContextChangeGuard(thread.id, (commit) =>
+              commit(async () => {}),
+            ),
+          ).rejects.toMatchObject({ status: 409 });
           completeTool({
             success: true,
             contentItems: [{ type: "inputText", text: "answered" }],
           });
-          expect(response.status).toBe(200);
           await expect(readJson(response)).resolves.toEqual({
             success: true,
             contentItems: [{ type: "inputText", text: "answered" }],
+          });
+          await vi.waitFor(async () => {
+            await withThreadContextChangeGuard(thread.id, (commit) =>
+              commit(async () => {}),
+            );
           });
         } finally {
           completeTool({ success: false, contentItems: [] });

@@ -2,7 +2,9 @@ import {
   createQueuedThreadMessage,
   getLastStoredProviderThreadId,
   listQueuedThreadMessages,
+  threads,
 } from "@bb/db";
+import { eq } from "drizzle-orm";
 import { createDeferredPromise } from "@bb/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as mentions from "../../src/services/plugins/plugin-mentions.js";
@@ -77,6 +79,43 @@ function registerResponder(
 }
 
 describe("context clear dispatch races", () => {
+  it.each(["archivedAt", "deletedAt"] as const)(
+    "preserves context if %s changes while the provider is stopping",
+    async (field) => {
+      await withTestHarness(async (harness) => {
+        const fixture = seedFixture(harness);
+        const stopping = createDeferredPromise<void>();
+        const release = createDeferredPromise<void>();
+        registerResponder(harness, fixture, async () => {
+          stopping.resolve();
+          await release.promise;
+        });
+        const clearing = harness.app.request(
+          `/api/v1/threads/${fixture.thread.id}/context/clear`,
+          { method: "POST" },
+        );
+        try {
+          await stopping.promise;
+          harness.db
+            .update(threads)
+            .set({ [field]: Date.now() })
+            .where(eq(threads.id, fixture.thread.id))
+            .run();
+        } finally {
+          release.resolve();
+        }
+        const response = await clearing;
+        expect(response.status).toBe(409);
+        expect(await response.json()).toMatchObject({
+          message: "Thread is not writable",
+        });
+        expect(
+          getLastStoredProviderThreadId(harness.db, fixture.thread.id),
+        ).toBe("provider-before-clear");
+      });
+    },
+  );
+
   it.each(["queue", "parent notice"] as const)(
     "rejects clear while a %s is preparing a turn",
     async (source) => {

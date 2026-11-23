@@ -31,6 +31,10 @@ Lifecycle:
   invalid: the recorded provider session belongs to another thread or has no
   usable identity).
 
+  Clearing refuses with a retryable 409 while provider events, tools, or
+  detached tool results are still being processed. Finish that work and retry;
+  cancelling an HTTP request alone does not prove its tool has stopped.
+
   bb thread retry [id]                     Retry the thread's failed turn
     --self                                 Target current thread
     --turn <requestId>                     Retry this turn request id specifically; fails when it is not the thread's failed turn

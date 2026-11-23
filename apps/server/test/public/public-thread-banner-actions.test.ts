@@ -333,7 +333,8 @@ describe("public thread banner actions", () => {
       );
       expect(sendResponse.status).toBe(409);
       expect(await readJson(sendResponse)).toMatchObject({
-        message: "Thread context is being cleared",
+        message: "Thread session is being changed",
+        retryable: true,
       });
 
       finishStop();
