@@ -52,6 +52,24 @@ import {
 } from "./ThreadDetailPromptArea";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
 
+vi.mock("./ThreadProviderSwitch", () => ({
+  ThreadProviderSwitchDialog: ({
+    open,
+    selection,
+    onOpenChange,
+  }: {
+    open: boolean;
+    selection: { providerId: string; model: string } | null;
+    onOpenChange: (open: boolean) => void;
+  }) =>
+    open ? (
+      <div role="dialog" aria-label="Provider switch review">
+        <p>{selection?.model}</p>
+        <button onClick={() => onOpenChange(false)}>Cancel review</button>
+      </div>
+    ) : null,
+}));
+
 vi.mock("@/hooks/usePromptDraftStorage", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/hooks/usePromptDraftStorage")>()),
   usePromptDraftController: vi.fn(),
@@ -1366,6 +1384,54 @@ describe("ThreadDetailPromptArea", () => {
     ).toBe("Second queued draft");
   });
 
+  it("preserves the source draft and attachments while reviewing or cancelling a provider switch", () => {
+    mocks.promptDraft.text = "Keep this unsent request";
+    mocks.promptDraft.attachments = [
+      {
+        type: "localFile",
+        path: "thread-storage/uploads/notes.txt",
+        name: "notes.txt",
+        mimeType: "text/plain",
+        sizeBytes: 6,
+      },
+    ];
+    const sourceDraft = mocks.promptDraft.getCurrent();
+    const view = renderPromptArea({
+      thread: makeThread({ environmentId: "env_switch_review" }),
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review provider switch" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Provider switch review" })
+        .textContent,
+    ).toContain("claude-opus-5");
+    expect(screen.getByTestId("selected-provider").textContent).toBe("codex");
+    expect(mocks.promptDraft.getCurrent()).toEqual(sourceDraft);
+    expect(mocks.createThreadMutateAsync).not.toHaveBeenCalled();
+    expect(mocks.sendMessageMutateAsync).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel review" }));
+    expect(
+      screen.queryByRole("dialog", { name: "Provider switch review" }),
+    ).toBeNull();
+    expect(mocks.promptDraft.getCurrent()).toEqual(sourceDraft);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review provider switch" }),
+    );
+    view.rerender(
+      buildPromptAreaElement({
+        thread: makeThread({
+          id: "thr_other_switch",
+          environmentId: "env_switch_review",
+        }),
+      }),
+    );
+    expect(
+      screen.queryByRole("dialog", { name: "Provider switch review" }),
+    ).toBeNull();
+    expect(mocks.createThreadMutateAsync).not.toHaveBeenCalled();
+  });
+
   it("keeps queued execution and commands source-locked during a bottom handoff", () => {
     mocks.defaultExecutionOptions = {
       model: "bottom-model",
@@ -1399,7 +1465,11 @@ describe("ThreadDetailPromptArea", () => {
       "codex:thread",
     );
     const inlineHost = screen.getByTestId("inline-queued-message-editor");
-    for (const name of ["Switch provider", "Complete handoff flow"]) {
+    for (const name of [
+      "Switch provider",
+      "Complete handoff flow",
+      "Review provider switch",
+    ]) {
       expect(inlineEditor.queryByRole("button", { name })).toBeNull();
       expect(screen.getByRole("button", { name })).not.toBeNull();
     }

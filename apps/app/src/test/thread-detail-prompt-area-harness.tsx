@@ -183,6 +183,14 @@ vi.mock("@/components/promptbox/FollowUpPromptBox", async () => {
             reasoningLevel: "medium";
           }) => void;
         };
+        providerSwitch?: {
+          disabled: boolean;
+          onSelect: (selection: {
+            providerId: string;
+            model: string;
+            reasoningLevel: "medium";
+          }) => void;
+        };
         reasoning: { value: string };
         serviceTier?: { value?: string };
         agentOptions?: {
@@ -402,6 +410,21 @@ vi.mock("@/components/promptbox/FollowUpPromptBox", async () => {
               Switch provider back
             </button>
           </>
+        ) : null}
+        {execution.providerSwitch ? (
+          <button
+            type="button"
+            disabled={execution.providerSwitch.disabled}
+            onClick={() =>
+              execution.providerSwitch?.onSelect({
+                providerId: "claude-code",
+                model: "claude-opus-5",
+                reasoningLevel: "medium",
+              })
+            }
+          >
+            Review provider switch
+          </button>
         ) : null}
         {execution.handoff ? (
           <>

@@ -41,6 +41,9 @@ Lifecycle:
   approved packet accompanies the first real request. A rolled-back switch
   returns a nonzero exit code; status remains available with its saved UUID.
   SDK: threads.experimental_providerSwitch.{preview,commit,get,recover}.
+  In the existing thread's model picker, selecting another provider's model
+  opens this same review and keeps unsent text and attachments. The explicit
+  Hand off to new thread action and /handoff still prepare a new conversation.
 
   bb thread stop [id]                      Stop work and release the agent runtime
   bb thread compact [id]                   Request compaction of an idle or errored thread's context

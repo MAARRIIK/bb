@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@bb/shared-ui/button";
 import { Icon } from "@bb/shared-ui/icon";
@@ -28,6 +28,7 @@ import {
 } from "@/hooks/queries/query-keys";
 import { useInterfaceTranslation } from "@/lib/interface-language";
 import { BbHttpError, sdk } from "@/lib/sdk";
+import type { ModelReasoningPickerSelection } from "@/components/pickers/ModelReasoningPicker";
 
 const SELECT_CLASS =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
@@ -66,20 +67,26 @@ function ProviderSwitchForm({
   threadId,
   environmentId,
   onComplete,
+  selection,
 }: {
   threadId: string;
   environmentId: string;
   onComplete: () => void;
+  selection: ModelReasoningPickerSelection | null;
 }) {
   const { t } = useInterfaceTranslation();
   const queryClient = useQueryClient();
   const thread = useThread(threadId);
-  const [providerChoice, setProviderChoice] = useState<string | null>(null);
-  const [modelChoice, setModelChoice] = useState("");
-  const [permission, setPermission] = useState<PermissionMode | "">(
-    "accept-edits",
+  const [providerChoice, setProviderChoice] = useState<string | null>(
+    selection?.providerId ?? null,
   );
-  const [reasoning, setReasoning] = useState<ReasoningLevel | null>(null);
+  const [modelChoice, setModelChoice] = useState(selection?.model ?? "");
+  const [permission, setPermission] = useState<PermissionMode | "">(
+    selection === null ? "accept-edits" : "",
+  );
+  const [reasoning, setReasoning] = useState<ReasoningLevel | null>(
+    selection?.reasoningLevel ?? null,
+  );
   const [tier, setTier] = useState<ServiceTier>("default");
   const [summaryMode, setSummaryMode] = useState(false);
   const [summary, setSummary] = useState("");
@@ -88,9 +95,13 @@ function ProviderSwitchForm({
   const [preview, setPreview] = useState<ProviderSwitchPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [operationId, setOperationId] = useState(() =>
-    readOperationId(threadId),
-  );
+  const operationStateKey = ["provider-switch-operation", threadId];
+  const { data: operationId } = useQuery({
+    queryKey: operationStateKey,
+    queryFn: () => readOperationId(threadId),
+    initialData: () => readOperationId(threadId),
+    enabled: false,
+  });
   const providers = useSystemProviders({ environmentId });
   const providerId = providerChoice ?? thread.data?.providerId ?? "";
   const catalog = useSystemExecutionOptions({
@@ -131,7 +142,7 @@ function ProviderSwitchForm({
   };
   const remember = (id: string | null) => {
     storeOperationId(threadId, id);
-    setOperationId(id);
+    queryClient.setQueryData(operationStateKey, id);
   };
   const makePreview = async () => {
     if (!model || permission === "") return;
@@ -530,7 +541,13 @@ export function ThreadProviderSwitch({
   const { t } = useInterfaceTranslation();
   const [open, setOpen] = useState(false);
   return (
-    <Dialog open={open} onOpenChange={setOpen} modal={false}>
+    <ThreadProviderSwitchDialog
+      threadId={threadId}
+      environmentId={environmentId}
+      open={open}
+      onOpenChange={setOpen}
+      selection={null}
+    >
       <DialogTrigger asChild>
         <Button
           variant="ghost"
@@ -542,6 +559,29 @@ export function ThreadProviderSwitch({
           <Icon name="ArrowLeftRight" aria-hidden="true" />
         </Button>
       </DialogTrigger>
+    </ThreadProviderSwitchDialog>
+  );
+}
+
+export function ThreadProviderSwitchDialog({
+  threadId,
+  environmentId,
+  open,
+  onOpenChange,
+  selection,
+  children,
+}: {
+  threadId: string;
+  environmentId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selection: ModelReasoningPickerSelection | null;
+  children?: ReactNode;
+}) {
+  const { t } = useInterfaceTranslation();
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      {children}
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("Switch model in this conversation")}</DialogTitle>
@@ -552,9 +592,11 @@ export function ThreadProviderSwitch({
           </DialogDescription>
         </DialogHeader>
         <ProviderSwitchForm
+          key={JSON.stringify([threadId, selection])}
           threadId={threadId}
           environmentId={environmentId}
-          onComplete={() => setOpen(false)}
+          selection={selection}
+          onComplete={() => onOpenChange(false)}
         />
       </DialogContent>
     </Dialog>
