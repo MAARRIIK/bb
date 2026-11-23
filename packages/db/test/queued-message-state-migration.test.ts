@@ -17,6 +17,7 @@ import {
   dropForkHistoryCopyIndex,
   dropQueuedMessageRecheckAtColumn,
   dropThreadSearchOrderIndex,
+  dropEventProviderProvenanceColumn,
   dropThreadRunStateTables,
   dropThreadStatusChangedAtColumn,
   rewindQueuedMessageStateMigration,
@@ -77,6 +78,7 @@ function rewoundDatabase(): { db: DbConnection; threadId: string } {
   dropForkHistoryCopyIndex(db);
   dropEnvironmentHoldColumns(db);
   dropThreadSearchOrderIndex(db);
+  dropEventProviderProvenanceColumn(db);
   return { db, threadId: thread.id };
 }
 

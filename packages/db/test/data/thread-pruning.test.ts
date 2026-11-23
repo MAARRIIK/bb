@@ -70,6 +70,7 @@ function seed(
     .values({
       id: `${f.thread.id}-${sequence}`,
       threadId: f.thread.id,
+      providerId: f.thread.providerId,
       sequence,
       scopeKind: "turn",
       turnId: "turn",
