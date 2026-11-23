@@ -43,6 +43,9 @@ import {
   getLatestThreadSequence,
   insertEvents,
   listContextWindowUsageRows,
+  getLatestTokenUsageRow,
+  getLatestModelFallbackRowSinceTurnRequest,
+  listTodoSnapshotEventRowsForThread,
   listLatestThreadStateEventRowsByThreadIds,
   deleteThreadEventSuffixInTransaction,
   listStoredConversationOutlineEventRows,
@@ -345,6 +348,141 @@ function createContextWindowUsageData(
 }
 
 describe("events", () => {
+  it.each(["codex", "claude-code"])(
+    "keeps current runtime metadata within the %s generation after warming caches",
+    (providerId) => {
+      const { db, thread } = setup();
+      const appendState = (owner: string, generation: string | null) => {
+        const source = {
+          threadId: thread.id,
+          providerId: owner,
+          providerSessionId: generation,
+          ...threadEventFields,
+          environmentId: null,
+          providerThreadId: `native-${generation ?? "legacy"}`,
+        };
+        db.transaction((tx) =>
+          appendDaemonEventsInTransaction(tx, [
+            {
+              ...source,
+              type: "client/turn/requested",
+              data: JSON.stringify({
+                input: [{ type: "text", text: "Continue", mentions: [] }],
+              }),
+            },
+            {
+              ...source,
+              type: "thread/extensionState/updated",
+              data: JSON.stringify({
+                kind: "echo/state",
+                payload: { generation },
+              }),
+            },
+            {
+              ...source,
+              type: "thread/contextWindowUsage/updated",
+              data: createContextWindowUsageData({
+                usedTokens: 1024,
+                modelContextWindow: 32768,
+              }),
+            },
+            {
+              ...source,
+              type: "thread/tokenUsage/updated",
+              data: createTokenUsageData({
+                totalTokens: 1024,
+                modelContextWindow: 32768,
+              }),
+            },
+            {
+              ...source,
+              type: "provider/modelFallback",
+              data: JSON.stringify({
+                originalModel: "requested",
+                fallbackModel: "fallback",
+              }),
+            },
+            {
+              ...source,
+              type: "turn/plan/updated",
+              data: JSON.stringify({
+                plan: [{ step: "Old task", status: "in_progress" }],
+              }),
+            },
+          ]),
+        );
+      };
+      const read = () => ({
+        execution:
+          getLastStoredTurnRequestEvent(db, thread.id, "current-session")
+            ?.sequence ?? null,
+        state: listLatestThreadStateEventRowsByThreadIds(db, {
+          threadIds: [thread.id],
+          kind: "echo/state",
+        }).map((row) => row.sequence),
+        context: listContextWindowUsageRows(db, {
+          threadId: thread.id,
+          sequenceStart: 0,
+        }).map((row) => row.sequence),
+        tokens:
+          getLatestTokenUsageRow(db, { threadId: thread.id, sequenceStart: 0 })
+            ?.sequence ?? null,
+        fallback:
+          getLatestModelFallbackRowSinceTurnRequest(db, { threadId: thread.id })
+            ?.sequence ?? null,
+        todo: listTodoSnapshotEventRowsForThread(db, {
+          threadId: thread.id,
+        }).map((row) => row.sequence),
+      });
+      appendState("codex", null);
+      expect(read()).toEqual({
+        execution: 1,
+        state: [2],
+        context: [3],
+        tokens: 4,
+        fallback: 5,
+        todo: [6],
+      });
+      db.update(threadsTable)
+        .set({ providerId, providerSessionId: "new-generation" })
+        .where(eq(threadsTable.id, thread.id))
+        .run();
+      expect(read()).toEqual({
+        execution: null,
+        state: [],
+        context: [],
+        tokens: null,
+        fallback: null,
+        todo: [],
+      });
+      appendState(providerId, "new-generation");
+      appendState("codex", null);
+      appendState("foreign-provider", "new-generation");
+      expect(read()).toEqual({
+        execution: 7,
+        state: [8],
+        context: [9],
+        tokens: 10,
+        fallback: 11,
+        todo: [12],
+      });
+      expect(listStoredEventRows(db, { threadId: thread.id })).toHaveLength(24);
+      expect(getLastStoredTurnRequestEvent(db, thread.id)?.sequence).toBe(19);
+      db.update(threadsTable)
+        .set({ providerId: "codex", providerSessionId: null })
+        .where(eq(threadsTable.id, thread.id))
+        .run();
+      expect(read()).toEqual({
+        execution: 13,
+        state: [14],
+        context: [15],
+        tokens: 16,
+        fallback: 17,
+        todo: [18],
+      });
+    },
+  );
+
   it("preserves reported cache counts through daemon append and stored event decoding", () => {
     const { db, thread } = setup();
     const scope = turnScope("turn-cache-test");

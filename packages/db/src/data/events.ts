@@ -448,6 +448,15 @@ interface InsertStoredEventRowArgs {
   type: ThreadEventType;
 }
 
+function currentProviderSessionPredicate(eventAlias: SQL): SQL {
+  return sql`EXISTS (
+    SELECT 1 FROM threads AS current_provider_thread
+    WHERE current_provider_thread.id = ${eventAlias}.thread_id
+      AND (${eventAlias}.provider_id IS NULL OR ${eventAlias}.provider_id = current_provider_thread.provider_id)
+      AND ${eventAlias}.provider_session_id IS current_provider_thread.provider_session_id
+  )`;
+}
+
 function eventProviderIdForThread(threadId: string): SQL<string | null> {
   return sql<
     string | null
@@ -1811,7 +1820,7 @@ function threadStateKindPredicate(alias: SQL, kind: string): SQL {
     AND (
       ${alias}.type <> 'thread/extensionState/updated'
       OR json_extract(${alias}.data, '$.kind') = ${kind}
-    )`;
+    ) AND ${currentProviderSessionPredicate(alias)}`;
 }
 
 function scanLatestThreadStateSequences(
@@ -2771,6 +2780,7 @@ export function listTodoSnapshotEventRowsForThread(
       and(
         eq(events.threadId, args.threadId),
         sql`((${events.itemKind} = 'planSteps' AND ${events.type} = 'item/completed') OR ${events.type} = 'turn/plan/updated')`,
+        currentProviderSessionPredicate(sql`${events}`),
       ),
     )
     .orderBy(desc(events.sequence))
@@ -4125,7 +4135,10 @@ export function listStoredTimelineWindowEventRows(
   });
 }
 
-const prepareLatestContextWindowBoundary = (db: DbQueryConnection) =>
+const prepareLatestContextWindowBoundary = (
+  db: DbQueryConnection,
+  scope: "thread" | "current-session",
+) =>
   db
     .select(storedEventRowFields)
     .from(events)
@@ -4135,6 +4148,9 @@ const prepareLatestContextWindowBoundary = (db: DbQueryConnection) =>
         gte(events.sequence, placeholder("sequenceStart")),
         eq(events.type, "thread/contextWindowUsage/updated"),
         isNotNestedTurnUsageEvent,
+        scope === "current-session"
+          ? currentProviderSessionPredicate(sql`${events}`)
+          : undefined,
         sql`(
           json_extract(${events.data}, '$.contextWindowUsage.snapshot') IS NOT NULL
           OR json_extract(${events.data}, '$.contextWindowUsage.usedTokens') IS NULL
@@ -4148,9 +4164,17 @@ const prepareLatestContextWindowBoundary = (db: DbQueryConnection) =>
 
 function getLatestContextWindowBoundary(
   db: DbQueryConnection,
-  args: { threadId: string; sequenceStart: number },
+  args: {
+    threadId: string;
+    sequenceStart: number;
+    scope: "thread" | "current-session";
+  },
 ): StoredEventRow | undefined {
-  return prepareCachedQuery(db, prepareLatestContextWindowBoundary).get({
+  return prepareCachedQueryVariant(
+    db,
+    `events.latestContextWindowBoundary:${args.scope}`,
+    (connection) => prepareLatestContextWindowBoundary(connection, args.scope),
+  ).get({
     sequenceStart: args.sequenceStart,
     threadId: args.threadId,
   });
@@ -4184,6 +4208,7 @@ function listLatestRowsForContextWindowUsage(
             gte(events.sequence, placeholder("sequenceStart")),
             eq(events.type, args.eventType),
             isNotNestedTurnUsageEvent,
+            currentProviderSessionPredicate(sql`${events}`),
           ),
         )
         .orderBy(desc(events.sequence))
@@ -4208,6 +4233,7 @@ function listLatestRowsForContextWindowUsage(
             gte(events.sequence, placeholder("sequenceStart")),
             eq(events.type, args.eventType),
             isNotNestedTurnUsageEvent,
+            currentProviderSessionPredicate(sql`${events}`),
             sql`json_extract(${events.data}, ${args.contextWindowJsonPath}) IS NOT NULL`,
           ),
         )
@@ -4216,7 +4242,10 @@ function listLatestRowsForContextWindowUsage(
         .prepare(),
   ).get(values);
 
-  const latestWindowBoundary = getLatestContextWindowBoundary(db, args);
+  const latestWindowBoundary = getLatestContextWindowBoundary(db, {
+    ...args,
+    scope: "current-session",
+  });
 
   return [
     ...new Map(
@@ -4261,6 +4290,7 @@ const prepareLatestTokenUsageRow = (db: DbQueryConnection) =>
         gte(events.sequence, placeholder("sequenceStart")),
         eq(events.type, "thread/tokenUsage/updated"),
         isNotNestedTurnUsageEvent,
+        currentProviderSessionPredicate(sql`${events}`),
       ),
     )
     .orderBy(desc(events.sequence))
@@ -4413,16 +4443,15 @@ export function getLatestModelFallbackRowSinceTurnRequest(
         and(
           eq(events.threadId, args.threadId),
           inArray(events.type, [fallbackType, unhandledType]),
+          currentProviderSessionPredicate(sql`${events}`),
           sql`${events.sequence} > COALESCE((
             SELECT MAX(request.sequence)
             FROM events request
             WHERE request.thread_id = ${args.threadId}
               AND request.type = ${requestType}
+              AND ${currentProviderSessionPredicate(sql`request`)}
           ), -1)`,
-          or(
-            eq(events.type, fallbackType),
-            isProviderModelFallbackMessage,
-          ),
+          or(eq(events.type, fallbackType), isProviderModelFallbackMessage),
         ),
       )
       .orderBy(desc(events.sequence))
@@ -5247,10 +5276,14 @@ function listStoredTurnRequestEventRowsByType(
 export function getLastStoredTurnRequestEvent(
   db: DbQueryConnection,
   threadId: string,
+  scope: "thread" | "current-session" = "thread",
 ): StoredTurnRequestEventRow | null {
   return (
     listStoredTurnRequestEventRowsByType(db, {
-      filter: null,
+      filter:
+        scope === "current-session"
+          ? currentProviderSessionPredicate(sql`candidate`)
+          : null,
       limit: 1,
       order: "newest",
       threadId,
@@ -5315,8 +5348,11 @@ export function getContextWindowUsagePruningBoundarySequence(
   threadId: string,
 ): number {
   return (
-    getLatestContextWindowBoundary(db, { threadId, sequenceStart: 0 })
-      ?.sequence ?? 0
+    getLatestContextWindowBoundary(db, {
+      threadId,
+      sequenceStart: 0,
+      scope: "thread",
+    })?.sequence ?? 0
   );
 }
 
