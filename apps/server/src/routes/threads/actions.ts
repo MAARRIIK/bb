@@ -1,5 +1,11 @@
 import { requireThreadProviderSessionSource } from "../../services/threads/thread-provider-session-source.js";
 import {
+  previewProviderSwitch,
+  commitProviderSwitch,
+  getProviderSwitch,
+  recoverProviderSwitch,
+} from "../../services/threads/provider-switch.js";
+import {
   operationComplete,
   operationInProgress,
 } from "../../services/lib/operation-response.js";
@@ -221,7 +227,7 @@ export function registerThreadActionRoutes(
   deps: AppDeps,
   plugins: { resolveRpcCaller: ResolvePluginRpcCaller },
 ): void {
-  const { post, patch, del } = typedRoutes<PublicApiSchema>(app, {
+  const { get, post, patch, del } = typedRoutes<PublicApiSchema>(app, {
     onValidationError: (msg) => new ApiError(400, "invalid_request", msg),
   });
   const routes = publicApiRoutes.threads;
@@ -482,6 +488,37 @@ export function registerThreadActionRoutes(
     const environment = await requireThreadCommandEnvironment(deps, { thread });
     await clearThreadContext(deps, { environment, thread });
     return context.json(operationComplete());
+  });
+
+  post(routes.providerSwitchPreview, async (context, request) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    return context.json(
+      await previewProviderSwitch(deps, { threadId: thread.id, request }),
+    );
+  });
+  post(routes.providerSwitchCommit, async (context, request) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    return context.json(
+      await commitProviderSwitch(deps, { threadId: thread.id, request }),
+    );
+  });
+  get(routes.providerSwitchGet, (context, request) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    return context.json(
+      getProviderSwitch(deps, {
+        threadId: thread.id,
+        operationId: request.operationId,
+      }),
+    );
+  });
+  post(routes.providerSwitchRecover, async (context, request) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    return context.json(
+      await recoverProviderSwitch(deps, {
+        threadId: thread.id,
+        operationId: request.operationId,
+      }),
+    );
   });
 
   post(routes.cancelPlan, async (context) => {

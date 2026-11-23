@@ -13,6 +13,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["off", "low", "medium", "high"],
+          contextWindowTokens: null,
         },
         {
           id: "minimax-m2.7",
@@ -21,6 +22,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["low", "medium", "high"],
+          contextWindowTokens: null,
         },
         {
           id: "non-reasoning-model",
@@ -29,6 +31,7 @@ describe("pi model list", () => {
           reasoning: false,
           input: ["text"],
           supportedThinkingLevels: ["off"],
+          contextWindowTokens: null,
         },
       ],
     });
@@ -59,6 +62,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["low", "medium", "high", "xhigh"],
+          contextWindowTokens: null,
         },
         {
           id: "claude-opus-4-6-20240620",
@@ -67,6 +71,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["low", "medium", "high"],
+          contextWindowTokens: null,
         },
       ],
     });
@@ -95,6 +100,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["low", "medium", "high"],
+          contextWindowTokens: null,
         },
         {
           id: "openai/gpt-5.1-codex",
@@ -103,6 +109,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["low", "medium", "high"],
+          contextWindowTokens: null,
         },
         {
           id: "accounts/fireworks/models/deepseek-v4-flash",
@@ -111,6 +118,7 @@ describe("pi model list", () => {
           reasoning: false,
           input: ["text"],
           supportedThinkingLevels: [],
+          contextWindowTokens: null,
         },
       ],
     });
@@ -135,6 +143,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["low", "medium", "high"],
+          contextWindowTokens: null,
         },
         {
           id: "gpt-5.4",
@@ -143,6 +152,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["low", "medium", "high"],
+          contextWindowTokens: null,
         },
       ],
       scopedModelIds: ["openai/gpt-5.4", "anthropic/claude-sonnet-5"],
@@ -167,6 +177,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["low", "medium", "high"],
+          contextWindowTokens: null,
         },
         {
           id: "gpt-5.4",
@@ -175,6 +186,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["low", "medium", "high"],
+          contextWindowTokens: null,
         },
       ],
       preferredDefaultId: "anthropic/claude-sonnet-5",
@@ -195,6 +207,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["low", "medium", "high"],
+          contextWindowTokens: null,
         },
         {
           id: "claude-opus-4-8-20260115",
@@ -203,6 +216,7 @@ describe("pi model list", () => {
           reasoning: true,
           input: ["text"],
           supportedThinkingLevels: ["low", "medium", "high"],
+          contextWindowTokens: null,
         },
       ],
       scopedModelIds: ["anthropic/claude-opus-4-8-20260115"],

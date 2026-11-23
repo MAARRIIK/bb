@@ -1699,6 +1699,67 @@ export function listStoredEventRowMetadata(
     .all();
 }
 
+export function listProviderContextEventRows(
+  db: DbQueryConnection,
+  args: {
+    threadId: string;
+    throughSequence: number;
+    afterSequence: number;
+    limit: number;
+    maxEventBytes: number;
+  },
+): {
+  rows: StoredEventRow[];
+  hasOlderHistory: boolean;
+  omittedOversizedEvents: number;
+} {
+  const eligible = and(
+    eq(events.threadId, args.threadId),
+    gt(events.sequence, args.afterSequence),
+    lte(events.sequence, args.throughSequence),
+    isNull(events.parentToolCallId),
+    or(
+      inArray(events.type, [
+        "client/turn/requested",
+        "client/thread/start",
+        "client/turn/start",
+      ]),
+      and(
+        eq(events.type, "item/completed"),
+        eq(events.itemKind, "agentMessage"),
+      ),
+    ),
+  );
+  const candidates = db
+    .select({ sequence: events.sequence })
+    .from(events)
+    .where(eligible)
+    .orderBy(desc(events.sequence))
+    .limit(args.limit + 1)
+    .all();
+  const count = Math.min(candidates.length, args.limit);
+  const oldest = candidates[count - 1];
+  if (!oldest)
+    return { rows: [], hasOlderHistory: false, omittedOversizedEvents: 0 };
+  const rows = db
+    .select(storedEventRowSqlFields(null))
+    .from(events)
+    .where(
+      and(
+        eligible,
+        gte(events.sequence, oldest.sequence),
+        sql`octet_length(${events.data}) <= ${args.maxEventBytes}`,
+      ),
+    )
+    .orderBy(events.sequence)
+    .all();
+  return {
+    rows,
+    hasOlderHistory: candidates.length > args.limit,
+    omittedOversizedEvents: count - rows.length,
+  };
+}
+
 export function listStoredEventRows(
   db: DbConnection,
   args: ListStoredEventRowsArgs,

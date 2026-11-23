@@ -14,6 +14,34 @@ question.
 [provider-bridge-protocol.md](provider-bridge-protocol.md). An entry without
 a "Docs:" line has no owning doc, so it keeps the essential contract itself.
 
+## Switching providers in one conversation
+
+`bb.sdk.threads.experimental_providerSwitch` exposes `preview`, `commit`, `get`
+and `recover`. Core's thread header and `bb thread provider` use this same SDK
+area and the server's `provider-switch` service. A preview selects visible recent
+text or a supplied summary, redacts recognized credentials, excludes hidden
+input, reasoning, tools and attachment contents, and reports a conservative
+UTF-8 byte estimate. It preserves a history cursor and fingerprint. Commit
+requires that exact preview and a stable UUID, then calls the durable transition
+controller; the thread ID and workspace stay fixed. Get/recover use the saved
+operation after a disconnect. No user turn is sent during preparation. Final
+packet delivery uses the ordinary first-request and retry path.
+
+`AvailableModel.experimental_contextWindowTokens` is an optional positive
+provider-declared capacity. Pi forwards its catalog value after validation.
+Absence means unknown; a catalog value does not verify the actual server window,
+especially a custom Ollama configuration. Core's switch preview uses it to
+reserve three quarters of the declared window for instructions, tools and the
+answer; the packet size is still an estimate. User declarations are labeled
+separately and cannot exceed a known catalog capacity.
+
+Docs: Plugin Guide, Agent providers and The bb SDK
+(`plugins/plugin-api-docs/src/surfaces.ts`). Before stabilization, verify native
+Codex/Claude/Pi transitions and loss of responses, host restart, permissions and
+model-capacity changes, cross-device recovery, actual serving-window probes,
+token estimation, secret-redaction false positives and omissions, and packet
+completeness. The same controller must remain the path used by UI, CLI and SDK.
+
 ## Host paths (`@get-bb/plugin-sdk`)
 
 `experimental_normalizeHostPath(path)`,

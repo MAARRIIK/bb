@@ -11,6 +11,37 @@ Lifecycle commands require an explicit thread ID or --self.
 
 Lifecycle:
 
+  bb thread provider preview [id]          Review a provider switch in the same chat and workspace
+    --provider <id> --model <id>           Target from bb provider list/models
+    --permission-mode <mode>              accept-edits (default), auto, or full; never silently escalated
+    --reasoning-level <level>             Omitted uses the target model default
+    --service-tier <tier>                 default unless explicitly selected
+    --summary-file <path>                 Use a supplied summary instead of recent visible text; - reads stdin
+    --context-budget <tokens>             Conservative UTF-8-byte estimate, default 8192, range 512–32768
+    --context-window <tokens>             Optional user declaration; not proof of the actual serving window
+    --out <path>                          Save a private JSON review file; refuses to overwrite
+    --self --json                         Current thread / complete review object
+
+  bb thread provider switch [id] --preview-file <path>
+                                           Apply the reviewed switch; reusing the file reuses its operation UUID
+  bb thread provider status [id] --operation-id <uuid>
+                                           Read a saved result after a disconnect
+  bb thread provider recover [id] --operation-id <uuid>
+                                           Reconcile an interrupted switch with the executor
+    --self --json                         Supported by switch, status and recover
+
+  Review the exact text before switching. It is partial context: hidden input,
+  reasoning, tool results and attachment contents are excluded. Recognized
+  credentials are redacted; recognition is incomplete, so inspect the packet.
+  The optional declared model capacity is not the actual served window. At most
+  one quarter of a declared window is used by the packet budget. Instructions,
+  tools and the answer need additional room. A changed conversation, model
+  catalog or connection requires a new preview. The source agent must be idle
+  or failed and have no unfinished work. Preparation sends no user turn; the
+  approved packet accompanies the first real request. A rolled-back switch
+  returns a nonzero exit code; status remains available with its saved UUID.
+  SDK: threads.experimental_providerSwitch.{preview,commit,get,recover}.
+
   bb thread stop [id]                      Stop work and release the agent runtime
   bb thread compact [id]                   Request compaction of an idle or errored thread's context
   bb thread clear [id]                     Clear model context for an idle or failed thread

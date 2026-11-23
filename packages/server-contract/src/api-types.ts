@@ -14,3 +14,5 @@ export * from "./api/threads.js";
 export * from "./api/desktop-browsers.js";
 export * from "./api/server-move.js";
 export * from "./api/server-sweeps.js";
+
+export * from "./api/provider-switch.js";

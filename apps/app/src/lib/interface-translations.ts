@@ -7,6 +7,62 @@ export type InterfaceTranslator = (
 
 const russian = new Map<string, string>(
   Object.entries({
+    "Switch model in this conversation": "Сменить модель в этом диалоге",
+    "Keep this chat and workspace. Review the context before a fresh agent session is prepared.":
+      "Диалог и рабочая папка сохранятся. Проверь передаваемый контекст перед подготовкой новой сессии агента.",
+    Provider: "Провайдер",
+    Model: "Модель",
+    Permissions: "Разрешения",
+    "Choose permissions": "Выбери разрешения",
+    "Full access": "Полный доступ",
+    "Automatic approval": "Автоматическое подтверждение",
+    "Approve commands": "Подтверждать команды",
+    Reasoning: "Обдумывание",
+    "Model default": "Как задано у модели",
+    "Use my summary instead of recent messages":
+      "Передать мою сводку вместо последних сообщений",
+    "Conversation summary": "Сводка диалога",
+    "Context budget": "Размер передаваемого контекста",
+    "Conservative transfer budget": "Осторожная оценка бюджета передачи",
+    "User-declared context window (optional)":
+      "Окно контекста, указанное тобой (необязательно)",
+    "Preparing preview…": "Подготовка предпросмотра…",
+    "Preview context": "Посмотреть контекст",
+    "Only the text below will be transferred. Reasoning, tool results and attachment contents are excluded.":
+      "Будет передан только текст ниже. Рассуждения, результаты инструментов и содержимое вложений исключены.",
+    "Recognized credentials are redacted. Review this partial context before sharing it.":
+      "Распознанные ключи и пароли скрыты. Проверь этот неполный контекст перед передачей.",
+    "Conservative estimate: {tokens}; messages: {messages}.":
+      "Осторожная оценка: {tokens} токенов; сообщений: {messages}.",
+    "The target context window is unknown.":
+      "Окно контекста целевой модели неизвестно.",
+    "Declared window: {tokens} ({source}).":
+      "Заявленное окно: {tokens} ({source}).",
+    "The actual serving window is unverified; room is reserved for instructions, tools and the answer.":
+      "Фактическое окно сервера не проверено; оставлен запас для инструкций, инструментов и ответа.",
+    "Context to transfer": "Передаваемый контекст",
+    "Switching…": "Переключение…",
+    "Switch in this conversation": "Переключить в этом диалоге",
+    "Change selection": "Изменить выбор",
+    "The model was switched.": "Модель переключена.",
+    "The previous provider was retained.": "Прежний провайдер сохранён.",
+    "Waiting for the switch result": "Ожидание результата переключения",
+    "Operation details": "Сведения об операции",
+    "Check and recover": "Проверить и восстановить",
+    "Review a new switch": "Подготовить новый переход",
+    "Could not prepare the context preview.":
+      "Не удалось подготовить предпросмотр контекста.",
+    "The switch failed. The previous provider was retained.":
+      "Переключение не удалось. Прежний провайдер сохранён.",
+    "The connection was interrupted. Check the saved operation below.":
+      "Соединение прервано. Проверь сохранённую операцию ниже.",
+    "Recovery is waiting for the executor.":
+      "Восстановление ждёт подключения исполнителя.",
+    "The model catalog could not be loaded. Check the provider connection.":
+      "Не удалось загрузить каталог моделей. Проверь подключение провайдера.",
+    provider: "каталог провайдера",
+    user: "указано тобой",
+    unknown: "неизвестно",
     Settings: "Настройки",
     General: "Основные",
     Providers: "Провайдеры",

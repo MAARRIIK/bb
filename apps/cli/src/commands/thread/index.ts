@@ -1,4 +1,5 @@
 import { registerContextCommand } from "./context.js";
+import { registerProviderSwitchCommands } from "./provider-switch.js";
 import { registerSessionStateCommands } from "./session-state.js";
 import { Command } from "commander";
 import { registerActionsCommands } from "./actions.js";
@@ -24,6 +25,7 @@ export function registerThreadCommands(
   registerListCommand(thread, getUrl);
   registerCountCommand(thread, getUrl);
   registerContextCommand(thread, getUrl);
+  registerProviderSwitchCommands(thread, getUrl);
   registerSessionStateCommands(thread, getUrl);
   registerShowCommand(thread, getUrl);
   registerOpenCommand(thread, getUrl);

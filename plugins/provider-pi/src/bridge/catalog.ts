@@ -74,6 +74,12 @@ function toCatalogModel(model: PiRpcModel): PiCatalogModel | undefined {
     provider: model.provider,
     reasoning: model.reasoning === true,
     supportedThinkingLevels: getSupportedThinkingLevels(model),
+    contextWindowTokens:
+      typeof model.contextWindow === "number" &&
+      Number.isSafeInteger(model.contextWindow) &&
+      model.contextWindow > 0
+        ? model.contextWindow
+        : null,
   };
 }
 

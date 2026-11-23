@@ -150,6 +150,12 @@ Use `--selected-model <model-id>` to discover its reasoning choices and include 
 
 ## thread
 
+- `bb thread provider`
+- `bb thread provider preview`
+- `bb thread provider switch`
+- `bb thread provider status`
+- `bb thread provider recover`
+
 - `bb thread`
 - `bb thread wait`
 - `bb thread spawn`

@@ -29,6 +29,7 @@ export const availableModelSchema = z.object({
   model: z.string(),
   displayName: z.string(),
   routeProviderId: z.string().min(1).optional(),
+  experimental_contextWindowTokens: z.number().int().positive().optional(),
   description: z.string(),
   reasoningDiscovery: z.enum(["unknown", "known"]).default("known"),
   supportedReasoningEfforts: z.array(modelReasoningEffortSchema),
