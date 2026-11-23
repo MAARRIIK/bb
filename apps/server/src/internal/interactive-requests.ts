@@ -15,6 +15,7 @@ import {
   requireThreadEnvironmentAllowingDestroyed,
 } from "../services/lib/entity-lookup.js";
 import { requireAuthenticatedDaemonSession } from "./session-state.js";
+import { acquireThreadSessionActivity } from "../services/threads/thread-session-guard.js";
 
 function sessionHostThreadExists(
   deps: AppDeps,
@@ -77,55 +78,60 @@ export function registerInternalInteractiveRequestRoutes(
         );
       }
 
-      requireCurrentProviderSession(thread, payload.source);
-      if (
-        payload.source !== null &&
-        payload.source.providerId !== payload.interaction.providerId
-      ) {
-        throw new ApiError(
-          409,
-          "invalid_request",
-          "Provider request source does not match its interaction",
-        );
-      }
+      const release = acquireThreadSessionActivity([thread.id]);
+      try {
+        requireCurrentProviderSession(thread, payload.source);
+        if (
+          payload.source !== null &&
+          payload.source.providerId !== payload.interaction.providerId
+        ) {
+          throw new ApiError(
+            409,
+            "invalid_request",
+            "Provider request source does not match its interaction",
+          );
+        }
 
-      const turnStarted = hasStoredTurnStarted(deps.db, {
-        threadId: payload.interaction.threadId,
-        turnId: payload.interaction.turnId,
-      });
-      if (!turnStarted) {
-        deps.logger.warn(
-          {
-            providerId: payload.interaction.providerId,
-            providerRequestId: payload.interaction.providerRequestId,
-            providerThreadId: payload.interaction.providerThreadId,
-            threadId: payload.interaction.threadId,
-            turnId: payload.interaction.turnId,
-          },
-          "interactive request arrived before turn/started; asking daemon to retry",
-        );
-        throw new ApiError(
-          503,
-          "turn_start_not_ready",
-          "Turn start has not been stored yet; retry interactive request registration",
-          true,
-        );
-      }
-
-      const registered = deps.pendingInteractions.registerPendingInteraction({
-        interaction: payload.interaction,
-      });
-      if (registered.outcome === "rejected") {
-        return context.json({
-          outcome: "rejected",
-          reason: registered.reason,
+        const turnStarted = hasStoredTurnStarted(deps.db, {
+          threadId: payload.interaction.threadId,
+          turnId: payload.interaction.turnId,
         });
+        if (!turnStarted) {
+          deps.logger.warn(
+            {
+              providerId: payload.interaction.providerId,
+              providerRequestId: payload.interaction.providerRequestId,
+              providerThreadId: payload.interaction.providerThreadId,
+              threadId: payload.interaction.threadId,
+              turnId: payload.interaction.turnId,
+            },
+            "interactive request arrived before turn/started; asking daemon to retry",
+          );
+          throw new ApiError(
+            503,
+            "turn_start_not_ready",
+            "Turn start has not been stored yet; retry interactive request registration",
+            true,
+          );
+        }
+
+        const registered = deps.pendingInteractions.registerPendingInteraction({
+          interaction: payload.interaction,
+        });
+        if (registered.outcome === "rejected") {
+          return context.json({
+            outcome: "rejected",
+            reason: registered.reason,
+          });
+        }
+        return context.json({
+          outcome: registered.outcome,
+          interactionId: registered.interaction.id,
+          status: registered.interaction.status,
+        });
+      } finally {
+        release();
       }
-      return context.json({
-        outcome: registered.outcome,
-        interactionId: registered.interaction.id,
-        status: registered.interaction.status,
-      });
     },
   );
 

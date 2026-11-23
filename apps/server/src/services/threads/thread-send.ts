@@ -63,7 +63,7 @@ import { resolvePromptAttachmentReferences } from "../projects/attachments.js";
 import { threadTargetHostId } from "./dispatch-attempt.js";
 import { resolvePluginMentionContextInputs } from "../plugins/plugin-mentions.js";
 import { clearThreadContext } from "./thread-context-clear.js";
-import { withThreadSendGuard } from "./thread-context-mutation-guard.js";
+import { withThreadSendGuard } from "./thread-session-guard.js";
 import {
   runThreadLifecycleInTransaction,
   type ThreadLifecycleOutcome,

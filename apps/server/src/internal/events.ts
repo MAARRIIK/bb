@@ -1,3 +1,4 @@
+import { acquireThreadSessionActivity } from "../services/threads/thread-session-guard.js";
 import { performance } from "node:perf_hooks";
 import { Buffer } from "node:buffer";
 import {
@@ -536,21 +537,27 @@ function findUnstartedTurnRequestId(
 function deferEventFollowUpBatch(
   deps: LoggedPendingInteractionWorkSessionDeps,
   followUps: TurnEndFollowUp[],
+  threadIds: Iterable<string>,
 ): void {
   if (followUps.length === 0) {
     return;
   }
 
+  const release = acquireThreadSessionActivity(threadIds);
   deferAfterResponse({
     config: deps.config,
     logger: deps.logger,
     name: "Event follow-up scheduling",
     work: async () => {
-      await Promise.all(
-        followUps.map((followUp) =>
-          executeTurnEndFollowUpBestEffort(deps, followUp),
-        ),
-      );
+      try {
+        await Promise.all(
+          followUps.map((followUp) =>
+            executeTurnEndFollowUpBestEffort(deps, followUp),
+          ),
+        );
+      } finally {
+        release();
+      }
     },
   });
 }
@@ -850,167 +857,183 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
           hostId: session.hostId,
           events,
         });
-      const { entries, droppedLifecycleEvents } =
-        dropInteractionLifecycleEvents(ownedEntries);
-      if (droppedLifecycleEvents.length > 0) {
-        deps.logger.warn(
-          {
-            hostId: session.hostId,
-            sessionId: session.id,
-            droppedEvents: droppedLifecycleEvents,
-          },
-          "Dropped daemon-posted interaction lifecycle events; the server is their only author",
-        );
-      }
-      if (rejectedEvents.length > 0) {
-        deps.logger.warn(
-          {
-            hostId: session.hostId,
-            rejectedEvents: summarizeRejectedDaemonEvents(rejectedEvents),
-            sessionId: session.id,
-          },
-          "Rejected daemon events with invalid thread ownership or provider origin",
-        );
-      }
-      const validatedEnvelopes = validatePresentationIcons(
-        deps,
-        await validateExtensionPayloads(
-          deps,
-          entries.map((entry) => entry.envelope),
-        ),
+      const release = acquireThreadSessionActivity(
+        ownedEntries.map((entry) => entry.envelope.threadId),
       );
-      const validatedEntries = entries
-        .map((entry, index) => {
-          const validated = validatedEnvelopes[index];
-          if (validated === undefined) {
-            throw new Error(
-              "Missing validated envelope for daemon event entry",
-            );
-          }
-          return {
-            ...entry,
-            envelope: validated,
-          };
-        })
-        .map((entry) => preserveTerminalProvisioningStatus(deps, entry));
-      const current = resolvePostableEventBatchEntries(deps, {
-        hostId: session.hostId,
-        events: validatedEntries.map((entry) => entry.envelope),
-      });
-      const originalEventIndex = (index: number): number => {
-        const entry = validatedEntries[index];
-        if (entry === undefined) {
-          throw new Error("Missing validated daemon event entry");
-        }
-        return entry.eventIndex;
-      };
-      rejectedEvents.push(
-        ...current.rejectedEvents.map((entry) => ({
-          ...entry,
-          eventIndex: originalEventIndex(entry.eventIndex),
-        })),
-      );
-      rejectedEvents.sort((left, right) => left.eventIndex - right.eventIndex);
-      const labelledEntries = current.entries.map((entry) => ({
-        ...entry,
-        eventIndex: originalEventIndex(entry.eventIndex),
-      }));
-      const eventInputs = labelledEntries.map((entry) => {
-        return toStoredEvent({
-          envelope: entry.envelope,
-          environmentId: entry.environmentId,
-        });
-      });
-      const postableEvents = labelledEntries.map((entry) => entry.envelope);
-      let appendResult: AppendDaemonEventsResult;
       try {
-        appendResult = deps.db.transaction(
-          (tx) => appendDaemonEventsInTransaction(tx, eventInputs),
-          { behavior: "immediate" },
-        );
-      } catch (error) {
-        if (error instanceof MissingStoredTurnStartedError) {
+        const { entries, droppedLifecycleEvents } =
+          dropInteractionLifecycleEvents(ownedEntries);
+        if (droppedLifecycleEvents.length > 0) {
           deps.logger.warn(
             {
-              ...error.details,
+              hostId: session.hostId,
               sessionId: session.id,
-              ...runtimeErrorLogFields(deps.config, error),
+              droppedEvents: droppedLifecycleEvents,
             },
-            "Rejected daemon event before turn/started",
+            "Dropped daemon-posted interaction lifecycle events; the server is their only author",
           );
-          throw new ApiError(409, "invalid_request", error.message);
         }
-        throw error;
-      }
-      for (const index of appendResult.skippedTurnUnstartedInputIndexes) {
-        const skipped = eventInputs[index];
-        deps.logger.warn(
-          {
-            eventType: skipped?.type,
-            threadId: skipped?.threadId,
-            sessionId: session.id,
-          },
-          "Dropped orphan thread-state snapshot with no stored turn/started",
+        if (rejectedEvents.length > 0) {
+          deps.logger.warn(
+            {
+              hostId: session.hostId,
+              rejectedEvents: summarizeRejectedDaemonEvents(rejectedEvents),
+              sessionId: session.id,
+            },
+            "Rejected daemon events with invalid thread ownership or provider origin",
+          );
+        }
+        const validatedEnvelopes = validatePresentationIcons(
+          deps,
+          await validateExtensionPayloads(
+            deps,
+            entries.map((entry) => entry.envelope),
+          ),
         );
-      }
-      const committedAt = performance.now();
-      notifyInsertedEventThreads(deps, {
-        eventInputs,
-        insertedInputIndexes: appendResult.insertedInputIndexes,
-      });
-      const turnTraceBatch = {
-        committedAt,
-        events: postableEvents,
-        notifiedAt: performance.now(),
-        receivedAt,
-      };
-      observeTurnTraceEventBatch(turnTraceBatch);
-      observeStreamTraceEventBatch(deps, turnTraceBatch);
-
-      const followUps = await applyEventEffects(
-        deps,
-        resolveEventsToApply({
-          db: deps.db,
-          events: postableEvents,
-          insertedEventIndexes: appendResult.insertedInputIndexes,
-        }),
-      );
-      for (const candidate of resolveActivePruneCandidates({
-        acceptedEvents: appendResult.acceptedEvents,
-        events: postableEvents,
-        insertedEventIndexes: appendResult.insertedInputIndexes,
-      })) {
-        maybePruneActiveThreadEventHistory(deps, candidate);
-      }
-
-      deferEventFollowUpBatch(deps, followUps);
-      const response: HostDaemonEventBatchResponse = {
-        acceptedEvents: appendResult.acceptedEvents.map(
-          (acceptedEvent, acceptedIndex) => {
-            const inputIndex = appendResult.insertedInputIndexes[acceptedIndex];
-            if (inputIndex === undefined) {
+        const validatedEntries = entries
+          .map((entry, index) => {
+            const validated = validatedEnvelopes[index];
+            if (validated === undefined) {
               throw new Error(
-                "Missing inserted event index for accepted daemon event",
+                "Missing validated envelope for daemon event entry",
               );
             }
-            const entry = labelledEntries[inputIndex];
-            if (entry === undefined) {
-              throw new Error("Missing daemon event entry for accepted event");
-            }
             return {
-              eventIndex: entry.eventIndex,
-              sequence: acceptedEvent.sequence,
-              threadId: acceptedEvent.threadId,
+              ...entry,
+              envelope: validated,
             };
-          },
-        ),
-        rejectedEvents,
-      };
-      const body = JSON.stringify(response);
-      return context.body(body, 200, {
-        "content-length": String(Buffer.byteLength(body)),
-        "content-type": "application/json",
-      });
+          })
+          .map((entry) => preserveTerminalProvisioningStatus(deps, entry));
+        const current = resolvePostableEventBatchEntries(deps, {
+          hostId: session.hostId,
+          events: validatedEntries.map((entry) => entry.envelope),
+        });
+        const originalEventIndex = (index: number): number => {
+          const entry = validatedEntries[index];
+          if (entry === undefined) {
+            throw new Error("Missing validated daemon event entry");
+          }
+          return entry.eventIndex;
+        };
+        rejectedEvents.push(
+          ...current.rejectedEvents.map((entry) => ({
+            ...entry,
+            eventIndex: originalEventIndex(entry.eventIndex),
+          })),
+        );
+        rejectedEvents.sort(
+          (left, right) => left.eventIndex - right.eventIndex,
+        );
+        const labelledEntries = current.entries.map((entry) => ({
+          ...entry,
+          eventIndex: originalEventIndex(entry.eventIndex),
+        }));
+        const eventInputs = labelledEntries.map((entry) => {
+          return toStoredEvent({
+            envelope: entry.envelope,
+            environmentId: entry.environmentId,
+          });
+        });
+        const postableEvents = labelledEntries.map((entry) => entry.envelope);
+        let appendResult: AppendDaemonEventsResult;
+        try {
+          appendResult = deps.db.transaction(
+            (tx) => appendDaemonEventsInTransaction(tx, eventInputs),
+            { behavior: "immediate" },
+          );
+        } catch (error) {
+          if (error instanceof MissingStoredTurnStartedError) {
+            deps.logger.warn(
+              {
+                ...error.details,
+                sessionId: session.id,
+                ...runtimeErrorLogFields(deps.config, error),
+              },
+              "Rejected daemon event before turn/started",
+            );
+            throw new ApiError(409, "invalid_request", error.message);
+          }
+          throw error;
+        }
+        for (const index of appendResult.skippedTurnUnstartedInputIndexes) {
+          const skipped = eventInputs[index];
+          deps.logger.warn(
+            {
+              eventType: skipped?.type,
+              threadId: skipped?.threadId,
+              sessionId: session.id,
+            },
+            "Dropped orphan thread-state snapshot with no stored turn/started",
+          );
+        }
+        const committedAt = performance.now();
+        notifyInsertedEventThreads(deps, {
+          eventInputs,
+          insertedInputIndexes: appendResult.insertedInputIndexes,
+        });
+        const turnTraceBatch = {
+          committedAt,
+          events: postableEvents,
+          notifiedAt: performance.now(),
+          receivedAt,
+        };
+        observeTurnTraceEventBatch(turnTraceBatch);
+        observeStreamTraceEventBatch(deps, turnTraceBatch);
+
+        const followUps = await applyEventEffects(
+          deps,
+          resolveEventsToApply({
+            db: deps.db,
+            events: postableEvents,
+            insertedEventIndexes: appendResult.insertedInputIndexes,
+          }),
+        );
+        for (const candidate of resolveActivePruneCandidates({
+          acceptedEvents: appendResult.acceptedEvents,
+          events: postableEvents,
+          insertedEventIndexes: appendResult.insertedInputIndexes,
+        })) {
+          maybePruneActiveThreadEventHistory(deps, candidate);
+        }
+
+        deferEventFollowUpBatch(
+          deps,
+          followUps,
+          postableEvents.map((entry) => entry.threadId),
+        );
+        const response: HostDaemonEventBatchResponse = {
+          acceptedEvents: appendResult.acceptedEvents.map(
+            (acceptedEvent, acceptedIndex) => {
+              const inputIndex =
+                appendResult.insertedInputIndexes[acceptedIndex];
+              if (inputIndex === undefined) {
+                throw new Error(
+                  "Missing inserted event index for accepted daemon event",
+                );
+              }
+              const entry = labelledEntries[inputIndex];
+              if (entry === undefined) {
+                throw new Error(
+                  "Missing daemon event entry for accepted event",
+                );
+              }
+              return {
+                eventIndex: entry.eventIndex,
+                sequence: acceptedEvent.sequence,
+                threadId: acceptedEvent.threadId,
+              };
+            },
+          ),
+          rejectedEvents,
+        };
+        const body = JSON.stringify(response);
+        return context.body(body, 200, {
+          "content-length": String(Buffer.byteLength(body)),
+          "content-type": "application/json",
+        });
+      } finally {
+        release();
+      }
     },
   );
 }

@@ -7,6 +7,7 @@ import {
 } from "../../../src/services/plugins/plugin-tool-calls.js";
 import { testLogger } from "../../helpers/test-app.js";
 import { createDeferredPromise } from "@bb/test-helpers";
+import { withThreadContextChangeGuard } from "../../../src/services/threads/thread-session-guard.js";
 
 function textResponse(text: string, success = true): ToolCallResponse {
   return { success, contentItems: [{ type: "inputText", text }] };
@@ -70,8 +71,16 @@ describe("PluginToolCallRegistry", () => {
     expect(toolSignal?.aborted).toBe(true);
     expect(toolSignal?.reason).toBe("request-ended");
     await expect(response).resolves.toMatchObject({ success: false });
-    result.resolve(textResponse("late answer"));
-    await vi.advanceTimersByTimeAsync(0);
+    try {
+      await expect(
+        withThreadContextChangeGuard("thread", (commit) =>
+          commit(async () => {}),
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+    } finally {
+      result.resolve(textResponse("late answer"));
+      await vi.advanceTimersByTimeAsync(0);
+    }
     expect(onDetachedResult).not.toHaveBeenCalled();
     expect(registry.size).toBe(0);
   });
@@ -122,7 +131,12 @@ describe("PluginToolCallRegistry", () => {
   it("answers the round trip at once when the tool asks the user for input", async () => {
     const registry = createRegistry();
     const roundTrip = new AbortController();
-    const onDetachedResult = vi.fn(async () => undefined);
+    const delivering = createDeferredPromise<void>();
+    const delivered = createDeferredPromise<void>();
+    const onDetachedResult = vi.fn(async () => {
+      delivering.resolve();
+      await delivered.promise;
+    });
     const result = createDeferredPromise<ToolCallResponse>();
     let toolSignal: AbortSignal | undefined;
 
@@ -148,11 +162,26 @@ describe("PluginToolCallRegistry", () => {
     expect(toolSignal?.aborted).toBe(false);
     expect(registry.size).toBe(1);
     result.resolve(textResponse("the user answered"));
-    await vi.advanceTimersByTimeAsync(0);
+    await delivering.promise;
+    try {
+      await expect(
+        withThreadContextChangeGuard("thread", (commit) =>
+          commit(async () => {}),
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+    } finally {
+      delivered.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+    }
     expect(onDetachedResult).toHaveBeenCalledWith(
       textResponse("the user answered"),
     );
     expect(registry.size).toBe(0);
+    await expect(
+      withThreadContextChangeGuard("thread", (commit) =>
+        commit(async () => "changed"),
+      ),
+    ).resolves.toBe("changed");
   });
 
   it("ignores a detach request made outside any tool call", () => {
@@ -194,23 +223,32 @@ describe("PluginToolCallRegistry", () => {
   it("aborts only the disposed plugin's calls", async () => {
     const registry = createRegistry();
     const signals: AbortSignal[] = [];
+    const finish: (() => void)[] = [];
+    const responses: Promise<ToolCallResponse>[] = [];
     for (const pluginId of ["alpha", "beta"]) {
-      void registry.run({
-        pluginId,
-        threadId: "thread",
-        callId: `call-${pluginId}`,
-        toolName: "ask",
-        roundTrip: new AbortController().signal,
-        invoke: (signal) => {
-          signals.push(signal);
-          return new Promise(() => undefined);
-        },
-        onDetachedResult: async () => undefined,
-      });
+      const result = createDeferredPromise<ToolCallResponse>();
+      finish.push(() => result.resolve(textResponse("finished")));
+      responses.push(
+        registry.run({
+          pluginId,
+          threadId: "thread",
+          callId: `call-${pluginId}`,
+          toolName: "ask",
+          roundTrip: new AbortController().signal,
+          invoke: (signal) => {
+            signals.push(signal);
+            return result.promise;
+          },
+          onDetachedResult: async () => undefined,
+        }),
+      );
     }
     registry.abortForPlugin("alpha", "plugin-disposed");
 
     expect(signals.map((signal) => signal.aborted)).toEqual([true, false]);
+    for (const complete of finish) complete();
+    await Promise.all(responses);
+    await vi.advanceTimersByTimeAsync(0);
   });
 
   it("turns a rejected invocation into a failed tool result", async () => {

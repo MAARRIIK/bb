@@ -26,6 +26,7 @@ import {
   seedThread,
 } from "../helpers/seed.js";
 import { createTestAppHarness } from "../helpers/test-app.js";
+import { registerHostRpcResponder } from "../helpers/host-rpc.js";
 import type { TestAppHarness } from "../helpers/test-app.js";
 
 const PLUGIN_ID = "provider-widgets";
@@ -203,6 +204,58 @@ function turnStarted(threadId: string): HostDaemonEventEnvelope {
 }
 
 describe("extension payload ingest validation", () => {
+  it("preserves context until an already received provider event finishes validation", async () => {
+    const validating = createDeferredPromise<void>();
+    const release = createDeferredPromise<void>();
+    const { harness, session, thread } = await setup(
+      z.object({ status: z.enum(["active", "done"]) }).superRefine(async () => {
+        validating.resolve();
+        await release.promise;
+      }),
+    );
+    harness.db
+      .update(threads)
+      .set({ status: "idle" })
+      .where(eq(threads.id, thread.id))
+      .run();
+    registerHostRpcResponder(harness, {
+      hostId: session.hostId,
+      sessionId: session.id,
+      handle: async ({ command }) => {
+        if (command.type !== "thread.stop")
+          throw new Error(`Unexpected command ${command.type}`);
+        return { ok: true, result: { providerCheckpointId: null } };
+      },
+    });
+    const posting = post(harness, session.id, [
+      extensionStateEvent(thread.id, { status: "active" }),
+    ]);
+    try {
+      await validating.promise;
+      const clearing = await harness.app.request(
+        `/api/v1/threads/${thread.id}/context/clear`,
+        { method: "POST" },
+      );
+      expect(clearing.status).toBe(409);
+      expect(storedRows(harness, thread.id)).toEqual([]);
+      release.resolve();
+      expect((await posting).status).toBe(200);
+      const cleared = await harness.app.request(
+        `/api/v1/threads/${thread.id}/context/clear`,
+        { method: "POST" },
+      );
+      expect(cleared.status).toBe(200);
+      expect(storedRows(harness, thread.id).map((row) => row.type)).toEqual([
+        "thread/extensionState/updated",
+        "system/operation",
+      ]);
+    } finally {
+      release.resolve();
+      await posting;
+      await harness.cleanup();
+    }
+  });
+
   it("rechecks the provider after an asynchronous extension validator finishes", async () => {
     const validating = createDeferredPromise<void>();
     const release = createDeferredPromise<void>();
