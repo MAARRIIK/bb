@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import { Icon } from "@bb/shared-ui/icon";
 import { cn } from "@bb/shared-ui/lib/utils";
 import { COARSE_POINTER_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
@@ -37,6 +38,7 @@ export function ChoiceDropdownSetting({
   disabled?: boolean;
   children?: ReactNode;
 }) {
+  const { t } = useInterfaceTranslation();
   return (
     <SettingsWithControl label={label} description={description}>
       <div className="flex w-full min-w-0 items-center gap-2 @min-[36rem]/settings:w-auto">
@@ -46,7 +48,7 @@ export function ChoiceDropdownSetting({
               variant="outline"
               size="sm"
               className="min-w-0 flex-1 justify-between @min-[36rem]/settings:w-40 @min-[36rem]/settings:flex-none"
-              aria-label={triggerAriaLabel}
+              aria-label={t(triggerAriaLabel)}
               disabled={disabled}
             >
               <span className="min-w-0 truncate">{selected.title}</span>
@@ -56,7 +58,11 @@ export function ChoiceDropdownSetting({
               />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuContent
+            align="end"
+            className="w-72"
+            mobileTitle={t(triggerAriaLabel)}
+          >
             {options.map((option) => (
               <DropdownMenuItem
                 key={option.key}

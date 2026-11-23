@@ -1,4 +1,5 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import { Link } from "react-router-dom";
 import { Button } from "@bb/shared-ui/button";
 import { Icon, type IconName } from "@bb/shared-ui/icon";
@@ -116,6 +117,7 @@ export function SectionSidebar({
   testIdPrefix: string;
   title: string;
 }) {
+  const { t } = useInterfaceTranslation();
   const isFramed = useIsSidebarFramed();
   const closeOnMobile = useCloseMobileSidebar();
   return (
@@ -138,7 +140,11 @@ export function SectionSidebar({
       />
       {backTo === null ? null : (
         <div className="shrink-0 px-2 py-2">
-          <SectionSidebarRow active={false} label="Back to app" to={backTo}>
+          <SectionSidebarRow
+            active={false}
+            label={t("Back to app")}
+            to={backTo}
+          >
             <SectionSidebarIcon name="ChevronLeft" />
           </SectionSidebarRow>
         </div>

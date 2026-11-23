@@ -1,4 +1,5 @@
 import { useAtom, type WritableAtom } from "jotai";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import {
   AUTOMATIC_REPLACEMENT_PROVIDER,
   BUILT_IN_REPLACEMENT_PROVIDER,
@@ -31,6 +32,7 @@ export function ReplacementProviderSetting({
   preferenceAtom: WritableAtom<string, [string], void>;
   slots: readonly ReplacementProviderSlot[];
 }) {
+  const { t } = useInterfaceTranslation();
   const [preference, setPreference] = useAtom(preferenceAtom);
 
   const builtinPluginIds = useBuiltinPluginIds();
@@ -40,33 +42,41 @@ export function ReplacementProviderSetting({
   if (automaticProvider === undefined) return null;
   const automaticOption = {
     key: AUTOMATIC_REPLACEMENT_PROVIDER,
-    title: "Automatic",
-    description: `Chooses ${automaticProvider.title} (${
-      isBuiltin(automaticProvider) ? "built-in" : automaticProvider.pluginId
-    }).`,
+    title: t("Automatic"),
+    description: t("Chooses {title} ({source}).", {
+      title: isBuiltin(automaticProvider)
+        ? t(automaticProvider.title)
+        : automaticProvider.title,
+      source: isBuiltin(automaticProvider)
+        ? t("built-in")
+        : automaticProvider.pluginId,
+    }),
   };
   const builtInOption =
     builtInDescription === undefined
       ? null
       : {
           key: BUILT_IN_REPLACEMENT_PROVIDER,
-          title: "bb (built-in)",
-          description: builtInDescription,
+          title: t("bb (built-in)"),
+          description: t(builtInDescription),
         };
   const optionFor = (slot: ReplacementProviderSlot) =>
     isBuiltin(slot)
       ? {
           key: replacementProviderKey(slot),
-          title: `${slot.title} (built-in)`,
-          description: slot.description ?? "",
+          title: t("{title} (built-in)", { title: t(slot.title) }),
+          description: t(slot.description ?? ""),
         }
       : {
           key: replacementProviderKey(slot),
           title: slot.title,
           description:
             slot.description === undefined
-              ? `From the ${slot.pluginId} plugin.`
-              : `${slot.pluginId} plugin. ${slot.description}`,
+              ? t("From the {plugin} plugin.", { plugin: slot.pluginId })
+              : t("{plugin} plugin. {description}", {
+                  plugin: slot.pluginId,
+                  description: slot.description,
+                }),
         };
   const options = [
     automaticOption,

@@ -1,4 +1,10 @@
 import type { SystemCliCommandStatus } from "@bb/server-contract";
+import type { ResolvedInterfaceLanguage } from "@bb/domain";
+import { useInterfaceTranslation } from "@/lib/interface-language";
+import {
+  translateInterfaceText,
+  type InterfaceTranslator,
+} from "@/lib/interface-translations";
 import { Button } from "@bb/shared-ui/button";
 import {
   SettingsSection,
@@ -17,22 +23,41 @@ interface CliCommandSettingsSectionContentProps {
 
 export function describeCliCommandStatus(
   status: SystemCliCommandStatus,
+  language: ResolvedInterfaceLanguage = "en",
 ): string {
+  const t: InterfaceTranslator = (message, values) =>
+    translateInterfaceText(message, language, values);
   if (status.installedPath !== null) {
     return status.onPath
-      ? `Installed at ${status.installedPath}. You can control bb from any terminal, and so can agents outside bb, such as Claude Code or Codex.`
-      : `Installed at ${status.installedPath}, but its folder is not on your PATH. Add the folder to your PATH to use bb outside bb.`;
+      ? t(
+          "Installed at {path}. You can control bb from any terminal, and so can agents outside bb, such as Claude Code or Codex.",
+          { path: status.installedPath },
+        )
+      : t(
+          "Installed at {path}, but its folder is not on your PATH. Add the folder to your PATH to use bb outside bb.",
+          { path: status.installedPath },
+        );
   }
   if (status.shadowedBy === null) {
-    return "Install the bb CLI for use outside bb. You can control bb from any terminal, and so can agents outside bb, such as Claude Code or Codex. Threads in bb already have it.";
+    return t(
+      "Install the bb CLI for use outside bb. You can control bb from any terminal, and so can agents outside bb, such as Claude Code or Codex. Threads in bb already have it.",
+    );
   }
   if (status.shadowedBy.source === "npm") {
-    return `Already installed for use outside bb at ${status.shadowedBy.path}, by npm.`;
+    return t("Already installed for use outside bb at {path}, by npm.", {
+      path: status.shadowedBy.path,
+    });
   }
   if (status.shadowedBy.source === "machine") {
-    return `The bb machine on this computer added a bb at ${status.shadowedBy.path} that can run an older bb. Install replaces it with this one.`;
+    return t(
+      "The bb machine on this computer added a bb at {path} that can run an older bb. Install replaces it with this one.",
+      { path: status.shadowedBy.path },
+    );
   }
-  return `Another bb at ${status.shadowedBy.path} comes first on your PATH. Remove it to install this one.`;
+  return t(
+    "Another bb at {path} comes first on your PATH. Remove it to install this one.",
+    { path: status.shadowedBy.path },
+  );
 }
 
 export function CliCommandSettingsSectionContent({
@@ -40,6 +65,7 @@ export function CliCommandSettingsSectionContent({
   pending,
   status,
 }: CliCommandSettingsSectionContentProps) {
+  const { t, language } = useInterfaceTranslation();
   const installed = status.installedPath !== null;
   return (
     <SettingsSection title="Command line">
@@ -47,7 +73,7 @@ export function CliCommandSettingsSectionContent({
         controlPlacement="trailing"
         label={CLI_COMMAND_SETTING_LABEL}
         {...(installed ? { labelBadge: "Installed" } : {})}
-        description={describeCliCommandStatus(status)}
+        description={describeCliCommandStatus(status, language)}
       >
         <Button
           type="button"
@@ -60,9 +86,9 @@ export function CliCommandSettingsSectionContent({
               status.shadowedBy.source !== "machine")
           }
           onClick={() => onChange(installed ? "remove" : "install")}
-          aria-label={`${installed ? "Remove" : "Install"} ${CLI_COMMAND_SETTING_LABEL}`}
+          aria-label={t(installed ? "Remove bb CLI" : "Install bb CLI")}
         >
-          {installed ? "Remove" : "Install"}
+          {t(installed ? "Remove" : "Install")}
         </Button>
       </SettingsWithControl>
     </SettingsSection>

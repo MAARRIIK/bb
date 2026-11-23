@@ -1,4 +1,5 @@
 import { DndContext } from "@dnd-kit/core";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -74,6 +75,8 @@ function FooterSettingsRow({
   disabled: boolean;
   onVisibleChange(visible: boolean): void;
 }) {
+  const { t } = useInterfaceTranslation();
+  const label = item.kind === "builtin" ? t(item.label) : item.label;
   const { dragBindings, setNodeRef, style } = useSidebarSortable({
     id: item.key,
     disabled: false,
@@ -93,17 +96,17 @@ function FooterSettingsRow({
         ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
-        aria-label={`Reorder ${item.label}`}
+        aria-label={t("Reorder {label}", { label })}
       >
         <Icon name="DragDropVertical" className="size-4" />
       </Button>
       <FooterItemIcon item={item} />
-      <span className="min-w-0 flex-1 truncate text-sm">{item.label}</span>
+      <span className="min-w-0 flex-1 truncate text-sm">{label}</span>
       <Switch
         checked={visible}
         disabled={disabled}
         onCheckedChange={onVisibleChange}
-        aria-label={`Show ${item.label} in footer`}
+        aria-label={t("Show {label} in footer", { label })}
       />
     </div>
   );

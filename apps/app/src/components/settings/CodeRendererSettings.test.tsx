@@ -2,6 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createStore, Provider as JotaiProvider } from "jotai";
+import { InterfaceLanguageProvider } from "@/lib/interface-language";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   resetPluginSlotStoreForTest,
@@ -69,48 +70,69 @@ describe("CodeRendererSettings", () => {
     );
   });
 
-  it("offers each registered provider by name", () => {
-    setPluginSlotRegistrations("inkwell", {
-      ...EMPTY_REGISTRATIONS,
-      diffRenderers: [
-        { id: "diffs", title: "Inkwell diffs", component: () => null },
-      ],
-    });
-    setPluginSlotRegistrations("zed", {
-      ...EMPTY_REGISTRATIONS,
-      diffRenderers: [
-        {
-          id: "zed-diffs",
-          title: "Zed diffs",
-          description: "Side-by-side with word highlights.",
-          component: () => null,
-        },
-      ],
-    });
-    const store = createStore();
-    render(
-      <JotaiProvider store={store}>
-        <CodeRendererSettings />
-      </JotaiProvider>,
-    );
+  it.each(["en", "ru"] as const)(
+    "offers providers in %s while preserving third-party text",
+    (language) => {
+      setPluginSlotRegistrations("inkwell", {
+        ...EMPTY_REGISTRATIONS,
+        diffRenderers: [
+          { id: "diffs", title: "Settings", component: () => null },
+        ],
+      });
+      setPluginSlotRegistrations("zed", {
+        ...EMPTY_REGISTRATIONS,
+        diffRenderers: [
+          {
+            id: "zed-diffs",
+            title: "Zed diffs",
+            description: "Dark",
+            component: () => null,
+          },
+        ],
+      });
+      const store = createStore();
+      render(
+        <InterfaceLanguageProvider preference={language}>
+          <JotaiProvider store={store}>
+            <CodeRendererSettings />
+          </JotaiProvider>
+        </InterfaceLanguageProvider>,
+      );
 
-    const trigger = screen.getByRole("button", { name: "Diffs" });
-    expect(trigger.textContent).toContain("Automatic");
-    fireEvent.pointerDown(trigger, { button: 0 });
-    expect(
-      screen.getByRole("menuitem", { name: /Chooses Inkwell diffs/u }),
-    ).toBeTruthy();
-    const items = screen
-      .getAllByRole("menuitem")
-      .map((item) => item.textContent ?? "");
-    expect(items).toHaveLength(4);
-    expect(items[3]).toContain("bb (built-in)");
-    expect(items.some((text) => text.includes("From the inkwell plugin"))).toBe(
-      true,
-    );
-    expect(
-      items.some((text) => text.includes("Side-by-side with word highlights.")),
-    ).toBe(true);
-    expect(items.some((text) => text.includes("zed plugin."))).toBe(true);
-  });
+      const trigger = screen.getByRole("button", {
+        name: language === "ru" ? "Изменения" : "Diffs",
+      });
+      expect(trigger.textContent).toContain(
+        language === "ru" ? "Автоматически" : "Automatic",
+      );
+      fireEvent.pointerDown(trigger, { button: 0 });
+      expect(
+        screen.getByRole("menuitem", {
+          name: language === "ru" ? /Выбирает Settings/u : /Chooses Settings/u,
+        }),
+      ).toBeTruthy();
+      const items = screen
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent ?? "");
+      expect(items).toHaveLength(4);
+      expect(items[3]).toContain(
+        language === "ru" ? "bb (встроенный)" : "bb (built-in)",
+      );
+      expect(
+        items.some((text) =>
+          text.includes(
+            language === "ru"
+              ? "Из плагина inkwell"
+              : "From the inkwell plugin",
+          ),
+        ),
+      ).toBe(true);
+      expect(items.some((text) => text.includes("Dark"))).toBe(true);
+      expect(
+        items.some((text) =>
+          text.includes(language === "ru" ? "Плагин zed." : "zed plugin."),
+        ),
+      ).toBe(true);
+    },
+  );
 });

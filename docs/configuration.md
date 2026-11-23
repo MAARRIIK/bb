@@ -285,8 +285,9 @@ or `ru`. Set it in Settings → General → Interface language, with
 `bb settings general interfaceLanguage ru`, or through
 `sdk.system.updateGeneralSettings({ ...config.generalSettings, interfaceLanguage: "ru" })`.
 Connected clients apply changes without restarting. System mode uses the device's
-first supported preferred language, falling back to English. The first translation
-batch covers settings navigation and selected general/appearance controls; other text
+first supported preferred language, falling back to English. The translation
+catalog covers settings navigation, general/appearance descriptions and controls,
+their pickers, CLI installation dialogs and microphone preferences; other text
 falls back to English. Model replies, source code, paths and tool output are not translated.
 Older clients that omit this field preserve its stored value.
 

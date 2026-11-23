@@ -12,7 +12,10 @@ import {
   type ResolvedInterfaceLanguage,
 } from "@bb/domain";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
-import { translateInterfaceText } from "./interface-translations";
+import {
+  translateInterfaceText,
+  type InterfaceTranslator,
+} from "./interface-translations";
 
 const LanguageContext = createContext<ResolvedInterfaceLanguage>("en");
 
@@ -75,8 +78,8 @@ export function AppLanguageProvider({ children }: { children: ReactNode }) {
 
 export function useInterfaceTranslation() {
   const language = useContext(LanguageContext);
-  const t = useCallback(
-    (message: string) => translateInterfaceText(message, language),
+  const t = useCallback<InterfaceTranslator>(
+    (message, values) => translateInterfaceText(message, language, values),
     [language],
   );
   return { language, t };

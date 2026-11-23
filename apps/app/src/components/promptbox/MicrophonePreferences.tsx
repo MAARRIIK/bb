@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 
 import { cn } from "@bb/shared-ui/lib/utils";
 import { Icon } from "@bb/shared-ui/icon";
@@ -17,6 +18,7 @@ export function MicrophonePreferences({
   open: boolean;
   onCaptureReady?: () => void;
 }) {
+  const { t } = useInterfaceTranslation();
   const [preferred, setPreferred] = useAudioInputDevicePreference();
   const { devices, refresh, isSupported, hasDeviceAccess } =
     useAudioInputDevices();
@@ -71,16 +73,16 @@ export function MicrophonePreferences({
       {open ? (
         <div
           className="space-y-2 rounded-lg border bg-muted/30 p-3"
-          aria-label="Live microphone preview"
+          aria-label={t("Live microphone preview")}
         >
           <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span className="shrink-0 font-medium">Live preview</span>
+            <span className="shrink-0 font-medium">{t("Live preview")}</span>
             <span className="min-w-0 truncate" title={activeLabel}>
               {error || !isSupported
-                ? "Unavailable"
+                ? t("Unavailable")
                 : stream
-                  ? activeLabel || "Listening"
-                  : "Connecting…"}
+                  ? activeLabel || t("Listening")
+                  : t("Connecting…")}
             </span>
           </div>
           <WaveformVisualizer
@@ -89,33 +91,35 @@ export function MicrophonePreferences({
             className="h-9 w-full"
           />
           <p role="status" className="min-h-5 text-sm text-muted-foreground">
-            {error ??
-              (!isSupported
-                ? "This browser can't use a mic."
-                : !stream
-                  ? "Connecting to microphone…"
-                  : silent
-                    ? "No audio detected. Try another mic."
-                    : "Speak to check your microphone.")}
+            {t(
+              error ??
+                (!isSupported
+                  ? "This browser can't use a mic."
+                  : !stream
+                    ? "Connecting to microphone…"
+                    : silent
+                      ? "No audio detected. Try another mic."
+                      : "Speak to check your microphone."),
+            )}
           </p>
         </div>
       ) : null}
       <div className="space-y-2">
         <p className="px-1 text-xs font-medium text-muted-foreground">
-          Input device
+          {t("Input device")}
         </p>
         <div
           role="group"
-          aria-label="Microphone"
+          aria-label={t("Microphone")}
           className="max-h-64 space-y-1 overflow-y-auto rounded-lg border p-1"
         >
           {[
-            { deviceId: null, label: "System default" },
+            { deviceId: null, label: t("System default") },
             ...(preferredMissing
               ? [
                   {
                     deviceId: preferred,
-                    label: "Preferred microphone (unavailable)",
+                    label: t("Preferred microphone (unavailable)"),
                   },
                 ]
               : []),
@@ -148,8 +152,9 @@ export function MicrophonePreferences({
       </div>
       {preferredMissing ? (
         <p className="text-xs text-muted-foreground">
-          Preferred microphone unavailable. Using another input until it
-          returns.
+          {t(
+            "Preferred microphone unavailable. Using another input until it returns.",
+          )}
         </p>
       ) : null}
     </div>
