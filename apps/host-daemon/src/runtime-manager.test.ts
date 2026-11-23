@@ -214,7 +214,8 @@ function createFakeRuntime() {
     getActiveTurnRequestIds: () => [],
     waitForActiveTurn: async (threadId) =>
       activeTurnsByThreadId.get(threadId) ?? null,
-    getProviderSession: () => null,
+    getProviderSession: (): ReturnType<AgentRuntime["getProviderSession"]> =>
+      null,
     reapIdleProviderSessions: vi.fn<AgentRuntime["reapIdleProviderSessions"]>(
       async () => ({ reapedSessions: [] }),
     ),
@@ -1504,38 +1505,66 @@ describe("RuntimeManager", () => {
     await manager.shutdownAll();
   });
 
-  it("waits for an old-environment thread command before releasing a moved thread", async () => {
-    const oldRuntime = createFakeRuntime();
-    const manager = new RuntimeManager({
-      provisionWorkspace: createProvisionWorkspaceMock("/tmp/env-old"),
-      createRuntime: () => oldRuntime,
-    });
+  it.each([false, true])(
+    "rechecks the session after waiting for an old-environment command: %s",
+    async (changed) => {
+      const oldRuntime = createFakeRuntime();
+      const manager = new RuntimeManager({
+        provisionWorkspace: createProvisionWorkspaceMock("/tmp/env-old"),
+        createRuntime: () => oldRuntime,
+      });
 
-    await manager.ensureEnvironment({
-      environmentId: "env-old",
-      workspacePath: "/tmp/env-old",
-    });
-    oldRuntime.setActiveTurn("thread-1", "turn-old");
-    const release = await manager.retainEnvironmentForThreadCommand(
-      "env-old",
-      "thread-1",
-    );
-    const handoff = manager.releaseThreadFromOtherEnvironments({
-      activeTurn: "interrupt",
-      environmentId: "env-new",
-      threadId: "thread-1",
-    });
+      await manager.ensureEnvironment({
+        environmentId: "env-old",
+        workspacePath: "/tmp/env-old",
+      });
+      oldRuntime.setActiveTurn("thread-1", "turn-old");
+      const release = await manager.retainEnvironmentForThreadCommand(
+        "env-old",
+        "thread-1",
+      );
+      const session = vi
+        .spyOn(oldRuntime, "getProviderSession")
+        .mockReturnValue({
+          providerId: "codex",
+          providerSessionId: "previous-generation",
+          providerThreadId: "native-old",
+        });
+      const handoff = manager.releaseThreadFromOtherEnvironments({
+        source: changed
+          ? { providerId: "codex", providerSessionId: "previous-generation" }
+          : undefined,
+        activeTurn: "interrupt",
+        environmentId: "env-new",
+        threadId: "thread-1",
+      });
 
-    await Promise.resolve();
-    expect(oldRuntime.stopThread).not.toHaveBeenCalled();
+      await Promise.resolve();
+      expect(oldRuntime.stopThread).not.toHaveBeenCalled();
 
-    release();
-    await handoff;
+      if (changed)
+        session.mockReturnValue({
+          providerId: "codex",
+          providerSessionId: "current-generation",
+          providerThreadId: "native-current",
+        });
+      release();
+      if (changed) {
+        await expect(handoff).rejects.toMatchObject({
+          code: "provider_session_mismatch",
+        });
+        expect(oldRuntime.stopThread).not.toHaveBeenCalled();
+        await manager.shutdownAll();
+        return;
+      }
+      await handoff;
 
-    expect(oldRuntime.stopThread).toHaveBeenCalledWith({
-      threadId: "thread-1",
-    });
-  });
+      expect(oldRuntime.stopThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+      });
+      await manager.shutdownAll();
+    },
+  );
 
   it("releases a moved thread while another environment control waits", async () => {
     const oldRuntime = createFakeRuntime();

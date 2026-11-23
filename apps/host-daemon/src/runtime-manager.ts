@@ -12,6 +12,8 @@ import {
 import type { Logger } from "@bb/logger";
 import { sliceUtf16Tail } from "@bb/text-utils";
 import { type ThreadEvent, threadScope, turnScope } from "@bb/domain";
+import type { ProviderSessionSource } from "@bb/domain";
+import { requireMatchingProviderSession } from "./command-provider-session.js";
 import type {
   HostDaemonActiveThread,
   HostDaemonLoadedEnvironment,
@@ -394,6 +396,7 @@ export class RuntimeManager {
 
   async releaseThreadFromOtherEnvironments(args: {
     activeTurn: ReleaseThreadActiveTurnPolicy;
+    source?: ProviderSessionSource | null;
     environmentId: string;
     threadId: string;
   }): Promise<ReleaseThreadFromOtherEnvironmentsResult> {
@@ -424,6 +427,7 @@ export class RuntimeManager {
 
   private async releaseThreadFromOtherEnvironmentsOnce(args: {
     activeTurn: ReleaseThreadActiveTurnPolicy;
+    source?: ProviderSessionSource | null;
     environmentId: string;
     threadId: string;
   }): Promise<ReleaseThreadFromOtherEnvironmentsResult> {
@@ -438,6 +442,11 @@ export class RuntimeManager {
         : staleEntries.filter(
             (entry) => entry.runtime.getActiveTurnId(args.threadId) !== null,
           );
+    for (const entry of staleEntries) {
+      const current = entry.runtime.getProviderSession(args.threadId);
+      if (current !== null && args.source !== undefined)
+        requireMatchingProviderSession(current, args.source);
+    }
     const releasedEntries = staleEntries.filter(
       (entry) => !keptEntries.includes(entry),
     );

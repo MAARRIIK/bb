@@ -197,11 +197,13 @@ export class RuntimeThreadIdentityRegistry {
     this.threadToProviderThread.delete(threadId);
   }
 
-  forgetThread(args: ForgetThreadArgs): void {
+  forgetThread(args: ForgetThreadArgs): boolean {
     args.providerState.threadIds.delete(args.threadId);
     if (this.threadToProviderState.get(args.threadId) === args.providerState) {
       this.clearThread(args.threadId);
+      return true;
     }
+    return false;
   }
 }
 

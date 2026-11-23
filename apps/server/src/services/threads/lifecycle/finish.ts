@@ -1,3 +1,4 @@
+import { requireThreadProviderSessionSource } from "../thread-provider-session-source.js";
 import {
   getLatestThreadStopAim,
   getThread,
@@ -89,6 +90,7 @@ export function sendThreadStopCommand(
 ): void {
   startLiveHostCommand(deps, {
     command: buildThreadStopCommand({
+      source: requireThreadProviderSessionSource(deps.db, args.threadId),
       aimedAt: threadStopAim(deps.db, args.threadId),
       environmentId: args.environment.id,
       hostId: args.environment.hostId,

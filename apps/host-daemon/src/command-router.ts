@@ -480,6 +480,8 @@ export class CommandRouter {
       case "thread.start":
       case "turn.submit":
       case "thread.archive":
+      case "thread.rename":
+      case "thread.unarchive":
       case "interactive.resolve":
       case "thread.stop":
       case "thread.storage.delete":

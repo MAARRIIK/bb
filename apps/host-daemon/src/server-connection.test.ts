@@ -1330,6 +1330,7 @@ describe("ServerConnection", () => {
         type: "host-rpc.request",
         requestId: "invalid-transcription",
         command: {
+          source: null,
           type: "thread.stop",
           aimedAt: null,
           intent: "interrupt",

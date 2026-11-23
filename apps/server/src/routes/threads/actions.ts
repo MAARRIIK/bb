@@ -1,3 +1,4 @@
+import { requireThreadProviderSessionSource } from "../../services/threads/thread-provider-session-source.js";
 import {
   operationComplete,
   operationInProgress,
@@ -503,6 +504,7 @@ export function registerThreadActionRoutes(
     await runLiveHostCommand(deps, {
       command: {
         type: "thread.plan.cancel",
+        source: requireThreadProviderSessionSource(deps.db, thread.id),
         environmentId: environment.id,
         threadId: thread.id,
         expectedTurnId: activity.activePlanTurnId,

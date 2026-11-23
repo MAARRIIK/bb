@@ -10,6 +10,7 @@ import {
   PROMPT_ATTACHMENT_MAX_BYTES,
   type ClientTurnRequestId,
   type PromptInput,
+  type ProviderSessionSource,
 } from "@bb/domain";
 import { makeTempDir } from "@bb/test-helpers";
 import { describe, expect, it, vi } from "vitest";
@@ -56,7 +57,15 @@ async function* attachmentContent(content: string): AsyncGenerator<Uint8Array> {
 }
 
 describe("thread command dispatch", () => {
-  it.each(["thread.start", "turn.submit"] as const)(
+  it.each([
+    "thread.start",
+    "turn.submit",
+    "thread.stop",
+    "thread.rename",
+    "thread.archive",
+    "thread.unarchive",
+    "thread.plan.cancel",
+  ] as const)(
     "refuses stale %s generations before running an agent",
     async (type) => {
       const harness = createHarness({ workspacePath: "/tmp/fenced-workspace" });
@@ -69,7 +78,41 @@ describe("thread command dispatch", () => {
         providerSessionId: "current-generation",
         providerThreadId: "provider-fenced",
       });
-      const build = (providerSessionId: string | null): HostDaemonCommand => {
+      if (type === "thread.plan.cancel")
+        harness.threadControls.setActiveTurn("thread-fenced", "turn-fenced");
+      const build = (
+        source: ProviderSessionSource | null,
+      ): HostDaemonCommand => {
+        const providerId = source?.providerId ?? "fake";
+        const providerSessionId = source?.providerSessionId ?? null;
+        const target = {
+          environmentId: "env-fenced",
+          threadId: "thread-fenced",
+          source,
+        };
+        if (type === "thread.stop")
+          return { ...target, type, intent: "interrupt", aimedAt: null };
+        if (type === "thread.rename")
+          return { ...target, type, title: "Fenced title" };
+        if (type === "thread.plan.cancel")
+          return { ...target, type, expectedTurnId: "turn-fenced" };
+        if (type === "thread.archive")
+          return {
+            ...target,
+            type,
+            providerId,
+            providerThreadId: "provider-fenced",
+            bridgeLaunch: DISPATCH_TEST_BRIDGE_LAUNCH,
+            workspaceContext: { workspacePath: "/tmp/fenced-workspace" },
+          };
+        if (type === "thread.unarchive")
+          return {
+            ...target,
+            type,
+            providerId,
+            providerThreadId: "provider-fenced",
+            bridgeLaunch: DISPATCH_TEST_BRIDGE_LAUNCH,
+          };
         const context: Extract<
           HostDaemonCommand,
           { type: "turn.submit" }
@@ -77,7 +120,7 @@ describe("thread command dispatch", () => {
           bridgeLaunch: DISPATCH_TEST_BRIDGE_LAUNCH,
           workspaceContext: { workspacePath: "/tmp/fenced-workspace" },
           projectId: "project-fenced",
-          providerId: "fake",
+          providerId,
           providerSessionId,
           providerThreadId: "provider-fenced",
           instructions: "Be helpful.",
@@ -119,21 +162,53 @@ describe("thread command dispatch", () => {
           context;
         return { ...common, ...startContext, type };
       };
-      for (const previous of [null, "previous-generation"]) {
+      for (const previous of [
+        null,
+        { providerId: "fake", providerSessionId: null },
+        { providerId: "fake", providerSessionId: "previous-generation" },
+        { providerId: "other", providerSessionId: "current-generation" },
+      ]) {
         await expect(
           dispatchCommand(build(previous), harness.dispatchOptions()),
         ).rejects.toMatchObject({ code: "provider_session_mismatch" });
       }
       expect(harness.runtimeState.ranTurnInput).toBeUndefined();
+      const inconsistent = build({
+        providerId: "fake",
+        providerSessionId: "current-generation",
+      });
+      if (
+        inconsistent.type === "thread.archive" ||
+        inconsistent.type === "thread.unarchive"
+      ) {
+        await expect(
+          dispatchCommand(
+            { ...inconsistent, providerId: "other" },
+            harness.dispatchOptions(),
+          ),
+        ).rejects.toMatchObject({ code: "provider_session_mismatch" });
+      }
       expect(harness.runtimeState.startedThreadId).toBeUndefined();
       expect(harness.runtimeState.resumedThreadId).toBeUndefined();
+      expect(harness.runtimeState.stoppedThreadId).toBeUndefined();
+      expect(harness.runtimeState.renamedTitle).toBeUndefined();
+      expect(harness.runtimeState.archivedThreadId).toBeUndefined();
+      expect(harness.runtimeState.unarchivedThreadId).toBeUndefined();
       await dispatchCommand(
-        build("current-generation"),
+        build({ providerId: "fake", providerSessionId: "current-generation" }),
         harness.dispatchOptions(),
       );
       if (type === "thread.start")
         expect(harness.runtimeState.startedThreadId).toBe("thread-fenced");
-      else expect(harness.runtimeState.ranTurnText).toBe("Run task");
+      else if (type === "turn.submit")
+        expect(harness.runtimeState.ranTurnText).toBe("Run task");
+      else if (type === "thread.rename")
+        expect(harness.runtimeState.renamedTitle).toBe("Fenced title");
+      else if (type === "thread.archive")
+        expect(harness.runtimeState.archivedThreadId).toBe("thread-fenced");
+      else if (type === "thread.unarchive")
+        expect(harness.runtimeState.unarchivedThreadId).toBe("thread-fenced");
+      else expect(harness.runtimeState.stoppedThreadId).toBe("thread-fenced");
     },
   );
 
@@ -597,6 +672,7 @@ describe("thread command dispatch", () => {
 
     await dispatchCommand(
       {
+        source: null,
         type: "thread.archive",
         environmentId: "env-bridge-archive",
         threadId: "thread-bridge-archive",
@@ -611,6 +687,7 @@ describe("thread command dispatch", () => {
     );
     await dispatchCommand(
       {
+        source: null,
         type: "thread.unarchive",
         environmentId: "env-bridge-archive",
         threadId: "thread-bridge-archive",
@@ -1514,6 +1591,7 @@ describe("thread command dispatch", () => {
     );
     const renameResult = await dispatchCommand(
       {
+        source: null,
         type: "thread.rename",
         environmentId: "env-1",
         threadId: "thread-1",
@@ -1524,6 +1602,7 @@ describe("thread command dispatch", () => {
     const archiveResult = await dispatchCommand(
       {
         bridgeLaunch: DISPATCH_TEST_BRIDGE_LAUNCH,
+        source: null,
         type: "thread.archive",
         environmentId: "env-1",
         threadId: "thread-1",
@@ -1538,6 +1617,7 @@ describe("thread command dispatch", () => {
     const unarchiveResult = await dispatchCommand(
       {
         bridgeLaunch: DISPATCH_TEST_BRIDGE_LAUNCH,
+        source: null,
         type: "thread.unarchive",
         environmentId: "env-1",
         threadId: "thread-1",
@@ -1548,6 +1628,7 @@ describe("thread command dispatch", () => {
     );
     const stopResult = await dispatchCommand(
       {
+        source: null,
         type: "thread.stop",
         aimedAt: null,
         intent: "interrupt",
@@ -1622,6 +1703,7 @@ describe("thread command dispatch", () => {
 
     const stopResult = await dispatchCommand(
       {
+        source: null,
         type: "thread.stop",
         aimedAt: null,
         intent: "interrupt",
@@ -1639,6 +1721,7 @@ describe("thread command dispatch", () => {
     await expect(
       dispatchCommand(
         {
+          source: null,
           type: "thread.stop",
           aimedAt: null,
           intent: "interrupt",
@@ -1732,6 +1815,7 @@ describe("thread command dispatch", () => {
     const result = await dispatchCommand(
       {
         bridgeLaunch: DISPATCH_TEST_BRIDGE_LAUNCH,
+        source: null,
         type: "thread.archive",
         environmentId: "env-recreated",
         threadId: "thread-archive",
@@ -1798,6 +1882,7 @@ describe("thread command dispatch", () => {
     await dispatchCommand(
       {
         bridgeLaunch: DISPATCH_TEST_BRIDGE_LAUNCH,
+        source: null,
         type: "thread.archive",
         environmentId: "env-resume-after-archive",
         threadId: "thread-resume-after-archive",
@@ -1869,6 +1954,7 @@ describe("thread command dispatch", () => {
     const result = await dispatchCommand(
       {
         bridgeLaunch: DISPATCH_TEST_BRIDGE_LAUNCH,
+        source: null,
         type: "thread.unarchive",
         environmentId: "env-unarchive-cleaned",
         threadId: "thread-unarchive-cleaned",

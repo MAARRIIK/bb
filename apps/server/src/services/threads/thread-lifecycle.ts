@@ -1,3 +1,6 @@
+import { requireCurrentProviderSession } from "../../internal/provider-session.js";
+import type { ProviderSessionSource } from "@bb/domain";
+import { requireThreadProviderSessionSource } from "./thread-provider-session-source.js";
 import {
   advanceEnvironmentProvisioning,
   providerEnvironmentHasPendingWork,
@@ -962,13 +965,18 @@ export async function stopThreadForCurrentState(
   environment: StopEnvironment | null,
   options?: { requireStopped: true },
 ): Promise<void> {
+  const source = requireThreadProviderSessionSource(deps.db, thread.id);
   await revokeThreadDesktopBrowserControl(deps, thread.id);
-  let pending = threadStopRequestDeduper.get(thread.id);
+  const key = JSON.stringify([thread.id, source]);
+  let pending = threadStopRequestDeduper.get(key);
   if (pending === undefined) {
-    pending = stopThreadUntilSettled(deps, thread.id, environment).finally(() =>
-      threadStopRequestDeduper.delete(thread.id),
-    );
-    threadStopRequestDeduper.set(thread.id, pending);
+    pending = stopThreadUntilSettled(
+      deps,
+      thread.id,
+      environment,
+      source,
+    ).finally(() => threadStopRequestDeduper.delete(key));
+    threadStopRequestDeduper.set(key, pending);
   }
   const failure = await pending;
   if (failure === null) {
@@ -1010,15 +1018,18 @@ async function stopThreadUntilSettled(
   deps: LoggedPendingInteractionWorkSessionDeps,
   threadId: string,
   environment: StopEnvironment | null,
+  source: ProviderSessionSource,
 ): Promise<ThreadStopFailure | null> {
   if (environment === null) {
     await requestThreadStop(deps, threadId, { skipSendStop: false });
     return null;
   }
   for (let round = 0; round < MAX_EXPLICIT_THREAD_STOP_ROUNDS; round += 1) {
-    if (getThread(deps.db, threadId) === null) {
+    const currentThread = getThread(deps.db, threadId);
+    if (currentThread === null) {
       return null;
     }
+    requireCurrentProviderSession(currentThread, source);
     const requested = await requestThreadStop(deps, threadId, {
       skipSendStop: true,
     });
@@ -1028,6 +1039,7 @@ async function stopThreadUntilSettled(
     if (requested.stopRoute === "live") {
       const interrupted = await runAwaitedThreadStopCommand(deps, {
         command: buildThreadStopCommand({
+          source,
           aimedAt: threadStopAim(deps.db, threadId),
           environmentId: environment.id,
           hostId: environment.hostId,
@@ -1049,6 +1061,7 @@ async function stopThreadUntilSettled(
     }
     const released = await runAwaitedThreadStopCommand(deps, {
       command: buildThreadStopCommand({
+        source,
         aimedAt: null,
         environmentId: environment.id,
         hostId: environment.hostId,
@@ -1068,6 +1081,7 @@ async function stopThreadUntilSettled(
       if (!isLiveStatus(threadId, deps)) {
         const interrupted = await runAwaitedThreadStopCommand(deps, {
           command: buildThreadStopCommand({
+            source,
             aimedAt: null,
             environmentId: environment.id,
             hostId: environment.hostId,

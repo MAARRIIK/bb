@@ -1,6 +1,9 @@
+import type { ProviderSessionSource } from "@bb/domain";
+import { runLiveHostCommand } from "../../src/services/hosts/live-command.js";
 import {
   closeSession,
   getThread,
+  threads,
   hostDaemonSessions,
   listQueuedThreadMessages,
 } from "@bb/db";
@@ -28,6 +31,8 @@ import {
   internalAuthHeaders,
   listQueuedThreadCommands,
   registerTestHostRpcCapture,
+  reportQueuedCommandSuccess,
+  waitForQueuedCommand,
 } from "../helpers/commands.js";
 import {
   seedEnvironment,
@@ -70,6 +75,7 @@ function backgroundTaskItemData(args: {
 }
 
 interface SeedOpenBackgroundTaskArgs {
+  providerSessionId?: string;
   itemId?: string;
   taskStatus?: string;
   status?: string;
@@ -80,6 +86,12 @@ function seedOpenBackgroundTaskThread(
   args: SeedOpenBackgroundTaskArgs = {},
 ) {
   const fixture = seedThreadFixture(harness, {});
+  if (args.providerSessionId !== undefined)
+    harness.db
+      .update(threads)
+      .set({ providerSessionId: args.providerSessionId })
+      .where(eq(threads.id, fixture.thread.id))
+      .run();
   const itemId = args.itemId ?? "task:wf-1";
   seedStoredEvent(harness.deps, {
     threadId: fixture.thread.id,
@@ -235,6 +247,55 @@ function listSettledBackgroundTaskItems(
 }
 
 describe("settleDanglingBackgroundTasks", () => {
+  it.each([
+    null,
+    { providerId: "codex", providerSessionId: null },
+    { providerId: "codex", providerSessionId: "previous-generation" },
+    { providerId: "other", providerSessionId: "current-generation" },
+  ])(
+    "ignores a stale release result without settling the current generation's work: %j",
+    async (source) => {
+      await withTestHarness(async (harness) => {
+        const { host, thread, environment } = seedOpenBackgroundTaskThread(
+          harness,
+          { providerSessionId: "current-generation" },
+        );
+        const release = async (source: ProviderSessionSource | null) => {
+          const pending = runLiveHostCommand(harness.deps, {
+            hostId: host.id,
+            timeoutMs: 3000,
+            command: {
+              type: "thread.stop",
+              environmentId: environment.id,
+              threadId: thread.id,
+              source,
+              intent: "release",
+              aimedAt: null,
+            },
+          });
+          const queued = await waitForQueuedCommand(
+            harness,
+            ({ command }) =>
+              command.type === "thread.stop" && command.threadId === thread.id,
+          );
+          await reportQueuedCommandSuccess(harness, queued, {
+            providerCheckpointId: null,
+          });
+          await pending;
+        };
+        await release(source);
+        expect(listSettledBackgroundTaskItems(harness, thread.id)).toEqual([]);
+        await release({
+          providerId: "codex",
+          providerSessionId: "current-generation",
+        });
+        expect(listSettledBackgroundTaskItems(harness, thread.id)).toEqual([
+          { status: "interrupted", taskStatus: "stopped" },
+        ]);
+      });
+    },
+  );
+
   it("settles open backgroundTask items as interrupted and is idempotent", async () => {
     await withTestHarness(async (harness) => {
       const host = seedHost(harness.deps);
