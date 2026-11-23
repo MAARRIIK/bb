@@ -43,6 +43,7 @@ const THREAD_COLUMN_CHANGES: {
     }).id,
   }),
   providerId: () => ({ providerId: "codex" }),
+  providerSessionId: () => ({ providerSessionId: "next-session" }),
   modelOverride: () => ({ modelOverride: "gpt-5-mini" }),
   reasoningLevelOverride: () => ({ reasoningLevelOverride: "high" }),
   title: () => ({ title: "Renamed thread" }),

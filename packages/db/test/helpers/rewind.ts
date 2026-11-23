@@ -1,11 +1,17 @@
 import type { DbConnection } from "../../src/index.js";
 
-export function dropEventProviderProvenanceColumn(db: DbConnection): void {
-  const columns = db.$client
-    .prepare<[], { name: string }>("PRAGMA table_info(events)")
-    .all();
-  if (columns.some((column) => column.name === "provider_id")) {
-    db.$client.exec("ALTER TABLE events DROP COLUMN provider_id");
+export function dropProviderProvenanceColumns(db: DbConnection): void {
+  for (const { table, column } of [
+    { table: "events", column: "provider_session_id" },
+    { table: "threads", column: "provider_session_id" },
+    { table: "events", column: "provider_id" },
+  ]) {
+    const columns = db.$client
+      .prepare<[], { name: string }>(`PRAGMA table_info(${table})`)
+      .all();
+    if (columns.some((entry) => entry.name === column)) {
+      db.$client.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+    }
   }
 }
 
@@ -194,7 +200,7 @@ export function rewindQueuedMessageRecheckAtMigration(db: DbConnection): void {
     .prepare("DELETE FROM __drizzle_migrations WHERE created_at >= ?")
     .run(QUEUED_MESSAGE_RECHECK_AT_MIGRATION_TIMESTAMP);
   dropThreadSearchOrderIndex(db);
-  dropEventProviderProvenanceColumn(db);
+  dropProviderProvenanceColumns(db);
   dropForkHistoryCopyIndex(db);
   dropQueuedMessageRecheckAtColumn(db);
 }

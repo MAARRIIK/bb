@@ -80,7 +80,7 @@ import type {
   InsertEventInput,
 } from "../../src/data/events.js";
 import { upsertHost } from "../../src/data/hosts.js";
-import type { DbConnection } from "../../src/connection.js";
+import { createConnection, type DbConnection } from "../../src/connection.js";
 import { createMigratedConnection, listEvents } from "../../src/testing.js";
 
 function turnInterruptionState(
@@ -5126,80 +5126,162 @@ describe("stored provider thread identity ownership", () => {
     db.$client.close();
   });
 
-  it("preserves provider provenance when history is copied to a different provider", () => {
-    const { db, threadIds, environment } = setupThreads({
-      providerIds: ["codex", "claude-code"],
-    });
-    const [source, target] = threadIds;
-    if (!source || !target) throw new Error("Missing fixture threads");
-    announceIdentity(db, {
-      threadId: source,
-      providerThreadId: "source-session",
-      createdAt: 1000,
-    });
-    for (const [index, output] of [
-      "short output",
-      "long output ".repeat(10_000),
-    ].entries()) {
-      const data = {
-        providerThreadId: "source-session",
-        item: {
-          id: `command-${index}`,
-          type: "commandExecution",
-          command: "cat example.txt",
-          cwd: "/tmp/identity",
-          status: "completed",
-          approvalStatus: null,
-          exitCode: 0,
-          aggregatedOutput: output,
-        },
-      } satisfies StoredThreadEventDataForType<"item/completed">;
-      const sequence = appendStoredThreadEvent(db, noopNotifier, {
-        threadId: source,
-        scope: turnScope("turn-copy"),
-        providerThreadId: "source-session",
-        type: "item/completed",
-        data,
-      });
-      if (index === 1) {
-        const raw = db
-          .update(eventsTable)
-          .set({ data: JSON.stringify(data) })
-          .where(
-            and(
-              eq(eventsTable.threadId, source),
-              eq(eventsTable.sequence, sequence),
-            ),
-          )
-          .returning({ id: eventsTable.id })
-          .get();
-        if (!raw) throw new Error("Missing legacy event");
-        db.delete(retainedEventOutputs)
-          .where(eq(retainedEventOutputs.eventId, raw.id))
+  it.each([null, "initial-generation"])(
+    "does not reuse an earlier session after returning to its provider (initial generation: %s)",
+    (initialGeneration) => {
+      const { db, threadIds } = setupThreads({ providerIds: ["codex"] });
+      const [threadId] = threadIds;
+      if (!threadId) throw new Error("Missing fixture thread");
+      try {
+        db.update(threadsTable)
+          .set({ providerSessionId: initialGeneration })
+          .where(eq(threadsTable.id, threadId))
           .run();
+        announceIdentity(db, {
+          threadId,
+          providerThreadId: "previous-native-session",
+          createdAt: 1000,
+        });
+        db.update(threadsTable)
+          .set({
+            providerId: "claude-code",
+            providerSessionId: "middle-generation",
+          })
+          .where(eq(threadsTable.id, threadId))
+          .run();
+        announceIdentity(db, {
+          threadId,
+          providerThreadId: "middle-native-session",
+          createdAt: 1001,
+        });
+        db.update(threadsTable)
+          .set({ providerId: "codex", providerSessionId: "current-generation" })
+          .where(eq(threadsTable.id, threadId))
+          .run();
+        expect(getStoredProviderSession(db, threadId)).toEqual({
+          kind: "none",
+        });
+        announceIdentity(db, {
+          threadId,
+          providerThreadId: "current-native-session",
+          createdAt: 1002,
+        });
+        const restored = createConnection(db.$client.serialize());
+        try {
+          expect(getStoredProviderSession(restored, threadId)).toEqual({
+            kind: "owned",
+            providerThreadId: "current-native-session",
+          });
+          expect(listStoredEventRows(restored, { threadId })).toHaveLength(3);
+          expect(
+            restored
+              .select({ providerSessionId: eventsTable.providerSessionId })
+              .from(eventsTable)
+              .where(eq(eventsTable.threadId, threadId))
+              .orderBy(eventsTable.sequence)
+              .all(),
+          ).toEqual([
+            { providerSessionId: initialGeneration },
+            { providerSessionId: "middle-generation" },
+            { providerSessionId: "current-generation" },
+          ]);
+        } finally {
+          restored.$client.close();
+        }
+      } finally {
+        db.$client.close();
       }
-    }
-    db.transaction((tx) =>
-      copyStoredThreadEventsInTransaction(tx, {
-        rows: listStoredEventRows(db, { threadId: source }),
-        targetThreadId: target,
-        targetEnvironmentId: environment.id,
-      }),
-    );
-    expect(
-      db
-        .select({ providerId: eventsTable.providerId })
-        .from(eventsTable)
-        .where(eq(eventsTable.threadId, target))
-        .all(),
-    ).toEqual([
-      { providerId: "codex" },
-      { providerId: "codex" },
-      { providerId: "codex" },
-    ]);
-    expect(getStoredProviderSession(db, target)).toEqual({ kind: "none" });
-    db.$client.close();
-  });
+    },
+  );
+
+  it.each(["claude-code", "codex"])(
+    "preserves provider and session provenance when history is copied to %s",
+    (targetProviderId) => {
+      const { db, threadIds, environment } = setupThreads({
+        providerIds: ["codex", targetProviderId],
+      });
+      const [source, target] = threadIds;
+      if (!source || !target) throw new Error("Missing fixture threads");
+      db.update(threadsTable)
+        .set({ providerSessionId: "source-generation" })
+        .where(eq(threadsTable.id, source))
+        .run();
+      db.update(threadsTable)
+        .set({ providerSessionId: "target-generation" })
+        .where(eq(threadsTable.id, target))
+        .run();
+      announceIdentity(db, {
+        threadId: source,
+        providerThreadId: "source-session",
+        createdAt: 1000,
+      });
+      for (const [index, output] of [
+        "short output",
+        "long output ".repeat(10_000),
+      ].entries()) {
+        const data = {
+          providerThreadId: "source-session",
+          item: {
+            id: `command-${index}`,
+            type: "commandExecution",
+            command: "cat example.txt",
+            cwd: "/tmp/identity",
+            status: "completed",
+            approvalStatus: null,
+            exitCode: 0,
+            aggregatedOutput: output,
+          },
+        } satisfies StoredThreadEventDataForType<"item/completed">;
+        const sequence = appendStoredThreadEvent(db, noopNotifier, {
+          threadId: source,
+          scope: turnScope("turn-copy"),
+          providerThreadId: "source-session",
+          type: "item/completed",
+          data,
+        });
+        if (index === 1) {
+          const raw = db
+            .update(eventsTable)
+            .set({ data: JSON.stringify(data) })
+            .where(
+              and(
+                eq(eventsTable.threadId, source),
+                eq(eventsTable.sequence, sequence),
+              ),
+            )
+            .returning({ id: eventsTable.id })
+            .get();
+          if (!raw) throw new Error("Missing legacy event");
+          db.delete(retainedEventOutputs)
+            .where(eq(retainedEventOutputs.eventId, raw.id))
+            .run();
+        }
+      }
+      db.transaction((tx) =>
+        copyStoredThreadEventsInTransaction(tx, {
+          rows: listStoredEventRows(db, { threadId: source }),
+          targetThreadId: target,
+          targetEnvironmentId: environment.id,
+        }),
+      );
+      expect(
+        db
+          .select({
+            providerId: eventsTable.providerId,
+            providerSessionId: eventsTable.providerSessionId,
+          })
+          .from(eventsTable)
+          .where(eq(eventsTable.threadId, target))
+          .all(),
+      ).toEqual([
+        { providerId: "codex", providerSessionId: "source-generation" },
+        { providerId: "codex", providerSessionId: "source-generation" },
+        { providerId: "codex", providerSessionId: "source-generation" },
+      ]);
+      expect(getStoredProviderSession(db, target)).toEqual({ kind: "none" });
+      db.$client.close();
+    },
+  );
 
   function announceIdentity(
     db: DbConnection,

@@ -24,3 +24,14 @@ Migration `0166_event_provider_provenance` backfills existing events from their
 thread's provider. This is valid before in-place provider switching is exposed.
 Current daemon events capture provenance at insertion; switching also requires
 tagging events at their origin so delayed delivery cannot misattribute events.
+
+`threads.provider_session_id` selects a provider session generation within a
+stable BB thread. `events.provider_session_id` preserves that generation on
+insertion and history copying. Null means the legacy generation; migration 0167
+leaves existing threads and events there. Session lookup requires matching
+generations, including when a thread returns to the same provider. The visible
+event history is not filtered by generation.
+
+Generation activation is not exposed yet. Daemon insertion currently captures
+the thread's generation; activating non-null generations requires transporting
+the originating generation with events and requests before enabling switches.

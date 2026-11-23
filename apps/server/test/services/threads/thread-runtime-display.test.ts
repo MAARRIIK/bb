@@ -226,6 +226,7 @@ function createThreadListEntry(
 ): ThreadWithPendingInteractionState {
   return {
     ...args.thread,
+    providerSessionId: null,
     modelOverride: null,
     reasoningLevelOverride: null,
     storageDeletedAt: null,

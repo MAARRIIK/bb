@@ -8,7 +8,7 @@ import {
   dropForkHistoryCopyIndex,
   dropQueuedMessageRecheckAtColumn,
   dropThreadSearchOrderIndex,
-  dropEventProviderProvenanceColumn,
+  dropProviderProvenanceColumns,
   dropThreadRunStateTables,
   restoreDiffViewedFilesTable,
 } from "./helpers/rewind.js";
@@ -29,7 +29,7 @@ function databaseBeforeHandoff(
   dropForkHistoryCopyIndex(db);
   dropEnvironmentHoldColumns(db);
   dropThreadSearchOrderIndex(db);
-  dropEventProviderProvenanceColumn(db);
+  dropProviderProvenanceColumns(db);
   db.$client.pragma("foreign_keys = OFF");
   const insert = db.$client.prepare(
     "INSERT INTO diff_viewed_files (environment_id, target_key, path, revision, updated_at) VALUES (?, ?, ?, ?, ?)",

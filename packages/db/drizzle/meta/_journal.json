@@ -1170,6 +1170,13 @@
       "when": 1795439939895,
       "tag": "0166_event_provider_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 167,
+      "version": "6",
+      "when": 1795442539844,
+      "tag": "0167_provider_session_fencing",
+      "breakpoints": true
     }
   ]
 }
