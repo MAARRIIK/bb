@@ -439,6 +439,7 @@ interface InsertStoredEventRowArgs {
   parentToolCallId: string | null;
   providerThreadId: string | null;
   providerId: string | SQL<string | null> | null;
+  providerSessionId: string | SQL<string | null> | null;
   scopeKind: ThreadEventScopeKind;
   sequence: number;
   threadId: string;
@@ -450,6 +451,12 @@ function eventProviderIdForThread(threadId: string): SQL<string | null> {
   return sql<
     string | null
   >`(SELECT provider_id FROM threads WHERE id = ${threadId})`;
+}
+
+function eventProviderSessionIdForThread(threadId: string): SQL<string | null> {
+  return sql<
+    string | null
+  >`(SELECT provider_session_id FROM threads WHERE id = ${threadId})`;
 }
 
 interface InsertStoredEventRowResult {
@@ -471,7 +478,7 @@ function insertStoredEventRow(
   const insert =
     args.conflict === "ignore" ? sql`INSERT OR IGNORE` : sql`INSERT`;
   const result = db.run(sql`${insert} INTO events
-    (id, thread_id, environment_id, scope_kind, turn_id, provider_thread_id, provider_id, sequence, type, item_id, item_kind, parent_tool_call_id, data, created_at)
+    (id, thread_id, environment_id, scope_kind, turn_id, provider_thread_id, provider_id, provider_session_id, sequence, type, item_id, item_kind, parent_tool_call_id, data, created_at)
     VALUES (
       ${id},
       ${args.threadId},
@@ -480,6 +487,7 @@ function insertStoredEventRow(
       ${args.turnId},
       ${args.providerThreadId},
       ${args.providerId},
+      ${args.providerSessionId},
       ${args.sequence},
       ${args.type},
       ${args.itemId},
@@ -560,6 +568,7 @@ export function insertEvents(
           parentToolCallId: input.parentToolCallId,
           providerThreadId: input.providerThreadId ?? null,
           providerId: eventProviderIdForThread(input.threadId),
+          providerSessionId: eventProviderSessionIdForThread(input.threadId),
           scopeKind: input.scope.kind,
           sequence: input.sequence,
           threadId: input.threadId,
@@ -925,6 +934,7 @@ export function appendDaemonEventsInTransaction(
       parentToolCallId: input.parentToolCallId,
       providerThreadId: input.providerThreadId,
       providerId: input.providerId,
+      providerSessionId: eventProviderSessionIdForThread(input.threadId),
       scopeKind: input.scope.kind,
       sequence,
       threadId: input.threadId,
@@ -1056,7 +1066,7 @@ function insertCopiedEventRowsFromSource(
     return;
   }
   const result = db.run(sql`INSERT INTO events
-    (id, thread_id, environment_id, scope_kind, turn_id, provider_thread_id, provider_id, sequence, type, item_id, item_kind, parent_tool_call_id, data, created_at)
+    (id, thread_id, environment_id, scope_kind, turn_id, provider_thread_id, provider_id, provider_session_id, sequence, type, item_id, item_kind, parent_tool_call_id, data, created_at)
     SELECT
       copied.value ->> '$.id',
       copied.value ->> '$.threadId',
@@ -1065,6 +1075,7 @@ function insertCopiedEventRowsFromSource(
       copied.value ->> '$.turnId',
       copied.value ->> '$.providerThreadId',
       source.provider_id,
+      source.provider_session_id,
       copied.value ->> '$.sequence',
       copied.value ->> '$.type',
       copied.value ->> '$.itemId',
@@ -1130,6 +1141,9 @@ export function copyStoredThreadEventsInTransaction(
         providerId: sql<
           string | null
         >`(SELECT provider_id FROM events WHERE id = ${row.id})`,
+        providerSessionId: sql<
+          string | null
+        >`(SELECT provider_session_id FROM events WHERE id = ${row.id})`,
       });
       if (!insertResult.inserted) {
         throw new Error("Expected copied event row to be inserted");
@@ -1240,6 +1254,7 @@ export function appendStoredThreadEventsInTransaction(
       parentToolCallId: itemFields.parentToolCallId,
       providerThreadId: args.providerThreadId ?? null,
       providerId: eventProviderIdForThread(args.threadId),
+      providerSessionId: eventProviderSessionIdForThread(args.threadId),
       scopeKind: args.scope.kind,
       sequence,
       threadId: args.threadId,
@@ -4796,6 +4811,7 @@ function readNewestStoredProviderThreadIdentity(
           eq(events.providerId, threads.providerId),
           isNull(events.providerId),
         ),
+        sql`${events.providerSessionId} IS ${threads.providerSessionId}`,
         sql`${events.sequence} > COALESCE((
           SELECT MAX(context_clear.sequence)
           FROM events AS context_clear

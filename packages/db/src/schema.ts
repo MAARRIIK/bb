@@ -624,6 +624,7 @@ export const threads = sqliteTable(
       onDelete: "set null",
     }),
     providerId: text("provider_id").notNull(),
+    providerSessionId: text("provider_session_id"),
     modelOverride: text("model_override"),
     reasoningLevelOverride: text(
       "reasoning_level_override",
@@ -895,6 +896,7 @@ export const events = sqliteTable(
     turnId: text("turn_id"),
     providerThreadId: text("provider_thread_id"),
     providerId: text("provider_id"),
+    providerSessionId: text("provider_session_id"),
     sequence: integer("sequence").notNull(),
     type: text("type").$type<ThreadEventType>().notNull(),
     itemId: text("item_id"),
