@@ -125,6 +125,7 @@ describe("workflow agent option validation", () => {
         outputSchema: { type: "object" },
       }),
     ).toEqual({
+      workspace: { type: "shared" },
       selection: null,
       outputSchema: { type: "object" },
       title: "Correctness review",
@@ -182,6 +183,7 @@ describe("workflow agent option validation", () => {
         title: "Worker",
       }),
     ).toEqual({
+      workspace: { type: "shared" },
       selection: null,
       outputSchema: null,
       title: "Worker",
@@ -205,6 +207,21 @@ describe("workflow agent option validation", () => {
       }),
     ).toThrow();
   });
+
+  it.each([null, { type: "worktree", baseBranch: 42 }])(
+    "rejects malformed persisted workspace %j instead of defaulting to shared",
+    (workspace) => {
+      expect(() =>
+        parseStoredAgentOptions({
+          selection: null,
+          outputSchema: null,
+          title: null,
+          phase: null,
+          workspace,
+        }),
+      ).toThrow();
+    },
+  );
 
   it("revalidates persisted output schemas before the Node service uses them", () => {
     expect(() =>

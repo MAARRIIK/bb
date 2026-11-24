@@ -1579,8 +1579,16 @@ The builtin Workflows plugin is disabled on fresh installations
 | `retentionDays`        |        `7` |          `1`–`3650` | Days to retain completed workflow data.                |
 | `maxNotificationBytes` |    `16384` |     `1024`–`262144` | Maximum UTF-8 size of a completion notification.       |
 
-The settings other than `maxActiveRuns` are snapshotted into each new run. See
-the `workflows` skill.
+The settings other than `maxActiveRuns` are snapshotted into each new run.
+Each workflow `agent()` call can choose `workspace: {type: "worktree",
+baseBranch: "main"}` to create an independent Git worktree on the origin
+machine. These workspaces are held by the user until explicitly deleted,
+including failed/cancelled attempts; account for disk usage. They start from
+an explicitly named branch without copying uncommitted origin edits or merging
+results automatically. Omit the option for the existing shared workspace,
+or choose `{type: "shared"}` explicitly. The same option works in scripts
+launched through CLI, SDK/plugin tools, and the workflow UI shows the selection.
+See the `workflows` skill.
 
 ### Thread list plugin
 

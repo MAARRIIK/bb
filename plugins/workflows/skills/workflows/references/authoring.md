@@ -126,6 +126,48 @@ The catalog includes the provider's additional models, the ones the model
 picker lists under "More models", so any model you can pick for a thread is
 valid in an explicit selection.
 
+## Worker workspace
+
+`agent()` accepts a `workspace` option. Omit it, or pass
+`workspace: { type: "shared" }`, to reuse the origin thread's environment.
+Existing pipelines keep this behavior: stages can read files produced by
+earlier stages in that shared workspace. Concurrent shared workers can write
+the same files; this option does not serialize their edits.
+
+For parallel workers that change code independently, request a managed Git
+worktree from an explicit base branch:
+
+```js
+const changes = await parallel([
+  () => agent("Implement the parser change and report its commit", {
+    workspace: { type: "worktree", baseBranch: "main" },
+  }),
+  () => agent("Implement the renderer change and report its commit", {
+    workspace: { type: "worktree", baseBranch: "main" },
+  }),
+]);
+```
+
+Worktree mode creates a user-held environment through BB's core managed-worktree
+provider on the origin environment's host, then attaches the worker to it.
+`baseBranch` is required and uses core's named-branch resolution. Uncommitted
+files from the origin are not copied, and worker changes are not merged
+automatically. Choose a branch containing the inputs the worker needs; pass
+findings or commit references explicitly between independent worktrees.
+
+These environments are named with the run and call ids and retained until the
+user explicitly deletes them through normal BB environment controls. Completion,
+cancellation, failure, or failure before the worker starts does not release a
+created worktree. This preserves patches when worker threads are archived, but
+retained worktrees consume disk space; inspect and save their changes before
+explicit cleanup.
+
+A failed host/environment lookup or worktree spawn fails the call; it never
+falls back to the shared workspace. The option is part of the workflow source
+passed through the SDK/agent tool or `bb workflows run`; there is no separate
+CLI workspace flag. Retry and cached-result behavior is described in
+[the run lifecycle](runs.md#running-and-resuming).
+
 ## Structured agent results
 
 Set native `schema` (or the compatible `outputSchema` alias) on an individual

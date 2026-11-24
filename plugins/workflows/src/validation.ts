@@ -1,6 +1,7 @@
 import Ajv from "ajv";
 import { z } from "zod";
 import { canonicalizeJson } from "./cache.js";
+import { workflowWorkspaceSchema } from "./worker-workspace.js";
 import type {
   JsonObject,
   JsonSchema,
@@ -10,6 +11,7 @@ import type {
 
 export const MAX_WORKFLOW_SOURCE_BYTES = 512 * 1024;
 export const AGENT_OPTION_KEYS = new Set([
+  "workspace",
   "provider",
   "model",
   "reasoningLevel",
@@ -129,6 +131,7 @@ const jsonSchemaValueSchema = z.union([
 
 const storedAgentOptionsSchema = z
   .object({
+    workspace: workflowWorkspaceSchema.default({ type: "shared" }),
     selection: z
       .object({
         provider: z.string().min(1),
@@ -367,6 +370,7 @@ export function parseAgentOptions(
 ): WorkflowAgentOptions {
   if (value === undefined) {
     return {
+      workspace: { type: "shared" },
       selection: null,
       outputSchema: null,
       title: null,
@@ -422,6 +426,9 @@ export function parseAgentOptions(
   }
 
   return {
+    workspace: workflowWorkspaceSchema.parse(
+      value.workspace === undefined ? { type: "shared" } : value.workspace,
+    ),
     selection:
       provider !== null && model !== null && reasoningLevel !== null
         ? { provider, model, reasoningLevel }

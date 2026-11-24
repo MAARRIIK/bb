@@ -1,5 +1,6 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
+import { workflowWorkspaceSchema } from "./worker-workspace.js";
 
 const workflowRunStatusSchema = z.enum([
   "queued",
@@ -18,6 +19,7 @@ const workflowCallViewSchema = z
     status: workflowRunStatusSchema,
     provider: z.string(),
     model: z.string(),
+    workspace: workflowWorkspaceSchema,
     reasoningLevel: z.string(),
     cached: z.boolean(),
     childThreadId: z.string().nullable(),

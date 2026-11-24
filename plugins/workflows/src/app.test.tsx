@@ -38,6 +38,7 @@ const run: WorkflowRunView = {
           provider: "codex",
           model: "gpt-5.6",
           reasoningLevel: "medium",
+          workspace: { type: "shared" },
           cached: false,
           childThreadId: "thr_worker_1",
           providerRetryAttempts: 0,
@@ -62,6 +63,7 @@ const run: WorkflowRunView = {
           provider: "claude",
           model: "claude-opus-4-6",
           reasoningLevel: "high",
+          workspace: { type: "shared" },
           cached: false,
           childThreadId: "thr_worker_2",
           providerRetryAttempts: 0,
@@ -430,7 +432,9 @@ describe("workflow-preview directive", () => {
     expect(slot.getByText("Discover")).toBeTruthy();
     expect(slot.getAllByText("Review")).toHaveLength(1);
     expect(slot.getByText("Adversarial review")).toBeTruthy();
-    expect(slot.getByText("claude · opus-4-6 · high")).toBeTruthy();
+    expect(
+      slot.getByText("claude · opus-4-6 · high · Shared workspace"),
+    ).toBeTruthy();
     expect(slot.queryByText("Running")).toBeNull();
     expect(
       slot.getByText("Review the release").className.includes("animate-shine"),
@@ -730,6 +734,43 @@ describe("workflow-preview directive", () => {
 });
 
 describe("workflow thread panel", () => {
+  it("distinguishes each worker's worktree branch from the shared workspace beside its model", async () => {
+    const worktreeRun: WorkflowRunView = {
+      ...run,
+      phases: run.phases.map((phase) => ({
+        ...phase,
+        calls: phase.calls.map((call) =>
+          call.id === "wfc_2"
+            ? {
+                ...call,
+                workspace: { type: "worktree", baseBranch: "release/2026" },
+              }
+            : call,
+        ),
+      })),
+    };
+    const slot = renderSlot(
+      app.threadPanelActions[0]!,
+      { threadId: "thr_origin", environment: null, params: { runId: run.id } },
+      { rpc: { workflowRunView: () => ({ run: worktreeRun }) } },
+    );
+
+    expect(
+      await slot.findByText(
+        "claude · opus-4-6 · high · Worktree · release/2026",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(slot.getByRole("button", { name: /Discover1\/1/ }));
+    expect(
+      slot.getByText("codex · gpt-5.6 · medium · Shared workspace"),
+    ).toBeTruthy();
+    fireEvent.click(slot.getByRole("button", { name: /adversarial review/i }));
+    expect(slot.navigateCalls).toContainEqual({
+      method: "toThread",
+      threadId: "thr_worker_2",
+    });
+  });
+
   it("opens worker threads and stops an active run through typed RPC", async () => {
     let stopped = false;
     const slot = renderSlot(

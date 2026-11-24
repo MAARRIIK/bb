@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { executeWorkflowScript } from "./runtime.js";
-import type { WorkflowCapabilities } from "./types.js";
+import type { WorkflowAgentOptions, WorkflowCapabilities } from "./types.js";
 
 describe("workflow QuickJS runtime", () => {
   it("awaits multiple concurrent host agents", async () => {
-    const calls: string[] = [];
+    const calls: { prompt: string; options: WorkflowAgentOptions }[] = [];
     const result = await executeWorkflowScript({
       args: { suffix: "!" },
       body: `
@@ -16,7 +16,7 @@ describe("workflow QuickJS runtime", () => {
       `,
       capabilities: {
         async agent(prompt, options) {
-          calls.push(`${prompt}:${JSON.stringify(options)}`);
+          calls.push({ prompt, options });
           await new Promise((resolve) =>
             setTimeout(resolve, prompt === "first" ? 10 : 1),
           );
@@ -28,8 +28,26 @@ describe("workflow QuickJS runtime", () => {
     });
 
     expect(calls).toEqual([
-      'first:{"selection":null,"outputSchema":null,"title":"A","phase":null}',
-      'second:{"selection":null,"outputSchema":null,"title":"B","phase":null}',
+      {
+        prompt: "first",
+        options: {
+          selection: null,
+          outputSchema: null,
+          title: "A",
+          phase: null,
+          workspace: { type: "shared" },
+        },
+      },
+      {
+        prompt: "second",
+        options: {
+          selection: null,
+          outputSchema: null,
+          title: "B",
+          phase: null,
+          workspace: { type: "shared" },
+        },
+      },
     ]);
     expect(result).toEqual({
       values: [{ prompt: "first" }, { prompt: "second" }],

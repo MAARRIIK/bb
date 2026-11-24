@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { JsonSchema, JsonValue } from "./types.js";
+import type { WorkflowWorkspace } from "./worker-workspace.js";
 
 export const WORKFLOW_CALL_CACHE_VERSION: "workflow-call-cache-v1" =
   "workflow-call-cache-v1";
@@ -18,6 +19,7 @@ interface WorkflowCallExecutionSemantics {
 }
 
 export interface WorkflowCallCacheInput {
+  workspace: WorkflowWorkspace;
   version: typeof WORKFLOW_CALL_CACHE_VERSION;
   previousCacheKey: string | null;
   prompt: string;
@@ -170,7 +172,10 @@ export function canonicalizeJson(value: unknown): string {
 export function computeWorkflowCallCacheKey(
   input: WorkflowCallCacheInput,
 ): string {
-  const semanticInput: WorkflowCallCacheInput = {
+  const semanticInput = {
+    ...(input.workspace.type === "worktree"
+      ? { workspace: input.workspace }
+      : {}),
     version: input.version,
     previousCacheKey: input.previousCacheKey,
     prompt: input.prompt,
