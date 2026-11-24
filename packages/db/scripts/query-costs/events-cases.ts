@@ -993,6 +993,7 @@ export const EVENTS_COST_CASES: readonly QueryCostCase[] = [
     name: `${EVENTS}#getLatestStoredThreadEventOfTypes`,
     run: (db, fixture) =>
       getLatestStoredThreadEventOfTypes(db, {
+        scope: "current-session",
         afterSequence: lastTurn(fixture).requestSequence,
         threadId: fixture.threadId,
         types: ["provider/error"],
@@ -1001,7 +1002,10 @@ export const EVENTS_COST_CASES: readonly QueryCostCase[] = [
   {
     name: `${EVENTS}#getLatestStoredRateLimitsEvent`,
     run: (db, fixture) =>
-      getLatestStoredRateLimitsEvent(db, { threadId: fixture.threadId }),
+      getLatestStoredRateLimitsEvent(db, {
+        threadId: fixture.threadId,
+        scope: "current-session",
+      }),
   },
   {
     name: `${EVENTS}#listStoredTurnInputAcceptedRowsByClientRequestIds`,

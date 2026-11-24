@@ -68,6 +68,7 @@ describe("queued task dependencies migration", () => {
         .join(", ");
       const names = columns.map((column) => `"${column.name}"`).join(", ");
       db.$client.exec(`
+        DROP INDEX events_thread_type_provider_session_sequence_idx;
         DROP TABLE queued_task_runs;
         CREATE TABLE __old_queued_thread_messages (${definitions});
         INSERT INTO __old_queued_thread_messages (${names}) SELECT ${names} FROM queued_thread_messages;

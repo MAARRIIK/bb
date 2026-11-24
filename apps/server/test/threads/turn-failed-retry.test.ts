@@ -9,6 +9,8 @@ import { z } from "zod";
 import {
   claimQueuedThreadMessageGroup,
   environments,
+  events,
+  threads,
   getLatestThreadSequence,
   getThread,
   listQueuedThreadMessages,
@@ -157,6 +159,7 @@ function seedRateLimitFailure(
     threadId: string;
     resetsAtMs: number;
     category?: string;
+    providerId?: string;
   },
 ) {
   const providerThreadId = "provider-session";
@@ -171,7 +174,7 @@ function seedRateLimitFailure(
     data: {
       providerThreadId,
       rateLimits: {
-        providerId: "codex",
+        providerId: args.providerId ?? "codex",
         status: "blocked",
         kind: "subscription-window",
         windows: [
@@ -372,6 +375,99 @@ async function drainRecoveries(
 }
 
 describe("the turn.failed announcement", () => {
+  it.each([
+    {
+      providerId: "claude-code",
+      providerSessionId: null,
+      currentSessionId: null,
+    },
+    {
+      providerId: "codex",
+      providerSessionId: "ps_old",
+      currentSessionId: null,
+    },
+    {
+      providerId: "codex",
+      providerSessionId: "ps_old",
+      currentSessionId: "ps_current",
+    },
+  ])(
+    "ignores failure facts from $providerId/$providerSessionId while current is $currentSessionId",
+    async (source) => {
+      await withTestHarness(async (harness) => {
+        const { environment, thread } = seedFailableThread(
+          harness,
+          "host-source",
+        );
+        const current = {
+          providerId: "codex",
+          providerSessionId: source.currentSessionId,
+        };
+        harness.db
+          .update(threads)
+          .set(current)
+          .where(eq(threads.id, thread.id))
+          .run();
+        harness.db
+          .update(events)
+          .set(current)
+          .where(eq(events.threadId, thread.id))
+          .run();
+        const old = {
+          providerId: source.providerId,
+          providerSessionId: source.providerSessionId,
+        };
+        harness.db
+          .update(threads)
+          .set(old)
+          .where(eq(threads.id, thread.id))
+          .run();
+        seedRateLimitFailure(harness, {
+          environmentId: environment.id,
+          threadId: thread.id,
+          providerId: source.providerId,
+          resetsAtMs: Date.now() + 86_400_000,
+        });
+        harness.db
+          .update(threads)
+          .set(current)
+          .where(eq(threads.id, thread.id))
+          .run();
+        expect(buildTurnFailedEvent(harness.db, thread.id)).toMatchObject({
+          errorInfo: null,
+          rateLimits: null,
+        });
+        const resetsAtMs = Date.now() + 3_600_000;
+        seedRateLimitFailure(harness, {
+          environmentId: environment.id,
+          threadId: thread.id,
+          resetsAtMs,
+          category: "overloaded",
+        });
+        harness.db
+          .update(threads)
+          .set(old)
+          .where(eq(threads.id, thread.id))
+          .run();
+        seedRateLimitFailure(harness, {
+          environmentId: environment.id,
+          threadId: thread.id,
+          providerId: source.providerId,
+          resetsAtMs: Date.now() + 86_400_000,
+        });
+        harness.db
+          .update(threads)
+          .set(current)
+          .where(eq(threads.id, thread.id))
+          .run();
+        expect(buildTurnFailedEvent(harness.db, thread.id)).toMatchObject({
+          errorInfo: { category: "overloaded" },
+          rateLimits: { providerId: "codex", windows: [{ resetsAtMs }] },
+        });
+      });
+    },
+  );
+
   it("carries the failed turn's ids and the provider's failure facts", async () => {
     await withTestHarness(async (harness) => {
       const { environment, requestId, thread } = seedFailableThread(

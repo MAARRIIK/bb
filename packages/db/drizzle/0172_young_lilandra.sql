@@ -1,0 +1,1 @@
+CREATE INDEX `events_thread_type_provider_session_sequence_idx` ON `events` (`thread_id`,`type`,`provider_session_id`,`sequence`);

@@ -584,6 +584,7 @@ describe("thread pruning", () => {
       expect(sequences(f)).toEqual([1105]);
       expect(
         getLatestStoredRateLimitsEvent(f.db, {
+          scope: "thread",
           threadId: f.thread.id,
         })?.sequence,
       ).toBe(1105);
@@ -887,6 +888,7 @@ describe("thread pruning", () => {
       expect(sequences(f)).toEqual([nextSurvivor]);
       expect(
         getLatestStoredRateLimitsEvent(f.db, {
+          scope: "thread",
           threadId: f.thread.id,
         })?.sequence,
       ).toBe(nextSurvivor);

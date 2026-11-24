@@ -1353,6 +1353,7 @@ describe("slow query index plans", () => {
       name: "getLatestStoredThreadEventOfTypes",
       run: (db: DbConnection, threadId: string) =>
         getLatestStoredThreadEventOfTypes(db, {
+          scope: "thread",
           afterSequence: 0,
           threadId,
           types: ["system/thread/interrupted", "turn/started"],

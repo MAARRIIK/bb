@@ -1,4 +1,5 @@
 import { QUEUED_TASK_RUNS_COST_GROUP } from "./queued-task-runs-cases.js";
+import { FAILURE_FACTS_COST_GROUP } from "./failure-facts-cases.js";
 import { registerCostGroup, type RegisteredCostGroup } from "./case.js";
 import { CREDENTIALS_ATTACHMENTS_COST_GROUP } from "./credentials-attachments-cases.js";
 import { EVENTS_COST_CASES } from "./events-cases.js";
@@ -15,6 +16,7 @@ import { THREADS_COST_GROUP } from "./threads-cases.js";
 
 const ALL_GROUPS: readonly RegisteredCostGroup[] = [
   QUEUED_TASK_RUNS_COST_GROUP,
+  FAILURE_FACTS_COST_GROUP,
   registerCostGroup({
     name: "events",
     seed: () => undefined,

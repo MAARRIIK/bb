@@ -469,6 +469,11 @@ function eventProviderSessionIdForThread(threadId: string): SQL<string | null> {
   >`(SELECT provider_session_id FROM threads WHERE id = ${threadId})`;
 }
 
+function currentProviderSessionLookupPredicate(threadId: string): SQL {
+  return sql`${events.providerSessionId} IS ${eventProviderSessionIdForThread(threadId)}
+    AND (${events.providerId} IS NULL OR ${events.providerId} = ${eventProviderIdForThread(threadId)})`;
+}
+
 interface InsertStoredEventRowResult {
   id: string;
   inserted: boolean;
@@ -2664,6 +2669,7 @@ export function getLatestStoredThreadEventOfTypes(
     threadId: string;
     types: readonly ThreadEventType[];
     afterSequence: number;
+    scope: "thread" | "current-session";
   },
 ): StoredThreadEventDataRow | null {
   if (args.types.length === 0) {
@@ -2677,12 +2683,19 @@ export function getLatestStoredThreadEventOfTypes(
         turnId: sql<string | null>`${events.turnId}`,
         type: sql<ThreadEventType>`${events.type}`,
       })
-      .from(sql`${events} INDEXED BY events_thread_type_sequence_idx`)
+      .from(
+        args.scope === "thread"
+          ? sql`${events} INDEXED BY events_thread_type_sequence_idx`
+          : events,
+      )
       .where(
         and(
           eq(events.threadId, args.threadId),
           inArray(events.type, [...args.types]),
           gt(events.sequence, args.afterSequence),
+          args.scope === "current-session"
+            ? currentProviderSessionLookupPredicate(args.threadId)
+            : undefined,
         ),
       )
       .orderBy(desc(events.sequence))
@@ -2693,7 +2706,7 @@ export function getLatestStoredThreadEventOfTypes(
 
 export function getLatestStoredRateLimitsEvent(
   db: DbQueryConnection,
-  args: { threadId: string },
+  args: { threadId: string; scope: "thread" | "current-session" },
 ): StoredThreadEventDataRow | null {
   return (
     db
@@ -2708,6 +2721,9 @@ export function getLatestStoredRateLimitsEvent(
         and(
           eq(events.threadId, args.threadId),
           eq(events.type, "provider/rateLimits/updated"),
+          args.scope === "current-session"
+            ? currentProviderSessionLookupPredicate(args.threadId)
+            : undefined,
         ),
       )
       .orderBy(desc(events.sequence))
