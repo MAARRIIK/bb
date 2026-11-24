@@ -52,7 +52,8 @@ import {
 } from "./ThreadDetailPromptArea";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
 
-vi.mock("./QueuedMessageAssignment", () => ({
+vi.mock("./QueuedMessageAssignment", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./QueuedMessageAssignment")>()),
   QueuedMessageAssignment: ({
     onSelect,
   }: {

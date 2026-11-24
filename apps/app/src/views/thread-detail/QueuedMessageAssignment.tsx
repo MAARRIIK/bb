@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@bb/shared-ui/button";
 import {
   Dialog,
@@ -15,8 +15,9 @@ import {
   useSystemProviders,
 } from "@/hooks/queries/system-queries";
 import { useInterfaceTranslation } from "@/lib/interface-language";
+import { getMutationErrorMessage } from "@/lib/mutation-errors";
 
-type Selection = Pick<
+export type QueuedMessageAssignmentSelection = Pick<
   InlineQueuedMessageEditState,
   | "providerId"
   | "providerSwitchPolicy"
@@ -24,7 +25,7 @@ type Selection = Pick<
   | "permissionMode"
   | "reasoningLevel"
   | "serviceTier"
->;
+> & { providerId: string };
 
 const SELECT_CLASS =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
@@ -33,10 +34,14 @@ function AssignmentForm({
   environmentId,
   initial,
   onSelect,
+  disabled,
+  submitLabel,
 }: {
   environmentId: string;
-  initial: Selection & { providerId: string };
-  onSelect: (selection: Selection) => void;
+  initial: QueuedMessageAssignmentSelection;
+  onSelect: (selection: QueuedMessageAssignmentSelection) => void;
+  disabled: boolean;
+  submitLabel: string;
 }) {
   const { t } = useInterfaceTranslation();
   const [providerId, setProviderId] = useState(initial.providerId);
@@ -81,7 +86,7 @@ function AssignmentForm({
     !catalog.isPlaceholderData &&
     !catalog.isError;
   return (
-    <div className="flex flex-col gap-3">
+    <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-3">
       <label className="text-sm">
         {t("Provider")}
         <select
@@ -208,6 +213,7 @@ function AssignmentForm({
         </span>
       </label>
       <Button
+        type="button"
         disabled={
           !verified ||
           !model ||
@@ -233,9 +239,9 @@ function AssignmentForm({
           });
         }}
       >
-        {t("Use for this task")}
+        {submitLabel}
       </Button>
-    </div>
+    </fieldset>
   );
 }
 
@@ -248,23 +254,85 @@ export function QueuedMessageAssignment({
   edit: InlineQueuedMessageEditState;
   currentProviderId: string;
   environmentId: string;
-  onSelect: (selection: Selection) => void;
+  onSelect: (selection: QueuedMessageAssignmentSelection) => void;
+}) {
+  return (
+    <QueuedMessageAssignmentDialog
+      purpose="edit"
+      sessionKey={edit.editSessionId}
+      environmentId={environmentId}
+      initial={{ ...edit, providerId: edit.providerId ?? currentProviderId }}
+      onSelect={onSelect}
+      disabled={false}
+    />
+  );
+}
+
+export function QueuedMessageAssignmentDialog({
+  purpose,
+  sessionKey,
+  environmentId,
+  initial,
+  onSelect,
+  disabled,
+}: {
+  purpose: "edit" | "create";
+  sessionKey: string | number;
+  environmentId: string;
+  initial: QueuedMessageAssignmentSelection;
+  onSelect: (
+    selection: QueuedMessageAssignmentSelection,
+  ) => void | Promise<void>;
+  disabled: boolean;
 }) {
   const { t } = useInterfaceTranslation();
   const [open, setOpen] = useState(false);
   const [formSessionId, setFormSessionId] = useState(0);
+  const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  const select = async (selection: QueuedMessageAssignmentSelection) => {
+    if (disabled || submitting.current) return;
+    submitting.current = true;
+    setPending(true);
+    setError(null);
+    try {
+      await onSelect(selection);
+      setOpen(false);
+    } catch (nextError) {
+      setError(
+        getMutationErrorMessage({
+          error: nextError,
+          fallbackMessage: t("Could not save this queued task."),
+          lifecycleOperation:
+            purpose === "create" ? "queue_message" : "update_queued_message",
+        }),
+      );
+    }
+    submitting.current = false;
+    setPending(false);
+  };
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (next && !open) setFormSessionId((session) => session + 1);
+        if (submitting.current) return;
+        if (next && !open) {
+          setFormSessionId((session) => session + 1);
+          setError(null);
+        }
         setOpen(next);
       }}
       modal={false}
     >
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">
-          {t("Assign task model")}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled || pending}
+        >
+          {t(purpose === "create" ? "Queue with model" : "Assign task model")}
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -272,22 +340,31 @@ export function QueuedMessageAssignment({
           <DialogTitle>{t("Model for this queued task")}</DialogTitle>
           <DialogDescription>
             {t(
-              "Save the editor to keep this assignment. Choose whether this task may switch providers when it starts. Otherwise, return to its provider manually.",
+              purpose === "create"
+                ? "Add the current draft and its attachments to the queue with this model. It may start immediately when the conversation is idle. Otherwise, it waits for the current turn."
+                : "Save the editor to keep this assignment. Choose whether this task may switch providers when it starts. Otherwise, return to its provider manually.",
             )}
           </DialogDescription>
         </DialogHeader>
         <AssignmentForm
-          key={`${edit.editSessionId}:${formSessionId}`}
+          key={`${sessionKey}:${formSessionId}`}
           environmentId={environmentId}
-          initial={{
-            ...edit,
-            providerId: edit.providerId ?? currentProviderId,
-          }}
-          onSelect={(selection) => {
-            onSelect(selection);
-            setOpen(false);
-          }}
+          initial={initial}
+          disabled={disabled || pending}
+          submitLabel={t(
+            pending
+              ? "Saving…"
+              : purpose === "create"
+                ? "Add to queue"
+                : "Use for this task",
+          )}
+          onSelect={(selection) => void select(selection)}
         />
+        {error ? (
+          <p role="alert" className="text-sm text-destructive-text">
+            {error}
+          </p>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

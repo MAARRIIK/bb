@@ -8,6 +8,14 @@ export type InterfaceTranslator = (
 const russian = new Map<string, string>(
   Object.entries({
     "Assign task model": "Назначить модель заданию",
+    "Queue with model": "В очередь с моделью",
+    "Add to queue": "Добавить в очередь",
+    "Saving…": "Сохранение…",
+    "Could not save this queued task.": "Не удалось сохранить задание очереди.",
+    "Type a message before adding it to the queue.":
+      "Введи сообщение перед добавлением в очередь.",
+    "Add the current draft and its attachments to the queue with this model. It may start immediately when the conversation is idle. Otherwise, it waits for the current turn.":
+      "Добавить текущий черновик и вложения в очередь с выбранной моделью. В свободном диалоге задание может запуститься сразу. Во время работы агента оно дождётся завершения хода.",
     "Automatic switch": "Автопереключение",
     "Model for this queued task": "Модель для этого задания очереди",
     "Save the editor to keep this assignment. Choose whether this task may switch providers when it starts. Otherwise, return to its provider manually.":
