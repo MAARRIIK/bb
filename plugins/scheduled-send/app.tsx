@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +11,7 @@ import {
 import { ScheduleTimeFields } from "@/components/ui/schedule-time-fields";
 import {
   definePluginApp,
+  experimental_useInterfaceLanguage,
   useComposer,
   type ComposerSendMenuItem,
   type PluginComposerApi,
@@ -26,6 +22,8 @@ import {
   formatScheduleTime,
   isScheduleOptionId,
   resolveScheduleOption,
+  scheduleTimeText,
+  type ScheduleTimeError,
   type CustomScheduleFields,
   type ScheduleOptionId,
 } from "@/lib/schedule-time";
@@ -118,6 +116,8 @@ function rememberScheduleSelection(
 }
 
 function SendLaterPicker() {
+  const language = experimental_useInterfaceLanguage();
+  const labels = scheduleTimeText(language);
   const composer = useComposer();
   const isEmpty = composer.isEmpty;
   const isOpen = useSendLaterOpen(composer.key);
@@ -127,7 +127,7 @@ function SendLaterPicker() {
   const [custom, setCustom] = useState<CustomScheduleFields>(() =>
     defaultCustomSchedule(Date.now()),
   );
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ScheduleTimeError | null>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -149,7 +149,10 @@ function SendLaterPicker() {
 
   async function schedule(at: number): Promise<void> {
     if (at <= Date.now()) {
-      setError("That time has just passed. Pick another.");
+      setError({
+        kind: "validation",
+        message: "That time has just passed. Pick another.",
+      });
       return;
     }
     setBusy(true);
@@ -160,9 +163,11 @@ function SendLaterPicker() {
         sendAt: at,
       });
       closeSendLater();
-      toast.success(`Sending ${formatScheduleTime(at, Date.now())}`);
+      toast.success(
+        `${labels.sending} ${formatScheduleTime(at, Date.now(), language)}`,
+      );
     } catch (scheduleError: unknown) {
-      setError(errorMessage(scheduleError));
+      setError({ kind: "request", message: errorMessage(scheduleError) });
     } finally {
       setBusy(false);
     }
@@ -171,7 +176,7 @@ function SendLaterPicker() {
   function submitSelection(): void {
     const resolved = resolveScheduleOption(selectedOption, custom, Date.now());
     if (!resolved.ok) {
-      setError(resolved.message);
+      setError({ kind: "validation", message: resolved.message });
       return;
     }
     void schedule(resolved.at);
@@ -186,13 +191,13 @@ function SendLaterPicker() {
       }}
       open={isOpen}
     >
-      <DialogContent>
+      <DialogContent closeLabel={labels.close}>
         <DialogHeader>
-          <DialogTitle>Send later</DialogTitle>
+          <DialogTitle>{labels.laterTitle}</DialogTitle>
           <DialogDescription>
             {composer.scope.kind === "new-thread"
-              ? "Choose when this thread should start. It will use the model and environment selected in the composer."
-              : "Choose when this message should send."}
+              ? labels.threadDescription
+              : labels.messageDescription}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -206,6 +211,7 @@ function SendLaterPicker() {
             custom={custom}
             disabled={busy}
             error={error}
+            language={language}
             now={now}
             onCustomChange={(next) => {
               setCustom(next);
@@ -227,10 +233,10 @@ function SendLaterPicker() {
               type="button"
               variant="outline"
             >
-              Cancel
+              {labels.cancel}
             </Button>
             <Button disabled={busy || !preview.ok} type="submit">
-              {busy ? "Scheduling…" : "Schedule send"}
+              {busy ? labels.scheduling : labels.schedule}
             </Button>
           </div>
         </form>

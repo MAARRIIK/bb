@@ -826,81 +826,133 @@ describe("QueuedMessagesList", () => {
     }
   });
 
-  it("changes, removes, or reports a failed change to a scheduled row's send time", async () => {
-    const sendAtDate = new Date(Date.now() + 2 * 24 * 3_600_000);
-    sendAtDate.setHours(14, 30, 0, 0);
-    const scheduled: ThreadQueuedMessage = {
-      ...makeQueuedMessage("q_scheduled", "Scheduled message"),
-      sendAt: sendAtDate.getTime(),
-      state: "scheduled",
-      updatedAt: 42,
-      waitingOn: { kind: "time" },
-    };
-    const onChangeSendTime = vi.fn(async () => {});
-    const { getByLabelText, getByRole, queryByRole, findByRole } = render(
-      <QueuedMessagesList
-        queuedMessages={[
-          makeQueuedMessage("q_plain", "Plain message"),
-          scheduled,
-        ]}
-        sendDisabled={false}
-        actionDisabled={false}
-        processingMessageId={null}
-        processingAction={null}
-        onSend={noop}
-        onReorder={noop}
-        onSetGroupBoundary={noop}
-        onEdit={noop}
-        onChangeSendTime={onChangeSendTime}
-        onDelete={noop}
-      />,
-    );
-    expandQueue();
-
-    expect(
-      queryByRole("button", { name: "Change when queued message 1 sends" }),
-    ).toBeNull();
-    const openDialog = () =>
+  it.each([
+    {
+      language: "en" as const,
+      timeLabel: "Time",
+      saveLabel: "Save",
+      removeLabel: "Remove send time",
+      openLabel: "Change when queued message 2 sends",
+      title: "Change send time",
+    },
+    {
+      language: "ru" as const,
+      timeLabel: "Время",
+      saveLabel: "Сохранить",
+      removeLabel: "Убрать время отправки",
+      openLabel: "Изменить время отправки сообщения 2 из очереди",
+      title: "Изменить время отправки",
+    },
+  ])(
+    "changes, removes, or reports a failed change to send time ($language)",
+    async ({
+      language,
+      timeLabel,
+      saveLabel,
+      removeLabel,
+      openLabel,
+      title,
+    }) => {
+      const sendAtDate = new Date(Date.now() + 2 * 24 * 3_600_000);
+      sendAtDate.setHours(14, 30, 0, 0);
+      const scheduled: ThreadQueuedMessage = {
+        ...makeQueuedMessage("q_scheduled", "Scheduled message"),
+        sendAt: sendAtDate.getTime(),
+        state: "scheduled",
+        updatedAt: 42,
+        waitingOn: { kind: "time" },
+      };
+      const onChangeSendTime = vi.fn(async () => {});
+      const { getByLabelText, getByRole, queryByRole, findByRole } = render(
+        <InterfaceLanguageProvider preference={language}>
+          <QueuedMessagesList
+            queuedMessages={[
+              makeQueuedMessage("q_plain", "Plain message"),
+              scheduled,
+            ]}
+            sendDisabled={false}
+            actionDisabled={false}
+            processingMessageId={null}
+            processingAction={null}
+            onSend={noop}
+            onReorder={noop}
+            onSetGroupBoundary={noop}
+            onEdit={noop}
+            onChangeSendTime={onChangeSendTime}
+            onDelete={noop}
+          />
+        </InterfaceLanguageProvider>,
+      );
       fireEvent.click(
-        getByRole("button", { name: "Change when queued message 2 sends" }),
+        getByRole("button", {
+          name:
+            language === "ru" ? "Развернуть очередь" : "Toggle queued messages",
+        }),
       );
 
-    openDialog();
-    expect((getByLabelText("Time") as HTMLInputElement).value).toBe("14:30");
-    fireEvent.change(getByLabelText("Time"), { target: { value: "10:15" } });
-    fireEvent.click(getByRole("button", { name: "Save" }));
-    const moved = new Date(sendAtDate);
-    moved.setHours(10, 15, 0, 0);
-    await waitFor(() =>
-      expect(onChangeSendTime).toHaveBeenLastCalledWith({
-        expectedUpdatedAt: 42,
-        queuedMessageId: "q_scheduled",
-        sendAt: moved.getTime(),
-      }),
-    );
-    await waitFor(() => expect(queryByRole("dialog")).toBeNull());
+      expect(
+        queryByRole("button", { name: "Change when queued message 1 sends" }),
+      ).toBeNull();
+      const openDialog = () =>
+        fireEvent.click(getByRole("button", { name: openLabel }));
 
-    openDialog();
-    fireEvent.click(getByRole("button", { name: "Remove send time" }));
-    await waitFor(() =>
-      expect(onChangeSendTime).toHaveBeenLastCalledWith({
-        expectedUpdatedAt: 42,
-        queuedMessageId: "q_scheduled",
-        sendAt: null,
-      }),
-    );
-    await waitFor(() => expect(queryByRole("dialog")).toBeNull());
+      openDialog();
+      expect(getByRole("dialog", { name: title })).toBeTruthy();
+      expect(
+        getByRole("button", { name: language === "ru" ? "Закрыть" : "Close" }),
+      ).toBeTruthy();
+      expect((getByLabelText(timeLabel) as HTMLInputElement).value).toBe(
+        "14:30",
+      );
+      fireEvent.change(getByLabelText(timeLabel), {
+        target: { value: "08:00" },
+      });
+      fireEvent.click(
+        getByRole("button", { name: language === "ru" ? "Отмена" : "Cancel" }),
+      );
+      await waitFor(() => expect(queryByRole("dialog")).toBeNull());
+      expect(onChangeSendTime).not.toHaveBeenCalled();
+      openDialog();
+      expect((getByLabelText(timeLabel) as HTMLInputElement).value).toBe(
+        "14:30",
+      );
+      fireEvent.change(getByLabelText(timeLabel), {
+        target: { value: "10:15" },
+      });
+      fireEvent.click(getByRole("button", { name: saveLabel }));
+      const moved = new Date(sendAtDate);
+      moved.setHours(10, 15, 0, 0);
+      await waitFor(() =>
+        expect(onChangeSendTime).toHaveBeenLastCalledWith({
+          expectedUpdatedAt: 42,
+          queuedMessageId: "q_scheduled",
+          sendAt: moved.getTime(),
+        }),
+      );
+      await waitFor(() => expect(queryByRole("dialog")).toBeNull());
 
-    onChangeSendTime.mockRejectedValueOnce(
-      new Error("Queued message is already being sent"),
-    );
-    openDialog();
-    fireEvent.click(getByRole("button", { name: "Save" }));
-    expect((await findByRole("alert")).textContent).toBe(
-      "Queued message is already being sent",
-    );
-    expect(getByRole("dialog")).toBeTruthy();
-  });
+      openDialog();
+      fireEvent.click(getByRole("button", { name: removeLabel }));
+      await waitFor(() =>
+        expect(onChangeSendTime).toHaveBeenLastCalledWith({
+          expectedUpdatedAt: 42,
+          queuedMessageId: "q_scheduled",
+          sendAt: null,
+        }),
+      );
+      await waitFor(() => expect(queryByRole("dialog")).toBeNull());
+
+      onChangeSendTime.mockRejectedValueOnce(
+        new Error("Queued message is already being sent"),
+      );
+      openDialog();
+      fireEvent.click(getByRole("button", { name: saveLabel }));
+      expect((await findByRole("alert")).textContent).toBe(
+        "Queued message is already being sent",
+      );
+      expect(getByRole("dialog")).toBeTruthy();
+    },
+  );
 
   it("limits collapsed action hiding to compact widths", () => {
     const { container } = renderQueuedMessages([

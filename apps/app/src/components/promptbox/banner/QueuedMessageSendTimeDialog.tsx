@@ -16,10 +16,14 @@ import {
   defaultCustomSchedule,
   formatScheduleTime,
   resolveScheduleOption,
+  scheduleTimeText,
+  type ScheduleLanguage,
+  type ScheduleTimeError,
   type CustomScheduleFields,
   type ScheduleOptionId,
 } from "@bb/shared-ui/lib/schedule-time";
 import { appToast } from "@/components/ui/app-toast";
+import { useResolvedInterfaceLanguage } from "@/lib/interface-language";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";
 import type { QueuedMessageSendTimeRequest } from "@/components/promptbox/banner/LazyQueuedMessagesList";
 
@@ -34,6 +38,7 @@ export function QueuedMessageSendTimeDialog({
   onOpenChange,
   onChangeSendTime,
 }: QueuedMessageSendTimeDialogProps) {
+  const language = useResolvedInterfaceLanguage();
   const [busy, setBusy] = useState(false);
   return (
     <Dialog
@@ -42,7 +47,7 @@ export function QueuedMessageSendTimeDialog({
         if (open || !busy) onOpenChange(open);
       }}
     >
-      <DialogContent>
+      <DialogContent closeLabel={scheduleTimeText(language).close}>
         {queuedMessage ? (
           <QueuedMessageSendTimeForm
             key={queuedMessage.id}
@@ -72,6 +77,7 @@ function initialSelection(
 
 async function saveQueuedMessageSendTime({
   sendAt,
+  language,
   queuedMessage,
   onBusyChange,
   onDone,
@@ -79,12 +85,14 @@ async function saveQueuedMessageSendTime({
   setError,
 }: {
   sendAt: number | null;
+  language: ScheduleLanguage;
   queuedMessage: ThreadQueuedMessage;
   onBusyChange: (busy: boolean) => void;
   onDone: () => void;
   onChangeSendTime: (request: QueuedMessageSendTimeRequest) => Promise<void>;
-  setError: (error: string | null) => void;
+  setError: (error: ScheduleTimeError | null) => void;
 }): Promise<void> {
+  const labels = scheduleTimeText(language);
   onBusyChange(true);
   setError(null);
   try {
@@ -96,17 +104,18 @@ async function saveQueuedMessageSendTime({
     onDone();
     appToast.success(
       sendAt === null
-        ? "Send time removed"
-        : `Sending ${formatScheduleTime(sendAt, Date.now())}`,
+        ? labels.removed
+        : `${labels.sending} ${formatScheduleTime(sendAt, Date.now(), language)}`,
     );
   } catch (saveError: unknown) {
-    setError(
-      getMutationErrorMessage({
+    setError({
+      kind: "request",
+      message: getMutationErrorMessage({
         error: saveError,
-        fallbackMessage: "Failed to change when the queued message sends",
+        fallbackMessage: labels.failedChange,
         lifecycleOperation: "update_queued_message",
       }),
-    );
+    });
   } finally {
     onBusyChange(false);
   }
@@ -125,11 +134,13 @@ function QueuedMessageSendTimeForm({
   onDone: () => void;
   onChangeSendTime: (request: QueuedMessageSendTimeRequest) => Promise<void>;
 }) {
+  const language = useResolvedInterfaceLanguage();
+  const labels = scheduleTimeText(language);
   const [now, setNow] = useState(() => Date.now());
   const [selection, setSelection] = useState(() =>
     initialSelection(queuedMessage.sendAt, now),
   );
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ScheduleTimeError | null>(null);
   const preview = resolveScheduleOption(
     selection.optionId,
     selection.custom,
@@ -144,6 +155,7 @@ function QueuedMessageSendTimeForm({
   const save = (sendAt: number | null) =>
     saveQueuedMessageSendTime({
       sendAt,
+      language,
       queuedMessage,
       onBusyChange,
       onDone,
@@ -159,7 +171,7 @@ function QueuedMessageSendTimeForm({
       Date.now(),
     );
     if (!resolved.ok) {
-      setError(resolved.message);
+      setError({ kind: "validation", message: resolved.message });
       return;
     }
     void save(resolved.at);
@@ -168,16 +180,15 @@ function QueuedMessageSendTimeForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Change send time</DialogTitle>
-        <DialogDescription>
-          Choose when this message should send.
-        </DialogDescription>
+        <DialogTitle>{labels.changeTitle}</DialogTitle>
+        <DialogDescription>{labels.messageDescription}</DialogDescription>
       </DialogHeader>
       <form className="flex flex-col gap-4 text-sm" onSubmit={handleSubmit}>
         <ScheduleTimeFields
           custom={selection.custom}
           disabled={busy}
           error={error}
+          language={language}
           now={now}
           onCustomChange={(custom) => {
             setSelection((current) => ({ ...current, custom }));
@@ -197,7 +208,7 @@ function QueuedMessageSendTimeForm({
             type="button"
             variant="ghost"
           >
-            Remove send time
+            {labels.remove}
           </Button>
           <Button
             disabled={busy}
@@ -205,10 +216,10 @@ function QueuedMessageSendTimeForm({
             type="button"
             variant="outline"
           >
-            Cancel
+            {labels.cancel}
           </Button>
           <Button disabled={busy || !preview.ok} type="submit">
-            {busy ? "Saving…" : "Save"}
+            {busy ? labels.saving : labels.save}
           </Button>
         </div>
       </form>
