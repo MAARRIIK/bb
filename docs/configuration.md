@@ -959,6 +959,24 @@ The Settings → Machines installer assigns each standalone daemon a stable loca
 API port, persisted in the machine data directory; its command accepts
 `--host-daemon-port <port>` when an explicit port is needed.
 
+### Pi API connections
+
+The Pi provider plugin's settings page adds an API connections panel in English
+and Russian. It saves Gemini (`GEMINI_API_KEY`), Kimi / Moonshot AI
+(`MOONSHOT_API_KEY`), GLM / Z.ai **Coding Plan** (`ZAI_API_KEY`), or DeepSeek
+(`DEEPSEEK_API_KEY`) keys to the existing machine environment store, globally or
+for a project. Pi must be installed on the execution host. A saved key is masked
+and encrypted; it does not prove authentication or trigger an API request.
+Native Pi login credentials take priority over these environment keys.
+
+`bb pi api-providers --json` and the plugin's read-only `api-providers.list` RPC
+list preset metadata. Use `bb machine env set NAME` (value from stdin) or the
+system/project environment SDK to save a key. A project deletion restores global
+inheritance. The same keys can be managed under Environment variables. See the
+[Pi provider skill](../plugins/provider-pi/skills/pi-provider/SKILL.md) for the
+CLI, SDK and catalog checks. Native model discovery determines availability and
+context sizes; the panel does not duplicate model catalogs.
+
 ### Machine environment
 
 Settings → Environment variables (scope All projects or one project) and

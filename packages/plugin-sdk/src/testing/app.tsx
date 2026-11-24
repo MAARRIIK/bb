@@ -361,6 +361,7 @@ interface SlotEnv {
   realtimeHandlers: Map<string, Set<(payload: unknown) => void>>;
   realtimeConnection: TestRealtimeConnectionStore;
   settingsState: PluginSettingsState;
+  interfaceLanguage: "en" | "ru";
   bbContext: BbContext;
   pluginId: string;
   questionFormHost: ExperimentalQuestionFormHost;
@@ -2099,6 +2100,9 @@ const testPluginSdkApp = {
   useSdk(): PluginBrowserBbSdk {
     return useSlotEnv("useSdk").sdk;
   },
+  experimental_useInterfaceLanguage(): "en" | "ru" {
+    return useSlotEnv("experimental_useInterfaceLanguage").interfaceLanguage;
+  },
   experimental_useComposerRenderer(): ExperimentalComposerRendererApi {
     const renderer = useSlotEnv(
       "experimental_useComposerRenderer",
@@ -2562,6 +2566,8 @@ export interface RenderSlotOptions<
    * in `inspection.sdkCalls`; a call to a method you did not provide throws.
    */
   sdk?: PluginSdkTestFakes;
+  /** Resolved language for plugin translations. Omitted → English. */
+  interfaceLanguage?: "en" | "ru";
   /** Host acceptance for URL intents from the hook or `UrlLink`. */
   openUrl?: (url: string) => boolean;
   /** Host acceptance for preview intents from the hook or file link. */
@@ -3491,6 +3497,7 @@ export function renderSlot<
     realtimeHandlers,
     realtimeConnection,
     settingsState: { values: options.settings, isLoading: false },
+    interfaceLanguage: options.interfaceLanguage ?? "en",
     bbContext: {
       projectId,
       threadId,

@@ -364,6 +364,9 @@ export const useEnvironmentProviders = runtimeFunction(
 );
 // bb's public API client bound to the calling plugin.
 export const useSdk = runtimeFunction("useSdk");
+export const experimental_useInterfaceLanguage = runtimeFunction(
+  "experimental_useInterfaceLanguage",
+);
 // The provider directory (experimental — see docs/api_to_audit.md).
 export const experimental_useProviders = runtimeFunction(
   "experimental_useProviders",

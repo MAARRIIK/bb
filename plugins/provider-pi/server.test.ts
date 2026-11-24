@@ -1,6 +1,48 @@
 import { describe, expect, it } from "vitest";
+import { builtinModels } from "@earendil-works/pi-ai/providers/all";
+import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import piPlugin from "./server.js";
+
+it("exposes presets through CLI and RPC that configure Pi's native catalog", async () => {
+  const { bb, harness } = createFakePluginHost({ pluginId: "provider-pi" });
+  try {
+    piPlugin(bb);
+    const cli = await harness.behavior.runCli(["api-providers", "--json"]);
+    expect(cli.exitCode).toBe(0);
+    const rpc = await harness.behavior.callRpc("api-providers.list", {});
+    expect(JSON.parse(cli.stdout)).toEqual(rpc);
+    const result = await import("./src/api-providers-contract.js");
+    const { providers } =
+      result.piApiProvidersContract["api-providers.list"].output.parse(rpc);
+    expect(providers.map((entry) => entry.id)).toEqual([
+      "gemini",
+      "kimi",
+      "glm-coding",
+      "deepseek",
+    ]);
+    for (const preset of providers) {
+      const models = builtinModels({
+        credentials: new InMemoryCredentialStore(),
+        authContext: {
+          env: async (name) =>
+            name === preset.environmentVariable
+              ? `fake-qa-${preset.id}`
+              : undefined,
+          fileExists: async () => false,
+        },
+      });
+      expect(await models.checkAuth(preset.provider)).toMatchObject({
+        source: preset.environmentVariable,
+      });
+      expect(
+        (await models.getAvailable(preset.provider)).length,
+      ).toBeGreaterThan(0);
+    }
+  } finally {
+    await harness.lifecycle.dispose();
+  }
+});
 
 function registeredDeclaration() {
   const host = createFakePluginHost({ pluginId: "provider-pi" });

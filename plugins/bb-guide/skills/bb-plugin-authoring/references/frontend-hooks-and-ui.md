@@ -154,6 +154,9 @@ reasoningLevel?, serviceTier?, permissionMode? })` sets the pickers as if
   `setInputLock` have no effect here. Re-renders when the list or a listed
   draft or selection changes.
 - `experimental_useActiveComposer()` → see [Active composer](frontend-renderer-slots.md#active-composer).
+- `experimental_useInterfaceLanguage()` → `"en" | "ru"` — BB's resolved interface
+  language, following preference and system changes. Plugins own translations;
+  core uses the same context.
 - `experimental_useCodeTheme()` → `{ mode, name, theme }` — the code theme bb
   is currently rendering with. `mode` is `"light" | "dark"`, `name` is the
   registered theme name for that mode, and `theme` is the resolved **VS Code

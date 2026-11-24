@@ -6238,6 +6238,12 @@ export interface PluginSdkApp {
    */
   useSdk(): PluginBrowserBbSdk;
   /**
+   * The resolved interface language, following BB's preference and system
+   * language changes. Plugins own their translations. Core translation hooks
+   * use the same language context. Experimental: see docs/api_to_audit.md.
+   */
+  experimental_useInterfaceLanguage(): "en" | "ru";
+  /**
    * The provider directory (see {@link PluginProvidersState}). Reads the
    * host's own cached provider roster, so a plugin that shows a thread's
    * provider never re-vendors provider names, icons, or copy. Experimental:

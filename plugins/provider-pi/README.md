@@ -6,8 +6,10 @@ or newer); the plugin ships no agent tree.
 
 What lives here:
 
-- `server.ts` — the plugin's runtime: one `bb.providers.register` for `pi`
-  (`src/declaration.ts`).
+- `server.ts` — provider registration, read-only API preset RPC, and the `bb pi`
+  CLI. `src/api-connections.tsx` adds the bilingual settings panel using BB's
+  existing encrypted environment SDK. The plugin never handles credential writes
+  on its backend or rewrites native Pi auth/model files.
 - `src/host.ts` — the `bb.host` artifact, two surfaces in one file: the
   provider bridge (`src/bridge/`, a thin bridge over `pi --mode rpc` plus the
   bb extension pi loads) and the host entry that answers `resolveNativeRoots`
@@ -61,6 +63,12 @@ Not listed, by design:
   only.
 
 ## Environment
+
+The API connections panel covers Gemini (`GEMINI_API_KEY`), Kimi / Moonshot AI
+(`MOONSHOT_API_KEY`), GLM / Z.ai Coding Plan (`ZAI_API_KEY`) and DeepSeek
+(`DEEPSEEK_API_KEY`). Pi's native catalog supplies models and real context sizes.
+See [the Pi skill](skills/pi-provider/SKILL.md) for UI, CLI and SDK setup and native
+credential precedence. Saving a key does not make a paid request or validate it.
 
 `BB_PI_BRIDGE_COMMAND` and `BB_PI_BRIDGE_ARGS` point the bridge (and its
 version probe) at a pi executable other than the `pi` on `PATH` — a pinned

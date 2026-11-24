@@ -6,14 +6,17 @@ import {
   useInterfaceTranslation,
 } from "./interface-language";
 import { translateInterfaceText } from "./interface-translations";
+import { pluginSdkAppImplementation } from "./plugin-sdk-app-impl";
 
-function LanguageExample() {
+function LanguageExample({ useLanguage }: { useLanguage: () => "en" | "ru" }) {
+  const language = useLanguage();
   const { t } = useInterfaceTranslation();
   return (
     <>
       <h1>{t("Settings")}</h1>
       <span>{t("Untranslated setting")}</span>
       <pre>Settings</pre>
+      <output data-testid="resolved-language">{language}</output>
     </>
   );
 }
@@ -41,45 +44,61 @@ describe("interface language", () => {
     ).toBe("Unknown Settings/{source}/$&: {missing} {toString}");
   });
 
-  it("changes live without translating user content and restores document language on unmount", () => {
-    const previousLanguage = document.documentElement.lang;
-    const view = render(
-      <InterfaceLanguageProvider preference="en">
-        <LanguageExample />
-      </InterfaceLanguageProvider>,
-    );
-    expect(screen.getByRole("heading", { name: "Settings" })).not.toBeNull();
-    view.rerender(
-      <InterfaceLanguageProvider preference="ru">
-        <LanguageExample />
-      </InterfaceLanguageProvider>,
-    );
-    expect(screen.getByRole("heading", { name: "Настройки" })).not.toBeNull();
-    expect(screen.getByText("Untranslated setting")).not.toBeNull();
-    expect(view.container.querySelector("pre")?.textContent).toBe("Settings");
-    expect(document.documentElement.lang).toBe("ru");
-    view.unmount();
-    expect(document.documentElement.lang).toBe(previousLanguage);
-  });
+  describe.each([
+    { name: "core", useLanguage: () => useInterfaceTranslation().language },
+    {
+      name: "plugin",
+      useLanguage: pluginSdkAppImplementation.experimental_useInterfaceLanguage,
+    },
+  ])("$name language", ({ useLanguage }) => {
+    it("changes live without translating user content and restores document language on unmount", () => {
+      const previousLanguage = document.documentElement.lang;
+      const view = render(
+        <InterfaceLanguageProvider preference="en">
+          <LanguageExample useLanguage={useLanguage} />
+        </InterfaceLanguageProvider>,
+      );
+      expect(screen.getByRole("heading", { name: "Settings" })).not.toBeNull();
+      expect(screen.getByTestId("resolved-language").textContent).toBe("en");
+      view.rerender(
+        <InterfaceLanguageProvider preference="ru">
+          <LanguageExample useLanguage={useLanguage} />
+        </InterfaceLanguageProvider>,
+      );
+      expect(screen.getByRole("heading", { name: "Настройки" })).not.toBeNull();
+      expect(screen.getByTestId("resolved-language").textContent).toBe("ru");
+      expect(screen.getByText("Untranslated setting")).not.toBeNull();
+      expect(view.container.querySelector("pre")?.textContent).toBe("Settings");
+      expect(document.documentElement.lang).toBe("ru");
+      expect(screen.getByTestId("resolved-language").textContent).toBe("ru");
+      view.unmount();
+      expect(document.documentElement.lang).toBe(previousLanguage);
+    });
 
-  it("follows device language changes only in system mode", () => {
-    let languages = ["ru-RU"];
-    vi.spyOn(navigator, "languages", "get").mockImplementation(() => languages);
-    const view = render(
-      <InterfaceLanguageProvider preference="system">
-        <LanguageExample />
-      </InterfaceLanguageProvider>,
-    );
-    expect(screen.getByRole("heading", { name: "Настройки" })).not.toBeNull();
-    languages = ["en-US"];
-    fireEvent(window, new Event("languagechange"));
-    expect(screen.getByRole("heading", { name: "Settings" })).not.toBeNull();
-    view.rerender(
-      <InterfaceLanguageProvider preference="ru">
-        <LanguageExample />
-      </InterfaceLanguageProvider>,
-    );
-    fireEvent(window, new Event("languagechange"));
-    expect(screen.getByRole("heading", { name: "Настройки" })).not.toBeNull();
+    it("follows device language changes only in system mode", () => {
+      let languages = ["ru-RU"];
+      vi.spyOn(navigator, "languages", "get").mockImplementation(
+        () => languages,
+      );
+      const view = render(
+        <InterfaceLanguageProvider preference="system">
+          <LanguageExample useLanguage={useLanguage} />
+        </InterfaceLanguageProvider>,
+      );
+      expect(screen.getByRole("heading", { name: "Настройки" })).not.toBeNull();
+      expect(screen.getByTestId("resolved-language").textContent).toBe("ru");
+      languages = ["en-US"];
+      fireEvent(window, new Event("languagechange"));
+      expect(screen.getByRole("heading", { name: "Settings" })).not.toBeNull();
+      expect(screen.getByTestId("resolved-language").textContent).toBe("en");
+      view.rerender(
+        <InterfaceLanguageProvider preference="ru">
+          <LanguageExample useLanguage={useLanguage} />
+        </InterfaceLanguageProvider>,
+      );
+      fireEvent(window, new Event("languagechange"));
+      expect(screen.getByRole("heading", { name: "Настройки" })).not.toBeNull();
+      expect(screen.getByTestId("resolved-language").textContent).toBe("ru");
+    });
   });
 });

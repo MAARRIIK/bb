@@ -990,6 +990,10 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "PluginSettingsSectionRegistration.experimental_page",
           "PluginSettingsSectionRegistration",
           "PluginSettingsSectionProps",
+          "experimental_useInterfaceLanguage",
+        ],
+        reference: [
+          "experimental_useInterfaceLanguage() returns the resolved language, en or ru, from the context core translation hooks use. It follows preference changes and device language changes in system mode. Plugins provide their own translations.",
         ],
         firstParty: [
           "Account Pooler [Experimental]",
@@ -1000,6 +1004,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
           "Memory",
           "Modal Sandbox [Experimental]",
           "Provider usage",
+          "Pi provider",
           "Push notifications",
         ],
       },

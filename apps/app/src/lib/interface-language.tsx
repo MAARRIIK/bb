@@ -76,8 +76,12 @@ export function AppLanguageProvider({ children }: { children: ReactNode }) {
   );
 }
 
+export function useResolvedInterfaceLanguage(): ResolvedInterfaceLanguage {
+  return useContext(LanguageContext);
+}
+
 export function useInterfaceTranslation() {
-  const language = useContext(LanguageContext);
+  const language = useResolvedInterfaceLanguage();
   const t = useCallback<InterfaceTranslator>(
     (message, values) => translateInterfaceText(message, language, values),
     [language],
