@@ -37,6 +37,7 @@ import { arePluginSettingsAvailable } from "@/lib/plugin-settings-availability";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";
 import { PluginMachineServerAccessNotice } from "@/components/machines/MachineServerAccessNotice";
 import { invalidateMachineProviders } from "@/hooks/cache-owners/system-cache-effects";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import {
   SETTINGS_DROPDOWN_CONTENT_CLASS,
   SETTINGS_DROPDOWN_TRIGGER_CLASS,
@@ -45,6 +46,7 @@ import {
 const MULTILINE_MIN_ROWS = 6;
 const MULTILINE_MAX_ROWS = 24;
 const INVALID_NUMBER_DRAFT = Symbol();
+class InvalidNumberDraftError extends Error {}
 const MULTILINE_TEXTAREA_CLASS =
   "max-h-96 min-h-32 w-full resize-y overflow-y-auto font-mono text-xs field-sizing-content";
 function multilineRows(value: string): number {
@@ -128,6 +130,7 @@ function PluginSettingField({
   onChange,
   storedValue,
 }: PluginSettingFieldProps) {
+  const { t } = useInterfaceTranslation();
   const projects = useSidebarNavigation({
     enabled: descriptor.type === "project",
   });
@@ -165,7 +168,7 @@ function PluginSettingField({
         valueLabel={
           value.length > 0
             ? (descriptor.experimental_optionLabels?.[value] ?? value)
-            : "Select…"
+            : t("Select…")
         }
         options={descriptor.options.map((option) => ({
           label: descriptor.experimental_optionLabels?.[option] ?? option,
@@ -198,7 +201,7 @@ function PluginSettingField({
       : [];
     const valueLabel =
       options.find((option) => option.value === value)?.label ??
-      (value.length > 0 ? value : "Select a project…");
+      (value.length > 0 ? value : t("Select a project…"));
     return (
       <SettingOptionPicker
         ariaDescribedBy={ariaDescribedBy}
@@ -271,7 +274,9 @@ function PluginSettingField({
       aria-label={descriptor.label}
       aria-describedby={ariaDescribedBy}
       aria-invalid={ariaInvalid}
-      placeholder={isSecret ? (secretIsSet ? "[set]" : "[not set]") : undefined}
+      placeholder={
+        isSecret ? (secretIsSet ? t("[set]") : t("[not set]")) : undefined
+      }
       onChange={(event) => onChange(event.target.value)}
       onBlur={onBlur}
       className="h-7 w-full text-xs @min-[36rem]/settings:w-64"
@@ -306,6 +311,7 @@ function AutosavingPluginSetting({
   settingKey,
   storedValue,
 }: AutosavingPluginSettingProps) {
+  const { t } = useInterfaceTranslation();
   const queryClient = useQueryClient();
   const messageId = useId();
   const initialDraft = initialSettingDraft(descriptor, storedValue);
@@ -315,16 +321,17 @@ function AutosavingPluginSetting({
   });
   const draft = draftState.value;
   const save = useMutation({
+    meta: { errorMessage: t("Could not save this setting") },
     scope: { id: `plugin-setting:${pluginId}:${settingKey}` },
     mutationFn: (value: string | boolean | typeof INVALID_NUMBER_DRAFT) => {
       if (value === INVALID_NUMBER_DRAFT)
-        throw new Error("Enter a finite number");
+        throw new InvalidNumberDraftError(t("Enter a finite number"));
       let settingValue: string | number | boolean | null = value;
       if (descriptor.type === "number") {
         const trimmed = typeof value === "string" ? value.trim() : "";
         const parsed = Number(trimmed);
         if (trimmed.length > 0 && !Number.isFinite(parsed)) {
-          throw new Error("Enter a finite number");
+          throw new InvalidNumberDraftError(t("Enter a finite number"));
         }
         settingValue = trimmed.length === 0 ? null : parsed;
       }
@@ -407,14 +414,17 @@ function AutosavingPluginSetting({
   }
 
   const saveError = save.isError
-    ? getMutationErrorMessage({
-        error: save.error,
-        fallbackMessage: "Could not save this setting",
-      })
+    ? save.error instanceof InvalidNumberDraftError
+      ? t("Enter a finite number")
+      : getMutationErrorMessage({
+          error: save.error,
+          fallbackMessage: t("Could not save this setting"),
+        })
     : null;
   return (
     <SettingsWithControl
       label={descriptor.label}
+      translateContent={false}
       labelBadge={
         descriptor.type === "string" && descriptor.secret === true
           ? "secret"
@@ -485,6 +495,7 @@ function PluginSettingsFieldSkeleton() {
 }
 
 function PluginSettingsPageSkeleton() {
+  const { t } = useInterfaceTranslation();
   return (
     <div
       className="mx-auto w-full max-w-3xl"
@@ -492,7 +503,7 @@ function PluginSettingsPageSkeleton() {
       role="status"
       aria-busy="true"
     >
-      <span className="sr-only">Loading plugin settings…</span>
+      <span className="sr-only">{t("Loading plugin settings…")}</span>
       <div aria-hidden>
         <header className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
@@ -532,6 +543,7 @@ export function PluginSettingsPage({
   pluginId: string;
   onBackToDetails?: () => void;
 }) {
+  const { t } = useInterfaceTranslation();
   const listQuery = usePluginList({ enabled: true });
   const plugin =
     listQuery.data?.plugins.find(
@@ -543,14 +555,14 @@ export function PluginSettingsPage({
   if (listQuery.data === undefined && listQuery.isError) {
     return (
       <p className="text-sm text-muted-foreground" role="status">
-        Could not load plugin settings.
+        {t("Could not load plugin settings.")}
       </p>
     );
   }
   if (plugin === null) {
     return (
       <p className="text-sm text-muted-foreground" role="status">
-        This plugin is not installed.
+        {t("This plugin is not installed.")}
       </p>
     );
   }
@@ -570,10 +582,11 @@ function PluginSettingsDetailsLink({
   pluginId: string;
   onBackToDetails?: () => void;
 }) {
+  const { t } = useInterfaceTranslation();
   const content = (
     <>
       <Icon name="ChevronLeft" className="size-3.5" aria-hidden />
-      Plugin details
+      {t("Plugin details")}
     </>
   );
   const className =
@@ -603,6 +616,7 @@ function PluginSettingsContent({
   plugin: PluginListItem;
   onBackToDetails?: () => void;
 }) {
+  const { t } = useInterfaceTranslation();
   const queryClient = useQueryClient();
   const settingsSections = usePluginSlotKind("settingsSections");
   const { toggle, enabled } = usePluginEnabledMutation(plugin, () =>
@@ -642,7 +656,9 @@ function PluginSettingsContent({
           checked={enabled}
           disabled={toggle.isPending}
           onCheckedChange={(next) => toggle.mutate(next)}
-          aria-label={`${enabled ? "Disable" : "Enable"} ${plugin.id}`}
+          aria-label={t(enabled ? "Disable {plugin}" : "Enable {plugin}", {
+            plugin: plugin.id,
+          })}
         />
       </header>
       <ResourceDetailStack className="mt-6">
@@ -650,7 +666,7 @@ function PluginSettingsContent({
           <PluginMachineServerAccessNotice pluginId={plugin.id} />
         ) : null}
         {enabled && plugin.enabled && hasAvailableSettings ? (
-          <ResourceDetailConfigurationSection label="Configuration">
+          <ResourceDetailConfigurationSection label={t("Configuration")}>
             <PluginSettingsDetail plugin={plugin} />
           </ResourceDetailConfigurationSection>
         ) : null}
@@ -660,6 +676,7 @@ function PluginSettingsContent({
 }
 
 export function PluginSettingsDetail({ plugin }: { plugin: PluginListItem }) {
+  const { t } = useInterfaceTranslation();
   const settingsSections = usePluginSlotKind("settingsSections");
   const hasSettingsSections = settingsSections.some(
     (section) => section.pluginId === plugin.id,
@@ -676,8 +693,10 @@ export function PluginSettingsDetail({ plugin }: { plugin: PluginListItem }) {
           ) : (
             <p className="text-xs text-muted-foreground">
               {plugin.enabled
-                ? `Settings are unavailable while the plugin is ${plugin.status}.`
-                : "Enable this plugin to edit its settings."}
+                ? t("Settings are unavailable while the plugin is {status}.", {
+                    status: plugin.status,
+                  })
+                : t("Enable this plugin to edit its settings.")}
             </p>
           )}
         </div>
