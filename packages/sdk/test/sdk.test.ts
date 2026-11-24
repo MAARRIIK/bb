@@ -1728,61 +1728,66 @@ describe("@bb/sdk", () => {
     expect(queue.requests[1].bodyText).toBe(JSON.stringify({ mode: "auto" }));
   });
 
-  it("applies both queue list filters and queues a scheduled send on the queue", async () => {
-    const queue = createFetchQueue([
-      { body: [] },
-      {
-        body: {
-          ok: true,
-          delivery: "queued",
-          queuedMessage: {
-            id: "qm_1",
-            waitingOn: { kind: "time" },
-            sendAt: 1750,
+  it.each(["en", null] as const)(
+    "applies queue filters and preserves client language %s in a scheduled send",
+    async (clientLanguage) => {
+      const queue = createFetchQueue([
+        { body: [] },
+        {
+          body: {
+            ok: true,
+            delivery: "queued",
+            queuedMessage: {
+              id: "qm_1",
+              waitingOn: { kind: "time" },
+              sendAt: 1750,
+            },
           },
         },
-      },
-    ]);
-    const sdk = createBbSdk({
-      transport: createHttpTransport({
-        baseUrl: "http://bb.test",
-        fetch: queue.fetch,
-        runtime: "node",
-      }),
-    });
+      ]);
+      const sdk = createBbSdk({
+        transport: createHttpTransport({
+          baseUrl: "http://bb.test",
+          fetch: queue.fetch,
+          runtime: "node",
+        }),
+      });
 
-    await sdk.threads.queue.list({
-      threadId: "thr_123",
-      waitHolder: "plugin:concurrency-limit",
-    });
-    await expect(
-      sdk.threads.send({
+      await sdk.threads.queue.list({
         threadId: "thr_123",
-        input: [{ type: "text", text: "later", mentions: [] }],
-        mode: "auto",
-        sendAt: 1750,
-      }),
-    ).resolves.toEqual({
-      ok: true,
-      delivery: "queued",
-      queuedMessage: {
-        id: "qm_1",
-        waitingOn: { kind: "time" },
-        sendAt: 1750,
-      },
-    });
+        waitHolder: "plugin:concurrency-limit",
+      });
+      await expect(
+        sdk.threads.send({
+          threadId: "thr_123",
+          input: [{ type: "text", text: "later", mentions: [] }],
+          clientLanguage,
+          mode: "auto",
+          sendAt: 1750,
+        }),
+      ).resolves.toEqual({
+        ok: true,
+        delivery: "queued",
+        queuedMessage: {
+          id: "qm_1",
+          waitingOn: { kind: "time" },
+          sendAt: 1750,
+        },
+      });
 
-    expect(queue.requests[0].url).toBe(
-      "http://bb.test/api/v1/queued-messages?threadId=thr_123&waitHolder=plugin%3Aconcurrency-limit",
-    );
-    expect(queue.requests[1].bodyText).toBe(
-      JSON.stringify({
-        input: [{ type: "text", text: "later", mentions: [] }],
-        mode: "auto",
-        sendAt: 1750,
-      }),
-    );
-  });
+      expect(queue.requests[0].url).toBe(
+        "http://bb.test/api/v1/queued-messages?threadId=thr_123&waitHolder=plugin%3Aconcurrency-limit",
+      );
+      expect(queue.requests[1].bodyText).toBe(
+        JSON.stringify({
+          input: [{ type: "text", text: "later", mentions: [] }],
+          clientLanguage,
+          mode: "auto",
+          sendAt: 1750,
+        }),
+      );
+    },
+  );
 
   // A limiter gate counts on every dispatch, so an omitted filter must drop out
   // of the query string rather than narrow the count on the string "undefined".

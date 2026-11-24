@@ -50,7 +50,11 @@ describe("queued task dependencies migration", () => {
           }
         >("PRAGMA table_info(queued_thread_messages)")
         .all()
-        .filter((column) => column.name !== "depends_on_queued_message_ids");
+        .filter(
+          (column) =>
+            column.name !== "depends_on_queued_message_ids" &&
+            column.name !== "client_language",
+        );
       const definitions = columns
         .map((column) =>
           [

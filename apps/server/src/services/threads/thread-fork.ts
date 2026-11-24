@@ -81,6 +81,7 @@ export async function createThreadForkFromRequest(
         environmentId: sourceEnvironment.id,
       },
       input,
+      clientLanguage: request.clientLanguage,
       origin: request.origin,
       ...(request.originPluginId === undefined
         ? {}

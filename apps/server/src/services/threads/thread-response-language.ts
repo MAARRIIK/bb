@@ -1,14 +1,40 @@
-import { getAppSettings, type DbConnection } from "@bb/db";
+import {
+  getAppSettings,
+  getLastStoredTurnRequestEvent,
+  type DbConnection,
+} from "@bb/db";
 import {
   isStandaloneBuiltinClearCommand,
   isStandaloneBuiltinCompactCommand,
+  turnRequestEventDataSchema,
   type PromptInput,
+  type ResolvedInterfaceLanguage,
 } from "@bb/domain";
 import type { PromptWithGroups } from "./deferred-first-turn-context.js";
 
+export function captureClientLanguage(
+  db: DbConnection,
+  requested: ResolvedInterfaceLanguage | null | undefined,
+  sourceThreadId: string | null,
+): ResolvedInterfaceLanguage | null | undefined {
+  if (requested !== undefined || sourceThreadId === null) return requested;
+  const row = getLastStoredTurnRequestEvent(db, sourceThreadId);
+  if (row === null) return undefined;
+  try {
+    const parsed = turnRequestEventDataSchema
+      .pick({ clientLanguage: true })
+      .safeParse(JSON.parse(row.data));
+    return parsed.success ? parsed.data.clientLanguage : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function withResponseLanguage(
   db: DbConnection,
-  prompt: PromptWithGroups,
+  prompt: PromptWithGroups & {
+    clientLanguage?: ResolvedInterfaceLanguage | null;
+  },
 ): PromptWithGroups {
   if (
     prompt.input.length === 0 ||
@@ -21,8 +47,9 @@ export function withResponseLanguage(
     settings.responseLanguage === "interface"
       ? settings.interfaceLanguage
       : settings.responseLanguage;
-  if (preference === "system") return prompt;
-  const language = preference === "ru" ? "Russian" : "English";
+  const resolved = preference === "system" ? prompt.clientLanguage : preference;
+  if (resolved === undefined || resolved === null) return prompt;
+  const language = resolved === "ru" ? "Russian" : "English";
   const context: PromptInput = {
     type: "text",
     visibility: "agent-only",

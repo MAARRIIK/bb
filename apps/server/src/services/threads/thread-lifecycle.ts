@@ -398,6 +398,7 @@ export async function prepareReadyThreadTurnCommand(
       environment: args.environment,
       execution: args.execution,
       input: args.input,
+      clientLanguage: args.clientLanguage,
       ...(args.inputGroups !== undefined
         ? { inputGroups: args.inputGroups }
         : {}),

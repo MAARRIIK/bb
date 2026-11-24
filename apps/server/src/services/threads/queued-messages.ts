@@ -82,6 +82,7 @@ import { requireThreadProviderSessionSource } from "./thread-provider-session-so
 import { requireCurrentProviderSession } from "../../internal/provider-session.js";
 import { requireQueuedMessageProvider } from "./queued-message-provider.js";
 import { resolveProviderTargetExecution } from "./provider-target-execution.js";
+import { captureClientLanguage } from "./thread-response-language.js";
 
 interface SendQueuedMessageArgs {
   claimPolicy: QueuedThreadMessageGroupClaimPolicy;
@@ -216,6 +217,11 @@ async function createQueuedMessageForCurrentProvider(
   args: CreateQueuedMessageForThreadArgs,
 ): Promise<ThreadQueuedMessage> {
   const { payload, thread } = args;
+  const clientLanguage = captureClientLanguage(
+    deps.db,
+    payload.clientLanguage,
+    payload.senderThreadId ?? thread.id,
+  );
   ensureThreadQueueIsWritable(thread);
   const input = await resolvePromptAttachmentReferences({
     db: deps.db,
@@ -288,7 +294,10 @@ async function createQueuedMessageForCurrentProvider(
               ? { kind: "stopping" }
               : { kind: "thread-busy" },
           sendAt: null,
-          payload: { kind: "inline" },
+          payload: {
+            kind: "inline",
+            ...(clientLanguage === undefined ? {} : { clientLanguage }),
+          },
           systemNotice: null,
           deliveryMode: "queue",
         });
@@ -498,6 +507,7 @@ function sendQueuedMessagePayload(
 ): SendMessageRequest {
   return {
     input: queuedMessage.content,
+    clientLanguage: queuedMessage.payload.clientLanguage,
     mode,
     model: queuedMessage.model,
     permissionMode: queuedMessage.permissionMode,

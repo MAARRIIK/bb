@@ -12,6 +12,7 @@ import {
   PromptMode,
   PermissionEscalation,
   ResolvedThreadExecutionOptions,
+  ResolvedInterfaceLanguage,
   RuntimeThreadExecutionOptions,
   Thread,
   ClientTurnRequestId,
@@ -85,6 +86,7 @@ export interface ThreadStartCommandArgs {
   fork: ThreadForkDescriptor | null;
   permissionEscalation: PermissionEscalation;
   input: PromptInput[];
+  clientLanguage?: ResolvedInterfaceLanguage | null;
   inputGroups?: PromptInput[][];
   projectId: string;
   providerId: string;
@@ -107,6 +109,7 @@ interface PreparedTurnSubmitCommandBuildArgs {
   execution: ResolvedThreadExecutionOptions;
   permissionEscalation: PermissionEscalation;
   input: PromptInput[];
+  clientLanguage?: ResolvedInterfaceLanguage | null;
   inputGroups?: PromptInput[][];
   providerThreadId: string;
   runtimeContext: ResolvedThreadRuntimeCommandConfig;
@@ -119,6 +122,7 @@ interface PrepareTurnSubmitCommandPayloadArgs {
   execution: ResolvedThreadExecutionOptions;
   permissionEscalation: PermissionEscalation;
   input: PromptInput[];
+  clientLanguage?: ResolvedInterfaceLanguage | null;
   inputGroups?: PromptInput[][];
   providerThreadId?: string;
   target: TurnSubmitTarget;
@@ -430,6 +434,7 @@ export async function prepareTurnSubmitCommandPayload(
     execution: args.execution,
     permissionEscalation: args.permissionEscalation,
     input: args.input,
+    clientLanguage: args.clientLanguage,
     ...(args.inputGroups !== undefined
       ? { inputGroups: args.inputGroups }
       : {}),

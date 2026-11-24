@@ -2,6 +2,7 @@ import {
   APP_SURFACE_DESKTOP,
   APP_SURFACE_HEADER_NAME,
   APP_SURFACE_WEB,
+  CLIENT_LANGUAGE_HEADER_NAME,
   type RequestAppSurface,
 } from "@bb/config/app-surface";
 import { isInsideNativeShell } from "@/lib/native-shell";
@@ -21,6 +22,12 @@ export function getAppSurface(): RequestAppSurface {
 export function appSurfaceRequestInit(init?: RequestInit): RequestInit {
   const headers = new Headers(init?.headers);
   headers.set(APP_SURFACE_HEADER_NAME, getAppSurface());
+  if (typeof document !== "undefined") {
+    const language = document.documentElement.lang;
+    if (language === "en" || language === "ru") {
+      headers.set(CLIENT_LANGUAGE_HEADER_NAME, language);
+    }
+  }
   return {
     ...init,
     cache: init?.cache ?? "no-store",

@@ -107,9 +107,18 @@ General. Machine-related keys (`machineServerUrl`, `defaultMachineAccess`,
   SDK callers use `system.updateGeneralSettings({ ...config.generalSettings,
   responseLanguage: "en" })`. Applies on each new request and when queued messages
   start; an explicit language in the request takes precedence. `interface` follows
-  an explicit English/Russian interface selection. With System language, the
-  model chooses from the request; automatic per-device reply selection is not yet
-  available. Existing replies, prompt contents, code and tool output are preserved.
+  an explicit English/Russian interface selection. With System language, it uses
+  the sending device's language saved with each request, queue item and retry.
+  User CLI calls resolve `LC_ALL`, then `LC_MESSAGES`, then `LANG` (English
+  fallback); agent CLI calls inherit the originating thread's language rather
+  than the executor's locale. For example, `LC_ALL=ru_RU.UTF-8 bb thread tell <id>
+  'Explain the change'` captures Russian. SDK thread create/fork/send and queued
+  create accept `clientLanguage: "en" | "ru" | null`; a value overrides the browser
+  `x-bb-client-language` header, and null disables inheritance. Omission uses the
+  header, then the originating/target thread's latest request. Queue edits keep
+  the captured language; grouping requires matching hints. Unknown legacy jobs
+  leave selection to the model. Explicit global preferences apply at dispatch.
+  Existing replies, prompt contents, code and tool output are preserved.
 - `showDiagnosticEvents` (default false) shows provider environment resolution
   and unhandled provider events in the timeline. Warnings, errors, and model
   fallback stay visible either way.

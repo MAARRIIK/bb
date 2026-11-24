@@ -3219,7 +3219,7 @@ describe("public thread data routes", () => {
       await expect(readJson(response)).resolves.toMatchObject({
         code: "invalid_request",
         message:
-          "Queued messages with different execution options cannot be grouped",
+          "Queued messages with different execution options or client languages cannot be grouped",
       });
     });
   });

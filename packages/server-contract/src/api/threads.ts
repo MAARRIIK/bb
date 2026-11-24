@@ -20,6 +20,7 @@ import {
   queuedMessageWaitingOnSchema,
   queuedMessageWaitReasonSchema,
   reasoningLevelSchema,
+  resolvedInterfaceLanguageSchema,
   sessionOptionSelectionsSchema,
   sessionOptionValueSchema,
   rawThreadIdSchema,
@@ -141,6 +142,7 @@ export const createThreadRequestSchema = z
     visibility: threadVisibilitySchema.optional(),
     title: z.string().min(1).optional(),
     input: z.array(promptInputSchema),
+    clientLanguage: resolvedInterfaceLanguageSchema.nullable().optional(),
     model: z.string().min(1).optional(),
     serviceTier: serviceTierSchema.optional(),
     reasoningLevel: reasoningLevelSchema.optional(),
@@ -233,6 +235,7 @@ export const forkThreadRequestSchema = z
     sourceThreadId: z.string().min(1),
     sourceSeqEnd: z.number().int().nonnegative().optional(),
     input: z.array(promptInputSchema).min(1).optional(),
+    clientLanguage: resolvedInterfaceLanguageSchema.nullable().optional(),
     agentContextSeed: z.array(agentOnlyPromptInputSchema).min(1).optional(),
     title: z.string().min(1).optional(),
     permissionMode: permissionModeInputSchema.optional(),
@@ -283,6 +286,7 @@ export type ForkThreadRequest = z.infer<typeof forkThreadRequestSchema>;
 
 const sendMessageRequestFieldsSchema = z.object({
   input: z.array(promptInputSchema).min(1),
+  clientLanguage: resolvedInterfaceLanguageSchema.nullable().optional(),
   model: z.string().optional(),
   serviceTier: serviceTierSchema.optional(),
   reasoningLevel: reasoningLevelSchema.optional(),
@@ -436,6 +440,7 @@ export type SendQueuedMessageMode = z.infer<typeof sendQueuedMessageModeSchema>;
 
 export const createQueuedMessageRequestSchema = z.object({
   input: z.array(promptInputSchema).min(1),
+  clientLanguage: resolvedInterfaceLanguageSchema.nullable().optional(),
   providerId: z.string().min(1).optional(),
   providerSwitchPolicy: queuedMessageProviderSwitchPolicySchema.optional(),
   dependsOnQueuedMessageIds: queuedMessageDependencyIdsSchema.optional(),

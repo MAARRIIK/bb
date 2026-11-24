@@ -41,3 +41,4 @@ export function formatAppSurfaceValues(): string {
 
 export const CLI_REQUEST_HEADER_NAME = "x-bb-cli";
 export const CALLER_THREAD_HEADER_NAME = "x-bb-caller-thread";
+export const CLIENT_LANGUAGE_HEADER_NAME = "x-bb-client-language";

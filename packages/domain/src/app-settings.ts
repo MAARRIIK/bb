@@ -7,6 +7,9 @@ export const MANAGED_BRANCH_PREFIX_MAX_LENGTH = 64;
 export const DEFAULT_MANAGED_BRANCH_PREFIX = "bb/";
 
 export const interfaceLanguageSchema = z.enum(["system", "en", "ru"]);
+export const resolvedInterfaceLanguageSchema = interfaceLanguageSchema.exclude([
+  "system",
+]);
 export type InterfaceLanguage = z.infer<typeof interfaceLanguageSchema>;
 export type ResolvedInterfaceLanguage = Exclude<InterfaceLanguage, "system">;
 

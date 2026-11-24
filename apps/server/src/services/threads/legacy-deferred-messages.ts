@@ -53,8 +53,8 @@ function toSendPayload(
     mode: "auto",
   });
   return revalidated.success
-    ? revalidated.data
-    : { input: request.input, mode: "auto" };
+    ? { ...revalidated.data, clientLanguage: null }
+    : { input: request.input, mode: "auto", clientLanguage: null };
 }
 
 /**

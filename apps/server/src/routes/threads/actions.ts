@@ -74,6 +74,7 @@ import {
   ensureThreadQueueIsWritable,
 } from "../../services/threads/thread-send.js";
 import { acceptThreadSendRequest } from "../../services/threads/thread-send-request.js";
+import { requestClientLanguage } from "../client-language.js";
 import { editThreadMessage } from "../../services/threads/thread-edit-message.js";
 import { clearThreadContext } from "../../services/threads/thread-context-clear.js";
 import {
@@ -150,7 +151,7 @@ function toQueuedMessageOrderResponse(
       throw new ApiError(
         409,
         "invalid_request",
-        "Queued messages with different execution options cannot be grouped",
+        "Queued messages with different execution options or client languages cannot be grouped",
       );
   }
 }
@@ -186,7 +187,7 @@ function toQueuedMessageGroupBoundaryResponse(
       throw new ApiError(
         409,
         "invalid_request",
-        "Queued messages with different execution options cannot be grouped",
+        "Queued messages with different execution options or client languages cannot be grouped",
       );
   }
 }
@@ -236,7 +237,16 @@ export function registerThreadActionRoutes(
   post(routes.send, async (context, payload) => {
     const thread = requirePublicThread(deps.db, context.req.param("id"));
     return context.json(
-      await acceptThreadSendRequest(deps, { payload, thread }),
+      await acceptThreadSendRequest(deps, {
+        payload: {
+          ...payload,
+          clientLanguage: requestClientLanguage(
+            context.req.raw.headers,
+            payload.clientLanguage,
+          ),
+        },
+        thread,
+      }),
     );
   });
 
@@ -263,7 +273,13 @@ export function registerThreadActionRoutes(
   post(routes.createQueuedMessage, async (context, payload) => {
     const thread = requirePublicThread(deps.db, context.req.param("id"));
     const queuedMessage = await createQueuedMessageForThread(deps, {
-      payload,
+      payload: {
+        ...payload,
+        clientLanguage: requestClientLanguage(
+          context.req.raw.headers,
+          payload.clientLanguage,
+        ),
+      },
       thread,
     });
     return context.json(queuedMessage, 201);
@@ -397,7 +413,7 @@ export function registerThreadActionRoutes(
       throw new ApiError(
         409,
         "invalid_request",
-        "This queued message is grouped with messages that use different execution options or dependencies; ungroup it first",
+        "This queued message is grouped with messages that use different execution options, dependencies or client languages; ungroup it first",
       );
     }
     const queuedMessage = toThreadQueuedMessage(result.queuedMessage);

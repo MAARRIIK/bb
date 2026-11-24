@@ -17,6 +17,7 @@ import {
   setThreadExecutionOverride,
 } from "@bb/db";
 import type { ThreadQueuedMessage } from "@bb/domain";
+import { turnRequestEventDataSchema } from "@bb/domain";
 import type {
   MessageDispatchHookContext,
   PluginHookName,
@@ -636,6 +637,50 @@ describe("the turn.failed announcement", () => {
 });
 
 describe("retrying a failed turn", () => {
+  it("keeps the failed request's client language while a retry is queued and resumed", async () => {
+    await withTestHarness(async (harness) => {
+      const { requestId, thread } = seedFailableThread(
+        harness,
+        "host-retry-client-language",
+      );
+      const original = turnRequests(harness, thread.id)[0];
+      if (original === undefined)
+        throw new Error("Expected an original request");
+      const data = turnRequestEventDataSchema.parse(JSON.parse(original.data));
+      harness.db
+        .update(events)
+        .set({ data: JSON.stringify({ ...data, clientLanguage: "ru" }) })
+        .where(eq(events.id, original.id))
+        .run();
+      failThread(harness, thread.id);
+      const response = await harness.app.request(
+        `/api/v1/threads/${thread.id}/retry`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-bb-client-language": "en",
+          },
+          body: JSON.stringify({
+            turnRequestId: requestId,
+            sendAt: Date.now() + 60_000,
+            reason: "Rate limited",
+          }),
+        },
+      );
+      expect(response.status).toBe(200);
+      expect(onlyQueuedRow(harness, thread.id).payload).toMatchObject({
+        clientLanguage: "ru",
+      });
+      await sweepPastResume(harness);
+      const resumed = turnRequests(harness, thread.id).at(-1);
+      if (resumed === undefined) throw new Error("Expected a resumed request");
+      expect(
+        turnRequestEventDataSchema.parse(JSON.parse(resumed.data)),
+      ).toMatchObject({ retryOfRequestId: requestId, clientLanguage: "ru" });
+    });
+  });
+
   it("keeps the session stable while a retry waits for plugin policy", async () => {
     await withTestHarness(async (harness) => {
       const { thread, requestId } = seedFailableThread(

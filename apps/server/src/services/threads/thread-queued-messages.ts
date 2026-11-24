@@ -8,6 +8,7 @@ import {
 import type {
   PermissionMode,
   PromptInput,
+  ResolvedInterfaceLanguage,
   QueuedMessagePayload,
   QueuedMessagePayloadKind,
   QueuedMessageState,
@@ -23,6 +24,7 @@ import { ApiError } from "../../errors.js";
 import { resolveDispatchAuthor } from "./dispatch-author.js";
 
 interface StoredQueuedThreadMessageRow {
+  clientLanguage: ResolvedInterfaceLanguage | null;
   origin: ThreadCreateOrigin | null;
   originPluginId: string | null;
   content: string;
@@ -162,8 +164,10 @@ export function storedQueuedThreadMessageRequestedBy(
 function toQueuedMessagePayload(
   row: StoredQueuedThreadMessageRow,
 ): QueuedMessagePayload {
+  const language =
+    row.clientLanguage === null ? {} : { clientLanguage: row.clientLanguage };
   if (row.payloadKind === "inline") {
-    return { kind: "inline" };
+    return { kind: "inline", ...language };
   }
   if (
     row.retryOfTurnRequestId === null ||
@@ -178,6 +182,7 @@ function toQueuedMessagePayload(
   }
   return {
     kind: "retry",
+    ...language,
     retryOfTurnRequestId: row.retryOfTurnRequestId,
     attempt: row.retryAttempt,
     reason: row.retryReason,

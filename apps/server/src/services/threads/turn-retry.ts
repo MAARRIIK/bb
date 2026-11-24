@@ -335,6 +335,7 @@ async function dispatchRetryForCurrentSession(
         // A retry never steers: it re-runs a turn, so a thread that is busy
         // again is something to wait behind rather than to interrupt.
         mode: "queue-if-active",
+        clientLanguage: failed.request.clientLanguage,
         ...retryInput(deps, { continuation, threadId: thread.id, failed }),
         ...retryExecution(failed),
         ...(request.sendAt === null ? {} : { sendAt: request.sendAt }),
@@ -342,6 +343,9 @@ async function dispatchRetryForCurrentSession(
       source: { kind: "inline" },
       queuePayload: {
         kind: "retry",
+        ...(failed.request.clientLanguage === undefined
+          ? {}
+          : { clientLanguage: failed.request.clientLanguage }),
         retryOfTurnRequestId: originalRequestId,
         attempt,
         reason: request.reason,

@@ -46,7 +46,7 @@ export function LanguageSettingsSection({
       key: "interface",
       title: t("Follow interface language"),
       description: t(
-        "Use the selected interface language. With System language, let the model choose from the request.",
+        "Use the interface language. In System mode, keep the sending device's language for queued and background work.",
       ),
     },
     {

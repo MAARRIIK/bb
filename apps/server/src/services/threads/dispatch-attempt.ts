@@ -122,6 +122,7 @@ import type { TurnRequestRetryMarker } from "./thread-events.js";
 import { restoreInterruptedThreadStartupRequest } from "./thread-provisioning.js";
 import { markTurnTraceSpan } from "../system/turn-trace.js";
 import { switchQueuedMessageProvider } from "./queued-message-provider-switch.js";
+import { captureClientLanguage } from "./thread-response-language.js";
 
 export const pendingThreadStartContextSchema = z.object({
   environmentIntent: threadProvisionEnvironmentIntentSchema,
@@ -340,6 +341,22 @@ export function attemptDispatch(
   deps: LoggedPendingInteractionWorkSessionDeps,
   args: DispatchAttemptArgs,
 ): Promise<DispatchAttemptOutcome> {
+  if (args.source.kind === "inline" && args.queuePayload.kind === "inline") {
+    const clientLanguage = captureClientLanguage(
+      deps.db,
+      args.payload.clientLanguage === undefined
+        ? args.queuePayload.clientLanguage
+        : args.payload.clientLanguage,
+      args.payload.senderThreadId ?? args.thread.id,
+    );
+    if (clientLanguage !== undefined) {
+      args = {
+        ...args,
+        payload: { ...args.payload, clientLanguage },
+        queuePayload: { ...args.queuePayload, clientLanguage },
+      };
+    }
+  }
   return runDispatchAttempt(deps, args, {
     deliveryMode: deliveryModeForSendMode(args.payload.mode),
     reattempted: false,
@@ -1062,6 +1079,7 @@ async function admitPendingThread(
           execution,
           fork: startContext.fork,
           input: args.payload.input,
+          clientLanguage: args.payload.clientLanguage,
           originPluginId: args.originPluginId,
           ...(startContext.providerInput === undefined
             ? {}
