@@ -191,6 +191,13 @@ async function saveInlineQueuedMessage({
       input,
       queuedMessageId,
       ...changedExecutionFields(edit, queuedMessage),
+      ...(edit.dependsOnQueuedMessageIds.length ===
+        queuedMessage?.dependsOnQueuedMessageIds.length &&
+      edit.dependsOnQueuedMessageIds.every(
+        (id, index) => id === queuedMessage.dependsOnQueuedMessageIds[index],
+      )
+        ? {}
+        : { dependsOnQueuedMessageIds: edit.dependsOnQueuedMessageIds }),
     });
     onSaveSuccess?.();
     dismissInlineQueuedMessageEditor();

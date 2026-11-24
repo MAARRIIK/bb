@@ -523,6 +523,7 @@ describe("coalesced notices", () => {
       });
       const [row] = listQueuedThreadMessages(harness.db, parent.id);
       updateQueuedThreadMessage(harness.db, harness.hub, {
+        dependsOnQueuedMessageIds: null,
         content: textInput("Edited by hand"),
         execution: null,
         expectedUpdatedAt: row!.updatedAt,

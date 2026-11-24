@@ -1,3 +1,4 @@
+import type { ThreadQueuedMessage } from "@bb/domain";
 import { promptDraftToInput } from "@bb/client-core";
 import { useCreateThreadQueuedMessage } from "@/hooks/mutations/thread-runtime-mutations";
 import {
@@ -17,18 +18,21 @@ export function QueueDraftWithModel({
   environmentId,
   initial,
   disabled,
+  queuedMessages,
 }: {
   draft: PromptDraftController;
   threadId: string;
   environmentId: string;
   initial: QueuedMessageAssignmentSelection;
   disabled: boolean;
+  queuedMessages: readonly ThreadQueuedMessage[];
 }) {
   const { t } = useInterfaceTranslation();
   const create = useCreateThreadQueuedMessage();
   const { submitDraft, isSubmitting } = useDraftSubmission(draft.storageKey);
   return (
     <QueuedMessageAssignmentDialog
+      dependencyOptions={queuedMessages}
       purpose="create"
       sessionKey={draft.storageKey}
       environmentId={environmentId}

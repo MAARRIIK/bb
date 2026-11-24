@@ -388,6 +388,7 @@ describe("prompt history service", () => {
       input: textInput("Add regression coverage"),
     });
     createQueuedThreadMessage(db, noopNotifier, {
+      dependsOnQueuedMessageIds: [],
       providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,

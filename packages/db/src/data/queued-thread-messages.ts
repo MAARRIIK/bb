@@ -29,6 +29,8 @@ import {
   evaluateQueuedMessageTransition,
   isQueuedMessageFailedState,
   projectAttachmentPaths,
+  isStandaloneBuiltinClearCommand,
+  promptInputSchema,
   queuedMessageStateFor,
   queuedMessageWaitingOnSchema,
 } from "@bb/domain";
@@ -68,12 +70,20 @@ import {
 import { createOrderKeyAfter, createOrderKeyBetween } from "./order-keys.js";
 import { queryInSqliteVariableBatches } from "./sqlite-variable-batches.js";
 import { liveThread } from "./threads.js";
+import {
+  cancelQueuedTaskRunsInTransaction,
+  firstUnmetQueuedTaskDependency,
+  ensureQueuedTaskRunInTransaction,
+  validateQueuedMessageDependenciesInTransaction,
+  InvalidQueuedMessageDependenciesError,
+} from "./queued-task-runs.js";
 
 export interface CreateQueuedThreadMessageInput {
   threadId: string;
   providerId: string | null;
   providerSessionId: string | null;
   providerSwitchPolicy: QueuedMessageProviderSwitchPolicy;
+  dependsOnQueuedMessageIds: string[];
   content: PromptInput[];
   senderThreadId?: string | null;
   /**
@@ -129,6 +139,7 @@ export interface QueuedThreadMessageExecution {
 }
 
 export interface UpdateQueuedThreadMessageInput {
+  dependsOnQueuedMessageIds: string[] | null;
   content: PromptInput[] | null;
   execution: QueuedThreadMessageExecution | null;
   reschedule: { sendAt: number | null } | null;
@@ -550,8 +561,14 @@ function queuedMessageGroupingEnvelopeMatches(
     firstQueuedMessage !== null &&
     queuedMessage.providerId === firstQueuedMessage.providerId &&
     queuedMessage.providerSessionId === firstQueuedMessage.providerSessionId &&
-    queuedMessage.providerSwitchPolicy === firstQueuedMessage.providerSwitchPolicy &&
-    queuedMessage.providerSwitchOperationId === firstQueuedMessage.providerSwitchOperationId &&
+    queuedMessage.providerSwitchPolicy ===
+      firstQueuedMessage.providerSwitchPolicy &&
+    queuedMessage.providerSwitchOperationId ===
+      firstQueuedMessage.providerSwitchOperationId &&
+    stringArraysEqual(
+      queuedMessage.dependsOnQueuedMessageIds,
+      firstQueuedMessage.dependsOnQueuedMessageIds,
+    ) &&
     queuedMessage.senderThreadId === firstQueuedMessage.senderThreadId &&
     queuedMessage.model === firstQueuedMessage.model &&
     queuedMessage.reasoningLevel === firstQueuedMessage.reasoningLevel &&
@@ -844,6 +861,20 @@ export function createQueuedThreadMessageInTransaction(
     projectAttachmentPaths(input.content),
   );
   const id = createQueuedThreadMessageId();
+  if (
+    input.dependsOnQueuedMessageIds.length > 0 &&
+    (input.payload.kind !== "inline" ||
+      input.systemNotice !== null ||
+      isStandaloneBuiltinClearCommand(input.content))
+  )
+    throw new InvalidQueuedMessageDependenciesError(
+      "Only assistant tasks can have task dependencies",
+    );
+  validateQueuedMessageDependenciesInTransaction(tx, {
+    threadId: input.threadId,
+    queuedMessageId: id,
+    dependencyIds: input.dependsOnQueuedMessageIds,
+  });
   const lastQueuedMessage = getLastQueuedThreadMessage(tx, input.threadId);
   const sortKey = lastQueuedMessage
     ? createOrderKeyAfter({ previousKey: lastQueuedMessage.sortKey })
@@ -866,7 +897,7 @@ export function createQueuedThreadMessageInTransaction(
       waitingOn,
     }),
   });
-  return tx
+  const created = tx
     .insert(queuedThreadMessages)
     .values({
       id,
@@ -881,6 +912,7 @@ export function createQueuedThreadMessageInTransaction(
       providerSessionId: input.providerSessionId,
       providerSwitchPolicy: input.providerSwitchPolicy,
       providerSwitchOperationId: null,
+      dependsOnQueuedMessageIds: input.dependsOnQueuedMessageIds,
       model: input.model,
       reasoningLevel: input.reasoningLevel,
       permissionMode: input.permissionMode,
@@ -914,6 +946,8 @@ export function createQueuedThreadMessageInTransaction(
     })
     .returning()
     .get();
+  ensureQueuedTaskRunInTransaction(tx, created);
+  return created;
 }
 
 export function getPendingCoalescedQueuedThreadMessage(
@@ -1004,15 +1038,17 @@ export function createQueuedThreadMessage(
   return row;
 }
 
-function executionFitsQueuedMessageGroup(
+function assignmentFitsQueuedMessageGroup(
   tx: DbTransaction,
   row: QueuedThreadMessageRow,
-  execution: QueuedThreadMessageExecution,
+  changes: Partial<
+    QueuedThreadMessageExecution & { dependsOnQueuedMessageIds: string[] }
+  >,
 ): boolean {
   const group = partitionQueuedMessageGroups(
     listQueuedThreadMessages(tx, row.threadId),
   ).find((members) => members.some((member) => member.id === row.id));
-  const updated = { ...row, ...execution };
+  const updated = { ...row, ...changes };
   return (group ?? []).every(
     (member) =>
       member.id === row.id ||
@@ -1080,10 +1116,50 @@ export function updateQueuedThreadMessage(
       if (existing.updatedAt !== input.expectedUpdatedAt) {
         return { kind: "stale" };
       }
+      const effectiveDependencies =
+        input.dependsOnQueuedMessageIds ?? existing.dependsOnQueuedMessageIds;
+      const content =
+        input.content ??
+        promptInputSchema.array().parse(JSON.parse(existing.content));
+      if (
+        isStandaloneBuiltinClearCommand(content) &&
+        (effectiveDependencies.length > 0 ||
+          tx
+            .select({ id: queuedThreadMessages.id })
+            .from(queuedThreadMessages)
+            .where(
+              and(
+                eq(queuedThreadMessages.threadId, existing.threadId),
+                sql`EXISTS (SELECT 1 FROM json_each(${queuedThreadMessages.dependsOnQueuedMessageIds}) WHERE value = ${existing.id})`,
+              ),
+            )
+            .limit(1)
+            .get() !== undefined)
+      )
+        throw new InvalidQueuedMessageDependenciesError(
+          "Local context commands cannot participate in task dependencies",
+        );
+      if (input.dependsOnQueuedMessageIds !== null) {
+        if (existing.payloadKind !== "inline" || existing.systemNotice !== null)
+          throw new InvalidQueuedMessageDependenciesError(
+            "Only assistant tasks can have task dependencies",
+          );
+        validateQueuedMessageDependenciesInTransaction(tx, {
+          threadId: existing.threadId,
+          queuedMessageId: existing.id,
+          dependencyIds: input.dependsOnQueuedMessageIds,
+        });
+      }
 
       if (
-        input.execution !== null &&
-        !executionFitsQueuedMessageGroup(tx, existing, input.execution)
+        (input.execution !== null ||
+          input.dependsOnQueuedMessageIds !== null) &&
+        !assignmentFitsQueuedMessageGroup(tx, existing, {
+          ...input.execution,
+          ...(input.dependsOnQueuedMessageIds === null
+            ? {}
+            : { dependsOnQueuedMessageIds: input.dependsOnQueuedMessageIds }),
+        })
       ) {
         return { kind: "invalid_execution_options" };
       }
@@ -1103,16 +1179,37 @@ export function updateQueuedThreadMessage(
         input.reschedule === null
           ? null
           : rescheduleTransition(existing, input.reschedule.sendAt);
+      const dependenciesChanged =
+        input.dependsOnQueuedMessageIds !== null &&
+        !stringArraysEqual(
+          input.dependsOnQueuedMessageIds,
+          existing.dependsOnQueuedMessageIds,
+        );
+      if (dependenciesChanged) {
+        const sendAt =
+          input.reschedule === null ? existing.sendAt : input.reschedule.sendAt;
+        transition = {
+          event: "wait.recorded",
+          sendAt,
+          recheckAt: existing.waitHolder === null ? null : existing.recheckAt,
+          waitingOn:
+            storedPluginWait(existing) ??
+            (sendAt === null ? { kind: "thread-busy" } : { kind: "time" }),
+        };
+      }
       if (
         input.execution !== null &&
         (input.execution.providerId !== existing.providerId ||
-          input.execution.providerSwitchPolicy !== existing.providerSwitchPolicy) &&
+          input.execution.providerSwitchPolicy !==
+            existing.providerSwitchPolicy) &&
         transition?.event !== "wait.recorded"
       ) {
         transition = {
           event: "wait.recorded",
           sendAt:
-            input.reschedule === null ? existing.sendAt : input.reschedule.sendAt,
+            input.reschedule === null
+              ? existing.sendAt
+              : input.reschedule.sendAt,
           recheckAt: input.reschedule === null ? existing.recheckAt : null,
           waitingOn:
             transition === null && existing.waitingOn !== null
@@ -1140,7 +1237,12 @@ export function updateQueuedThreadMessage(
         .set({
           ...contentPatch,
           ...(input.execution ?? {}),
-          ...(input.execution === null ? {} : { providerSwitchOperationId: null }),
+          ...(input.dependsOnQueuedMessageIds === null
+            ? {}
+            : { dependsOnQueuedMessageIds: input.dependsOnQueuedMessageIds }),
+          ...(input.execution === null && !dependenciesChanged
+            ? {}
+            : { providerSwitchOperationId: null }),
           ...schedulePatch,
           coalesceKey: null,
           coalesceState: null,
@@ -1961,6 +2063,18 @@ export function requeueClaimedQueuedThreadMessages(
   notifier: DbNotifier,
   args: RequeueClaimedQueuedThreadMessagesArgs,
 ): QueuedThreadMessageRow | null {
+  const queued = db.transaction(
+    (tx) => requeueClaimedQueuedThreadMessagesInTransaction(tx, args),
+    { behavior: "immediate" },
+  );
+  if (queued) notifier.notifyThread(args.threadId, ["queue-changed"]);
+  return queued;
+}
+
+export function requeueClaimedQueuedThreadMessagesInTransaction(
+  tx: DbTransaction,
+  args: RequeueClaimedQueuedThreadMessagesArgs,
+): QueuedThreadMessageRow | null {
   const lead = args.claims[0];
   if (lead === undefined) return null;
   const transition: QueuedMessageTransition = {
@@ -1969,27 +2083,56 @@ export function requeueClaimedQueuedThreadMessages(
     recheckAt: args.recheckAt,
     waitingOn: args.waitingOn,
   };
-  const queued = db.transaction(
-    (tx) => {
-      const now = Date.now();
-      let queuedLead: QueuedThreadMessageRow | null = null;
-      for (const claim of args.claims) {
-        const row = getQueuedThreadMessage(tx, claim.id);
-        if (!row || row.threadId !== args.threadId) continue;
-        const ownsClaim = row.claimToken === claim.claimToken;
-        if (!ownsClaim && (claim !== lead || isQueuedThreadMessageClaimed(row)))
-          continue;
-        const updated = transitionQueuedMessage(tx, { now, row, transition });
-        if (claim === lead) queuedLead = updated;
-      }
-      return queuedLead;
-    },
-    { behavior: "immediate" },
-  );
-  if (queued) {
-    notifier.notifyThread(args.threadId, ["queue-changed"]);
+  const now = Date.now();
+  let queuedLead: QueuedThreadMessageRow | null = null;
+  for (const claim of args.claims) {
+    const row = getQueuedThreadMessage(tx, claim.id);
+    if (!row || row.threadId !== args.threadId) continue;
+    const ownsClaim = row.claimToken === claim.claimToken;
+    if (!ownsClaim && (claim !== lead || isQueuedThreadMessageClaimed(row)))
+      continue;
+    const updated = transitionQueuedMessage(tx, { now, row, transition });
+    if (claim === lead) queuedLead = updated;
   }
-  return queued;
+  return queuedLead;
+}
+
+export function refreshQueuedTaskDependencyWaitsInTransaction(
+  tx: DbTransaction,
+  threadId: string,
+): number {
+  const rows = tx
+    .select()
+    .from(queuedThreadMessages)
+    .where(
+      and(
+        eq(queuedThreadMessages.threadId, threadId),
+        sql`json_extract(${queuedThreadMessages.waitingOn}, '$.kind') = 'dependency'`,
+        ne(queuedThreadMessages.state, "claimed"),
+      ),
+    )
+    .all();
+  const now = Date.now();
+  for (const row of rows) {
+    const waitingOn = firstUnmetQueuedTaskDependency(tx, {
+      threadId,
+      dependencyIds: row.dependsOnQueuedMessageIds,
+    });
+    transitionQueuedMessage(tx, {
+      now,
+      row,
+      transition:
+        waitingOn === null
+          ? clearedWaitTransition(row, now)
+          : {
+              event: "wait.recorded",
+              sendAt: row.sendAt,
+              recheckAt: null,
+              waitingOn,
+            },
+    });
+  }
+  return rows.length;
 }
 
 export function releaseQueuedMessageClaim(
@@ -2300,7 +2443,10 @@ export type SetQueuedThreadMessageWaitingOnArgs = {
   id: string;
   threadId: string;
 } & (
-  | { waitingOn: Extract<QueuedMessageWaitingOn, { kind: "time" }>; sendAt: number }
+  | {
+      waitingOn: Extract<QueuedMessageWaitingOn, { kind: "time" }>;
+      sendAt: number;
+    }
   | { waitingOn: Exclude<QueuedMessageWaitingOn, { kind: "time" }> }
 );
 
@@ -2448,10 +2594,7 @@ export function listRetryableFailedQueuedThreadMessages(
             .select({ live: sql`1` })
             .from(threads)
             .where(
-              and(
-                eq(threads.id, queuedThreadMessages.threadId),
-                liveThread,
-              ),
+              and(eq(threads.id, queuedThreadMessages.threadId), liveThread),
             ),
         ),
       ),
@@ -2537,10 +2680,7 @@ export function listDueScheduledQueuedThreadMessages(
             .select({ live: sql`1` })
             .from(threads)
             .where(
-              and(
-                eq(threads.id, queuedThreadMessages.threadId),
-                liveThread,
-              ),
+              and(eq(threads.id, queuedThreadMessages.threadId), liveThread),
             ),
         ),
       ),
@@ -2834,6 +2974,12 @@ export function deleteQueuedThreadMessage(
       const existing = getQueuedThreadMessage(tx, id);
       if (!existing) return null;
       clearPreviousQueuedMessageGroupEdgeInTransaction(tx, existing);
+      ensureQueuedTaskRunInTransaction(tx, existing);
+      cancelQueuedTaskRunsInTransaction(tx, {
+        threadId: existing.threadId,
+        queuedMessageIds: [id],
+      });
+      refreshQueuedTaskDependencyWaitsInTransaction(tx, existing.threadId);
       tx.delete(queuedThreadMessages)
         .where(eq(queuedThreadMessages.id, id))
         .run();

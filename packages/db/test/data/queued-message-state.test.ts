@@ -26,6 +26,7 @@ function setup() {
   });
   const queue = (waitingOn: QueuedMessageWaitingOn | null, sendAt: number | null) =>
     createQueuedThreadMessage(db, noopNotifier, {
+      dependsOnQueuedMessageIds: [],
       providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,

@@ -25,6 +25,7 @@ function queuedMessage(
     content: [{ type: "text", text: "Follow up", mentions: [] }],
     providerId: "codex",
     providerSwitchPolicy: "manual",
+    dependsOnQueuedMessageIds: [],
     model: "gpt-5",
     reasoningLevel: "medium",
     permissionMode: "auto",
@@ -65,6 +66,10 @@ describe("bb thread organization commands", () => {
 
   it.each([
     { flags: [], options: {} },
+    {
+      flags: ["--depends-on", "parent-a", "--depends-on", "parent-b"],
+      options: { dependsOnQueuedMessageIds: ["parent-a", "parent-b"] },
+    },
     {
       flags: [
         "--provider",
@@ -437,6 +442,14 @@ describe("bb thread organization commands", () => {
       changes: { sendAt: Date.parse("2026-10-30T12:00:00Z") + 2 * 3_600_000 },
     },
     { flags: ["--clear-send-at"], changes: { sendAt: null } },
+    {
+      flags: ["--depends-on", "parent-a", "--depends-on", "parent-b"],
+      changes: { dependsOnQueuedMessageIds: ["parent-a", "parent-b"] },
+    },
+    {
+      flags: ["--clear-dependencies"],
+      changes: { dependsOnQueuedMessageIds: [] },
+    },
     {
       flags: ["--provider-switch-policy", "recent-messages"],
       changes: { providerSwitchPolicy: "recent-messages" },

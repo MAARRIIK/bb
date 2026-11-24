@@ -15,7 +15,10 @@ import {
   queuedMessageStateValues,
 } from "@bb/domain/queued-message-lifecycle";
 import { threadStatusValues } from "@bb/domain/thread-status";
-import { queuedMessageProviderSwitchPolicyValues } from "@bb/domain/queued-message";
+import {
+  queuedMessageProviderSwitchPolicyValues,
+  queuedTaskRunStateValues,
+} from "@bb/domain/queued-message";
 import {
   heldTurnCompletionStatusValues,
   threadTurnRequestKindValues,
@@ -1128,6 +1131,12 @@ export const queuedThreadMessages = sqliteTable(
       .notNull()
       .default("manual"),
     providerSwitchOperationId: text("provider_switch_operation_id"),
+    dependsOnQueuedMessageIds: text("depends_on_queued_message_ids", {
+      mode: "json",
+    })
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'`),
     reasoningLevel: text("reasoning_level").notNull(),
     permissionMode: text("permission_mode").$type<PermissionMode>().notNull(),
     serviceTier: text("service_tier").notNull(),
@@ -1224,6 +1233,53 @@ export const queuedThreadMessages = sqliteTable(
     ),
   ],
 );
+
+export const queuedTaskRuns = sqliteTable(
+  "queued_task_runs",
+  {
+    queuedMessageId: text("queued_message_id").primaryKey(),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    state: text("state", { enum: queuedTaskRunStateValues }).notNull(),
+    originalRequestId: text("original_request_id"),
+    requestId: text("request_id"),
+    providerId: text("provider_id"),
+    providerSessionId: text("provider_session_id"),
+    turnId: text("turn_id"),
+    failureReason: text("failure_reason"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("queued_task_runs_thread_state_idx").on(table.threadId, table.state),
+    index("queued_task_runs_request_idx")
+      .on(table.threadId, table.requestId)
+      .where(sql`${table.requestId} IS NOT NULL`),
+    index("queued_task_runs_original_request_idx")
+      .on(table.threadId, table.originalRequestId)
+      .where(sql`${table.originalRequestId} IS NOT NULL`),
+    index("queued_task_runs_turn_idx")
+      .on(table.threadId, table.turnId)
+      .where(sql`${table.turnId} IS NOT NULL`),
+    check(
+      "queued_task_runs_request_check",
+      sql`(${table.originalRequestId} IS NULL) = (${table.requestId} IS NULL) AND (${table.requestId} IS NULL) = (${table.providerId} IS NULL) AND (${table.providerId} IS NOT NULL OR ${table.providerSessionId} IS NULL) AND (${table.turnId} IS NULL OR ${table.requestId} IS NOT NULL)`,
+    ),
+    check(
+      "queued_task_runs_state_check",
+      sql`CASE ${table.state}
+        WHEN 'queued' THEN ${table.requestId} IS NULL AND ${table.turnId} IS NULL AND ${table.failureReason} IS NULL
+        WHEN 'running' THEN ${table.requestId} IS NOT NULL AND ${table.failureReason} IS NULL
+        WHEN 'succeeded' THEN ${table.requestId} IS NOT NULL AND ${table.turnId} IS NOT NULL AND ${table.failureReason} IS NULL
+        WHEN 'failed' THEN ${table.requestId} IS NOT NULL
+        WHEN 'cancelled' THEN 1
+        ELSE 0
+      END`,
+    ),
+  ],
+);
+
 export const hostDaemonSessions = sqliteTable(
   "host_daemon_sessions",
   {

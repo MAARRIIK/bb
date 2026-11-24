@@ -1081,6 +1081,7 @@ describe("message.dispatch grouped authors", () => {
         installHooks(registry);
         const rows = authors.map((author, index) =>
           createQueuedThreadMessage(harness.db, harness.deps.hub, {
+            dependsOnQueuedMessageIds: [],
             providerSwitchPolicy: "manual",
             providerSessionId: null,
             providerId: thread.providerId,
@@ -1271,6 +1272,7 @@ describe("message.dispatch hooks on the queue drain", () => {
       );
       installHooks(registry);
       createQueuedThreadMessage(harness.db, harness.deps.hub, {
+        dependsOnQueuedMessageIds: [],
         providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: thread.providerId,

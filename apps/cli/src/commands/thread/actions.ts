@@ -850,6 +850,8 @@ export function describeQueueWait(row: {
       return `${waitingOn.pluginId}: ${waitingOn.reason}`;
     case "superseded":
       return "not sent: a newer message was sent after it";
+    case "dependency":
+      return `waiting for task ${waitingOn.queuedMessageId} to succeed (${waitingOn.status})`;
   }
 }
 

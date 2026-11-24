@@ -124,6 +124,7 @@ export function createAutomaticQueuedMessageGroupEligibility(
         case undefined:
         case "plugin":
           return true;
+        case "dependency":
         case "time":
           return member.sendAt !== null && member.sendAt <= args.now;
         case "thread-busy":
@@ -262,6 +263,9 @@ async function createQueuedMessageForCurrentProvider(
               ? currentThread.providerSessionId
               : null,
           providerSwitchPolicy: payload.providerSwitchPolicy ?? "manual",
+          dependsOnQueuedMessageIds: [
+            ...(payload.dependsOnQueuedMessageIds ?? []),
+          ].sort(),
           content: input,
           senderThreadId,
           model: execution.model,
@@ -691,6 +695,8 @@ async function sendClaimedQueuedMessageForThread(
 /** The user-facing half of a core wait, for a refused "Send now". */
 function describeCoreWait(waitingOn: QueuedMessageWaitingOn | null): string {
   switch (waitingOn?.kind) {
+    case "dependency":
+      return `task ${waitingOn.queuedMessageId} has not succeeded (${waitingOn.status})`;
     case "provisioning":
       return "the thread's workspace is still being prepared";
     case "host-offline":
@@ -869,7 +875,7 @@ export async function sendNextQueuedMessageIfPresent(
     }
     throw error;
   }
-  if (isHeldByPluginOnIdleThread(deps, nextQueuedMessages[0]!)) {
+  if (hasDispatchWaitOnIdleThread(deps, nextQueuedMessages[0]!)) {
     requestQueuedMessageDispatch(deps, {
       kind: "thread-ready",
       threadId: args.threadId,
@@ -878,14 +884,16 @@ export async function sendNextQueuedMessageIfPresent(
   return true;
 }
 
-function isHeldByPluginOnIdleThread(
+function hasDispatchWaitOnIdleThread(
   deps: Pick<LoggedPendingInteractionWorkSessionDeps, "db">,
   lead: ClaimedQueuedMessage,
 ): boolean {
   const row = getQueuedThreadMessage(deps.db, lead.id);
   return (
     row !== null &&
-    parseStoredQueuedThreadMessageWaitingOn(row)?.kind === "plugin" &&
+    ["plugin", "dependency"].includes(
+      parseStoredQueuedThreadMessageWaitingOn(row)?.kind ?? "",
+    ) &&
     getThread(deps.db, row.threadId)?.status === "idle"
   );
 }

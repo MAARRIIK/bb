@@ -1,3 +1,4 @@
+import type { SendThreadMessageTransactionPreflight } from "./thread-send.js";
 import type {
   PromptInput,
   ResolvedThreadExecutionOptions,
@@ -6,7 +7,7 @@ import type {
   Thread,
   ThreadTurnInitiator,
 } from "@bb/domain";
-import { getThread, type DbTransaction, type EnvironmentRow } from "@bb/db";
+import { getThread, type EnvironmentRow } from "@bb/db";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import {
   goneThreadEnvironmentDetails,
@@ -27,7 +28,7 @@ export interface ReadyThreadEnvironment extends EnvironmentRow {
 }
 
 interface DispatchTurnDuringReprovisionArgs {
-  beforeRequestAppendInTransaction?: (args: { tx: DbTransaction }) => void;
+  beforeRequestAppendInTransaction?: SendThreadMessageTransactionPreflight;
   deps: LoggedPendingInteractionWorkSessionDeps;
   environment: EnvironmentRow;
   execution: ResolvedThreadExecutionOptions;
@@ -73,8 +74,8 @@ export async function dispatchTurnDuringReprovision(
     args.environment.status !== "destroyed"
   ) {
     const { messageSequence } = requestThreadTargetReprovision(args.deps, {
-      beforeRequestAppendInTransaction: ({ tx }) => {
-        args.beforeRequestAppendInTransaction?.({ tx });
+      beforeRequestAppendInTransaction: ({ tx, requestId }) => {
+        args.beforeRequestAppendInTransaction?.({ tx, requestId });
         const prepared = runThreadLifecycleInTransaction(
           { db: tx, hub: args.deps.hub, logger: args.deps.logger },
           args.thread.id,

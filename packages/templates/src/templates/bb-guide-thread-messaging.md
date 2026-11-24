@@ -227,6 +227,25 @@ Queued messages:
   match theirs; ungroup it first. The SDK takes the same four fields on
   `threads.queuedMessages.update`.
 
+  `queue create --depends-on <message-id>` waits for an assistant task in the
+  same thread to succeed. Repeat the flag for up to 16 distinct predecessors.
+  `queue update --depends-on` replaces the list without changing the text;
+  `--clear-dependencies` removes it. The SDK uses `dependsOnQueuedMessageIds`
+  on create/update and queue rows; omitted create values default to `[]`, while
+  omitted update values keep the list. The app's task model form uses these
+  same routes and preserves selected IDs after predecessors leave the queue.
+  Cycles, self references, foreign threads and unavailable tasks are rejected.
+  Retries, system notices and local `/clear` commands cannot be dependencies.
+  Grouping requires identical dependencies; reordering does not bypass them.
+
+  A predecessor leaving the queue means it was admitted, not completed. BB
+  stores its actual accepted turn and terminal result separately, including
+  across restarts and history pruning. Failed or cancelled predecessors keep
+  dependents waiting; retry the original failed turn or edit the dependencies.
+  Unrelated tasks behind a held task may proceed. The CLI lists dependency IDs;
+  a dependency wait names the predecessor and its state. Send-now and steer
+  preserve this condition, and context transfer happens only after it clears.
+
   `queue send` dispatches a row now, bypassing every plugin wait and its own
   schedule — the invariants (a running turn, an unfinished workspace, an
   unanswered interaction) still apply, and a message that hits one simply queues

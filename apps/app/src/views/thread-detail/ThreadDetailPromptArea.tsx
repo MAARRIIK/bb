@@ -2069,6 +2069,7 @@ export function ThreadDetailPromptArea({
           {thread.environmentId !== null ? (
             <QueuedMessageAssignment
               edit={inlineEditingQueuedMessage}
+              queuedMessages={queuedMessages}
               currentProviderId={thread.providerId}
               environmentId={thread.environmentId}
               onSelect={(selection) =>
@@ -2148,6 +2149,7 @@ export function ThreadDetailPromptArea({
     thread.environmentId,
     thread.providerId,
     updateInlineQueuedMessage,
+    queuedMessages,
   ]);
   usePublishPluginComposerHost(
     queuedMessageEditor
@@ -2415,11 +2417,13 @@ export function ThreadDetailPromptArea({
           <QueueDraftWithModel
             key={`${thread.id}:${thread.environmentId}`}
             draft={promptDraft}
+            queuedMessages={queuedMessages}
             threadId={thread.id}
             environmentId={thread.environmentId}
             initial={{
               providerId: thread.providerId,
               providerSwitchPolicy: "manual",
+              dependsOnQueuedMessageIds: [],
               model: effectiveSelectedModel,
               permissionMode,
               reasoningLevel,
@@ -2495,6 +2499,7 @@ export function ThreadDetailPromptArea({
       serviceTier,
       hasPromptDraftInput,
       isAttachingBottomFiles,
+      queuedMessages,
     ],
   );
 

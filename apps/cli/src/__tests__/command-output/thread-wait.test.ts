@@ -24,6 +24,7 @@ function retryRow(
     content: [{ type: "text", text: "Do the thing", mentions: [] }],
     providerId: "codex",
     providerSwitchPolicy: "manual",
+    dependsOnQueuedMessageIds: [],
     model: "gpt-5",
     reasoningLevel: "medium",
     permissionMode: "auto",

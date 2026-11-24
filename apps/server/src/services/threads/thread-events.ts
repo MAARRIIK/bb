@@ -1,3 +1,4 @@
+import { applyQueuedTaskServerEventInTransaction } from "./queued-task-dependencies.js";
 import {
   appendStoredThreadEventsInTransaction,
   createEventId,
@@ -347,6 +348,7 @@ function appendThreadEventsInTransactionWithAttention(
 ): AppendThreadEventsTransactionResult {
   assertStoredTurnStartedForEvents(db, args);
   const sequences = appendStoredThreadEventsInTransaction(db, args);
+  for (const event of args) applyQueuedTaskServerEventInTransaction(db, event);
   const readStateUpdates = args
     .map((eventArgs) => applyUserTurnReadForEvent(db, eventArgs))
     .filter(isThreadReadStateUpdate);

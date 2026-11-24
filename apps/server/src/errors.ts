@@ -1,3 +1,4 @@
+import { InvalidQueuedMessageDependenciesError } from "@bb/db";
 import { ProjectAttachmentError } from "@bb/domain";
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -100,6 +101,13 @@ function errorToResponse(
   logger: ServerLogger,
   request: FailedRequest,
 ): Response {
+  if (error instanceof InvalidQueuedMessageDependenciesError) {
+    return new ApiError(
+      400,
+      "invalid_queued_message_dependencies",
+      error.message,
+    ).toResponse();
+  }
   if (error instanceof ProjectAttachmentError) {
     return new ApiError(400, "invalid_request", error.message).toResponse();
   }

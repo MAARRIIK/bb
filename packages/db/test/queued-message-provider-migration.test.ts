@@ -1,3 +1,4 @@
+import { dropQueuedTaskDependencies } from "./helpers/rewind.js";
 import { PERSONAL_PROJECT_ID } from "@bb/domain";
 import { describe, expect, it } from "vitest";
 import {
@@ -19,6 +20,7 @@ describe("queued message provider migration", () => {
       });
       const input = {
         providerSwitchPolicy: "manual" as const,
+        dependsOnQueuedMessageIds: [],
         threadId: thread.id,
         providerId: "codex",
         providerSessionId: "source-generation",
@@ -35,6 +37,7 @@ describe("queued message provider migration", () => {
         systemNotice: null,
       };
       const legacy = createQueuedThreadMessage(db, noopNotifier, input);
+      dropQueuedTaskDependencies(db);
       db.$client.exec(
         "ALTER TABLE queued_thread_messages DROP COLUMN provider_switch_policy",
       );

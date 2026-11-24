@@ -643,6 +643,21 @@ that latency, durable recovery and context consent across UI, SDK and CLI.
 Docs: Plugin Guide, The bb SDK
 (`plugins/plugin-api-docs/src/surfaces.ts`).
 
+Queue create/update and rows also carry `dependsOnQueuedMessageIds`: create defaults
+once to `[]`; update omission preserves the list, and `[]` clears it. Up to 16
+unique same-thread assistant tasks may be predecessors. Core's create/edit form,
+SDK and CLI share validation, including cycles and grouping. Dependencies are
+checked before provider preparation and atomically with claim consumption.
+Private durable receipts tie admission to the request and its accepted provider
+turn; only its successful completion releases dependents. Failure/cancellation
+holds them, including for send-now and steer. Retrying the original failed request
+updates its receipt; success is immutable. Independent work can pass a held task.
+Receipts survive history pruning; deleting the conversation cascades them.
+The new `waitingOn.kind: "dependency"` carries `queuedMessageId` and the unmet
+`queued | running | failed | cancelled` status. Before stabilization, audit
+receipt retention and selection of already running/completed predecessors,
+which the first UI exposes only when already selected. No daemon wire change.
+
 `bb.sdk.threads.queuedMessages.experimental_holdForEdit({ threadId, queuedMessageId })`
 (`POST /threads/:id/queued-messages/:queuedMessageId/edit-hold`) holds a
 queued row while someone edits it and returns `{ leaseMs }`. While the hold

@@ -17,6 +17,24 @@ export type QueuedMessageProviderSwitchPolicy = z.infer<
   typeof queuedMessageProviderSwitchPolicySchema
 >;
 
+export const MAX_QUEUED_MESSAGE_DEPENDENCIES = 16;
+export const queuedMessageDependencyIdsSchema = z
+  .array(z.string().min(1))
+  .max(MAX_QUEUED_MESSAGE_DEPENDENCIES)
+  .refine((ids) => new Set(ids).size === ids.length, {
+    message: "Dependency IDs must be unique",
+  });
+
+export const queuedTaskRunStateValues = [
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+  "cancelled",
+] as const;
+export const queuedTaskRunStateSchema = z.enum(queuedTaskRunStateValues);
+export type QueuedTaskRunState = z.infer<typeof queuedTaskRunStateSchema>;
+
 /**
  * The queue is the one queue for a dispatch that cannot run yet.
  *
@@ -76,6 +94,7 @@ export const queuedMessageWaitingOnKindValues = [
   "app-update",
   "plugin",
   "superseded",
+  "dependency",
 ] as const;
 export const queuedMessageWaitingOnKindSchema = z.enum(
   queuedMessageWaitingOnKindValues,
@@ -119,6 +138,11 @@ export const queuedMessageWaitingOnSchema = z.discriminatedUnion("kind", [
     reason: queuedMessageWaitReasonSchema,
   }),
   z.object({ kind: z.literal("superseded") }),
+  z.object({
+    kind: z.literal("dependency"),
+    queuedMessageId: z.string().min(1),
+    status: queuedTaskRunStateSchema.exclude(["succeeded"]),
+  }),
 ]);
 export type QueuedMessageWaitingOn = z.infer<
   typeof queuedMessageWaitingOnSchema

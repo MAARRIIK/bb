@@ -1,3 +1,4 @@
+import { requireProviderTransitionSettled } from "../../services/threads/provider-transition-guard.js";
 import { requireThreadProviderSessionSource } from "../../services/threads/thread-provider-session-source.js";
 import {
   previewProviderSwitch,
@@ -360,9 +361,15 @@ export function registerThreadActionRoutes(
       request: payload,
       thread,
     });
+    if (payload.dependsOnQueuedMessageIds !== undefined)
+      requireProviderTransitionSettled(deps.db, thread.id);
     const result = updateQueuedThreadMessage(deps.db, deps.hub, {
       content,
       execution,
+      dependsOnQueuedMessageIds:
+        payload.dependsOnQueuedMessageIds === undefined
+          ? null
+          : [...payload.dependsOnQueuedMessageIds].sort(),
       reschedule:
         payload.sendAt === undefined ? null : { sendAt: payload.sendAt },
       expectedUpdatedAt: payload.expectedUpdatedAt,
@@ -390,7 +397,7 @@ export function registerThreadActionRoutes(
       throw new ApiError(
         409,
         "invalid_request",
-        "This queued message is grouped with messages that use different execution options; ungroup it first",
+        "This queued message is grouped with messages that use different execution options or dependencies; ungroup it first",
       );
     }
     const queuedMessage = toThreadQueuedMessage(result.queuedMessage);
@@ -448,6 +455,10 @@ export function registerThreadActionRoutes(
       throw new ApiError(404, "invalid_request", "Queued message not found");
     }
     emitPluginMessageCancelled(toThreadQueuedMessage(queuedMessage));
+    requestQueuedMessageDispatch(deps, {
+      kind: "thread-ready",
+      threadId: queuedMessage.threadId,
+    });
     return context.json(operationComplete());
   });
 

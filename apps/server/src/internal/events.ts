@@ -1,3 +1,4 @@
+import { applyQueuedTaskProviderEventInTransaction } from "../services/threads/queued-task-dependencies.js";
 import { acquireThreadSessionActivity } from "../services/threads/thread-session-guard.js";
 import { performance } from "node:perf_hooks";
 import { Buffer } from "node:buffer";
@@ -936,9 +937,24 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
         });
         const postableEvents = labelledEntries.map((entry) => entry.envelope);
         let appendResult: AppendDaemonEventsResult;
+        const queuedTaskChanges = new Set<string>();
         try {
           appendResult = deps.db.transaction(
-            (tx) => appendDaemonEventsInTransaction(tx, eventInputs),
+            (tx) => {
+              const result = appendDaemonEventsInTransaction(tx, eventInputs);
+              for (const index of result.insertedInputIndexes) {
+                const envelope = postableEvents[index];
+                if (
+                  envelope?.source != null &&
+                  applyQueuedTaskProviderEventInTransaction(tx, {
+                    event: envelope.event,
+                    source: envelope.source,
+                  })
+                )
+                  queuedTaskChanges.add(envelope.threadId);
+              }
+              return result;
+            },
             { behavior: "immediate" },
           );
         } catch (error) {
@@ -988,6 +1004,13 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
             insertedEventIndexes: appendResult.insertedInputIndexes,
           }),
         );
+        for (const threadId of queuedTaskChanges) {
+          deps.hub.notifyThread(threadId, ["queue-changed"]);
+          followUps.push({
+            kind: "queued-message-dispatch",
+            wake: { kind: "thread-ready", threadId },
+          });
+        }
         for (const candidate of resolveActivePruneCandidates({
           acceptedEvents: appendResult.acceptedEvents,
           events: postableEvents,
