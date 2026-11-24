@@ -12,10 +12,12 @@ export function ExpandableText({
   children,
   className,
   expandLabel = "Show more",
+  collapseLabel = "Show less",
 }: {
   children: ReactNode;
   className?: string;
   expandLabel?: string;
+  collapseLabel?: string;
 }) {
   const id = useId();
   const textRef = useRef<HTMLSpanElement>(null);
@@ -56,7 +58,7 @@ export function ExpandableText({
             setExpanded((value) => !value);
           }}
         >
-          {expanded ? "Show less" : expandLabel}
+          {expanded ? collapseLabel : expandLabel}
         </button>
       ) : null}
     </span>

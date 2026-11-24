@@ -2411,32 +2411,6 @@ export function ThreadDetailPromptArea({
             threadStatus={thread.status}
           />
         )}
-        {!shouldHideComposer &&
-        !isHandoffSelection &&
-        thread.environmentId !== null ? (
-          <QueueDraftWithModel
-            key={`${thread.id}:${thread.environmentId}`}
-            draft={promptDraft}
-            queuedMessages={queuedMessages}
-            threadId={thread.id}
-            environmentId={thread.environmentId}
-            initial={{
-              providerId: thread.providerId,
-              providerSwitchPolicy: "manual",
-              dependsOnQueuedMessageIds: [],
-              model: effectiveSelectedModel,
-              permissionMode,
-              reasoningLevel,
-              serviceTier: serviceTier ?? DEFAULT_SERVICE_TIER,
-            }}
-            disabled={
-              !hasPromptDraftInput ||
-              isAttachingBottomFiles ||
-              isFollowUpSubmitting ||
-              isQueueMutationPending
-            }
-          />
-        ) : null}
       </>
     ),
     [
@@ -2489,17 +2463,6 @@ export function ThreadDetailPromptArea({
       submitMode.kind,
       thread.archivedAt,
       thread.id,
-      thread.environmentId,
-      thread.providerId,
-      isHandoffSelection,
-      promptDraft,
-      effectiveSelectedModel,
-      permissionMode,
-      reasoningLevel,
-      serviceTier,
-      hasPromptDraftInput,
-      isAttachingBottomFiles,
-      queuedMessages,
     ],
   );
 
@@ -2550,40 +2513,68 @@ export function ThreadDetailPromptArea({
     );
 
   const bottomContent = (
-    <FollowUpPromptBox
-      id={composerId}
-      attachments={bottomAttachmentsConfig}
-      stack={pendingInteractionNode ? pendingInteractionStack : promptStack}
-      pendingInteraction={pendingInteractionNode}
-      activePromptMode={isHandoffSelection ? null : activePromptMode}
-      composer={shouldHideComposer ? null : bottomComposerConfig}
-      pluginComposerHost={normalPluginComposerHost}
-      voiceDraft={promptDraft}
-      pluginComposerScope={normalPluginComposerHost.scope}
-      textEffects={promptTextEffects}
-      collapseResetKey={thread.id}
-      focusEndKey={bottomFocusEndKey}
-      environmentSummary={environmentSummary}
-      compactEnvironmentSummary={compactEnvironmentSummary}
-      contextWindowUsage={contextWindowUsage ?? null}
-      compactBeforeSend={
-        compactBeforeSendTokens === null
-          ? null
-          : {
-              compactFirst,
-              tokens: compactBeforeSendTokens,
-              onCompactFirstChange: (next) =>
-                setFullHistoryThreadId(next ? null : thread.id),
-            }
+    <QueueDraftWithModel
+      key={`${thread.id}:${thread.environmentId}`}
+      draft={promptDraft}
+      queuedMessages={queuedMessages}
+      threadId={thread.id}
+      environmentId={thread.environmentId}
+      available={!shouldHideComposer && !isHandoffSelection}
+      hasInput={hasPromptDraftInput}
+      initial={{
+        providerId: thread.providerId,
+        providerSwitchPolicy: "manual",
+        dependsOnQueuedMessageIds: [],
+        model: effectiveSelectedModel,
+        permissionMode,
+        reasoningLevel,
+        serviceTier: serviceTier ?? DEFAULT_SERVICE_TIER,
+      }}
+      disabled={
+        !hasPromptDraftInput ||
+        isAttachingBottomFiles ||
+        isFollowUpSubmitting ||
+        isQueueMutationPending
       }
-      execution={bottomExecutionConfig}
-      permission={bottomPermissionConfig}
-      permissionReadOnly={isPermissionSnapshot}
-      sessionOptionsControl={sessionOptionsControl}
-      typeahead={typeaheadConfig}
-      promptActions={promptActions}
-      isPrimaryComposer={isPrimaryComposer}
-    />
+    >
+      {(queueWithModelAction) => (
+        <FollowUpPromptBox
+          id={composerId}
+          attachments={bottomAttachmentsConfig}
+          stack={pendingInteractionNode ? pendingInteractionStack : promptStack}
+          pendingInteraction={pendingInteractionNode}
+          activePromptMode={isHandoffSelection ? null : activePromptMode}
+          composer={shouldHideComposer ? null : bottomComposerConfig}
+          pluginComposerHost={normalPluginComposerHost}
+          voiceDraft={promptDraft}
+          pluginComposerScope={normalPluginComposerHost.scope}
+          textEffects={promptTextEffects}
+          collapseResetKey={thread.id}
+          focusEndKey={bottomFocusEndKey}
+          environmentSummary={environmentSummary}
+          compactEnvironmentSummary={compactEnvironmentSummary}
+          contextWindowUsage={contextWindowUsage ?? null}
+          compactBeforeSend={
+            compactBeforeSendTokens === null
+              ? null
+              : {
+                  compactFirst,
+                  tokens: compactBeforeSendTokens,
+                  onCompactFirstChange: (next) =>
+                    setFullHistoryThreadId(next ? null : thread.id),
+                }
+          }
+          execution={bottomExecutionConfig}
+          permission={bottomPermissionConfig}
+          permissionReadOnly={isPermissionSnapshot}
+          sessionOptionsControl={sessionOptionsControl}
+          typeahead={typeaheadConfig}
+          promptActions={promptActions}
+          isPrimaryComposer={isPrimaryComposer}
+          internal_DO_NOT_USE_queueWithModelAction={queueWithModelAction}
+        />
+      )}
+    </QueueDraftWithModel>
   );
 
   return (

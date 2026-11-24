@@ -14,6 +14,17 @@ question.
 [provider-bridge-protocol.md](provider-bridge-protocol.md). An entry without
 a "Docs:" line has no owning doc, so it keeps the essential contract itself.
 
+## Core queue-assignment action in the Send menu
+
+`InternalComposerInputSlots.internal_DO_NOT_USE_queueWithModelAction` is private
+browser plumbing for core's queue-assignment action in the first-party composer's
+Send menu. Its only callers are core `ComposerBox` (fed by `FollowUpPromptBox`)
+and `plugins/composer`'s `PromptBoxInternal` / `ComposerSendMenu`. The callback
+opens core's existing assignment drawer and submits through `useDraftSubmission`;
+it does not add a public composer contract or a server field. Keep this private
+until a shared Send-menu contract can represent core and plugin actions through
+the same path and cover idle, running, empty-draft and compact composers.
+
 ## Switching providers in one conversation
 
 `bb.sdk.threads.experimental_providerSwitch` exposes `preview`, `commit`, `get`
@@ -4200,14 +4211,13 @@ Requires SDK 0.6.178.
    split layout, not the calling surface. Check plugin-hosted surfaces (nav
    panel pages, overlays) once they host threads.
 
-
 ## `experimental_makeActionContext` / `ExperimentalActionContextFixture` / `ExperimentalActionContextCall` (`@get-bb/plugin-sdk/testing`)
 
 Requires SDK 0.6.178.
 
 - **Surface:** `experimental_makeActionContext(overrides?: Partial<ExperimentalPluginActionContext>): ExperimentalActionContextFixture`,
   a complete `ExperimentalPluginActionContext` plus `calls:
-  ExperimentalActionContextCall[]` (`{ member, args }`). Defaults record each
+ExperimentalActionContextCall[]` (`{ member, args }`). Defaults record each
   call: `threadRequests` methods resolve, `composer` is null, `navigate` methods return
   false, `panel` is `experimental_makePanelController()`, and `sdk` methods
   reject with `sdk.<area>.<method> is not stubbed`. Overrides replace members;
@@ -4225,6 +4235,7 @@ Requires SDK 0.6.178.
   `NavigateCall` shape `renderSlot` uses, and whether composer and message
   contexts need their own builders once their fields grow. Then rename
   project-wide and remove this entry.
+
 ## `app.slots.experimental_browserToolbarAction` (`@get-bb/plugin-sdk/app`)
 
 Renders a plugin component beside the address bar in each Browser tab. It

@@ -37,6 +37,15 @@ export interface ComposerSubmitExtras {
   pluginSubmission?: { pluginId: string; data: JsonValue };
 }
 
+export interface InternalComposerInputSlots {
+  internal_DO_NOT_USE_queueWithModelAction?: {
+    label: string;
+    description: string;
+    disabled: boolean;
+    run(): void;
+  };
+}
+
 export interface ComposerEditorSubmission extends ComposerSubmitExtras {
   mode: "enter" | "queue-if-active" | "steer-if-active";
 }

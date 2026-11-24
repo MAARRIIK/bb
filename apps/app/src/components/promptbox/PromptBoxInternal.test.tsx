@@ -2354,6 +2354,78 @@ describe("ComposerBox submit shortcuts", () => {
     },
   );
 
+  it.each([
+    { touch: false, value: "Queue this draft", running: false },
+    { touch: false, value: "", running: true },
+    { touch: true, value: "Queue this draft", running: true },
+    { touch: true, value: "", running: false },
+  ])(
+    "offers model assignment only inside Send options (touch: $touch, running: $running, draft: $value)",
+    async ({ touch, value, running }) => {
+      const restoreMatchMedia = mockPointerCoarse(touch);
+      try {
+        const assign = vi.fn();
+        const onSubmit = vi.fn();
+        const onStop = vi.fn();
+        const onChange = vi.fn();
+        render(
+          <CompactViewportOverrideProvider isCompactViewport={touch}>
+            <ControlledComposerBox
+              {...createPromptBoxProps({
+                value,
+                onChange,
+                onSubmit,
+                submission: {
+                  isRunning: running,
+                  onStop: running ? onStop : undefined,
+                },
+                internal_DO_NOT_USE_queueWithModelAction: {
+                  label: "Queue with model",
+                  description: value
+                    ? "Choose a model for this queued request."
+                    : "Type a message before adding it to the queue.",
+                  disabled: value.length === 0,
+                  run: assign,
+                },
+              })}
+            />
+          </CompactViewportOverrideProvider>,
+        );
+        expect(
+          screen.queryByRole("menuitem", { name: /Queue with model/ }),
+        ).toBeNull();
+        expect(
+          screen.queryByRole("button", { name: "Queue with model" }),
+        ).toBeNull();
+        const options = screen.getByRole("button", { name: "Send options" });
+        const changesBeforeOpening = onChange.mock.calls.length;
+        expect(options).toHaveProperty("disabled", false);
+        if (touch) fireEvent.click(options);
+        else
+          fireEvent.pointerDown(options, {
+            button: 0,
+            ctrlKey: false,
+            pointerType: "mouse",
+          });
+        const item = await screen.findByRole("menuitem", {
+          name: /Queue with model/,
+        });
+        expect(item.textContent).toContain(
+          value ? "Choose a model" : "Type a message",
+        );
+        expect(item.getAttribute("aria-disabled")).toBe(value ? null : "true");
+        fireEvent.click(item);
+        expect(assign).toHaveBeenCalledTimes(value ? 1 : 0);
+        expect(onSubmit).not.toHaveBeenCalled();
+        expect(onStop).not.toHaveBeenCalled();
+        expect(onChange).toHaveBeenCalledTimes(changesBeforeOpening);
+        expect(getPromptEditorElement().textContent).toBe(value);
+      } finally {
+        restoreMatchMedia();
+      }
+    },
+  );
+
   it.each([false, true])(
     "keeps save shortcuts without advertising steering in an editor (touch: %s)",
     (isTouch) => {

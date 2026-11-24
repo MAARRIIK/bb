@@ -41,6 +41,7 @@ import { QueuedMessagesCountPill } from "@/components/promptbox/banner/QueuedMes
 import { QueuedMessageSendTimeDialog } from "@/components/promptbox/banner/QueuedMessageSendTimeDialog";
 import {
   getQueuedMessagesDrawerHeight,
+  getQueuedMessagesDrawerMaxHeight,
   QUEUED_MESSAGES_COLLAPSED_HEIGHT,
   useWindowHeight,
 } from "@/components/promptbox/banner/queued-messages-layout";
@@ -88,7 +89,7 @@ import {
   PromptStackCollapseRow,
   useDisclosureFocusHandoff,
 } from "@bb/shared-ui/prompt-stack-disclosure";
-import { PROMPT_STACK_ROW_ACTION_TAKEOVER_CLASS } from "@bb/shared-ui/prompt-banner-actions";
+import { ExpandableText } from "@bb/shared-ui/expandable-text";
 import { useScrollOverflowState } from "@/components/thread/timeline/useScrollOverflowState";
 import { OverflowFade } from "@bb/shared-ui/overflow-fade";
 import { InlineMessageEditorFrame } from "@/components/promptbox/InlineMessageEditorFrame";
@@ -193,7 +194,7 @@ export function getInlineEditorSurfaceMaxHeight({
 
 function queuedMarkdownPreviewClass(compact: boolean): string {
   return cn(
-    "block min-w-0 truncate",
+    "block min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]",
     compact ? "!text-xs !leading-4" : "!text-sm !leading-5",
   );
 }
@@ -625,6 +626,7 @@ function QueuedMessagePreview({
   queuedMessage: ThreadQueuedMessage;
   resolveMentionLink?: PromptMentionLinkResolver;
 }) {
+  const { t } = useInterfaceTranslation();
   const preview = useMemo(
     () =>
       formatQueuedMessagePreview(queuedMessage.content, {
@@ -663,11 +665,16 @@ function QueuedMessagePreview({
       title={preview}
     >
       {markdownPreview.text.length > 0 ? (
-        <CompactQueuedMarkdownPreview
-          compact={compact}
-          preview={markdownPreview}
-          resolveMentionLink={resolveMentionLink}
-        />
+        <ExpandableText
+          expandLabel={t("Show more")}
+          collapseLabel={t("Show less")}
+        >
+          <CompactQueuedMarkdownPreview
+            compact={compact}
+            preview={markdownPreview}
+            resolveMentionLink={resolveMentionLink}
+          />
+        </ExpandableText>
       ) : (
         <span className={queuedMarkdownPreviewClass(compact)}>{preview}</span>
       )}
@@ -1030,8 +1037,7 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
                 ref={actionsRef}
                 data-queued-message-actions=""
                 className={cn(
-                  PROMPT_STACK_ROW_ACTION_TAKEOVER_CLASS,
-                  "pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 items-center gap-0.5 rounded-md opacity-0 transition-opacity duration-[120ms] ease-out md:flex",
+                  "pointer-events-none shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-[120ms] ease-out md:flex",
                   mobileActionsExpanded
                     ? "flex max-md:pointer-events-auto max-md:opacity-100"
                     : "max-md:hidden",
@@ -1149,8 +1155,7 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
               size="icon"
               variant="ghost"
               className={cn(
-                PROMPT_STACK_ROW_ACTION_TAKEOVER_CLASS,
-                "pointer-events-none absolute right-2.5 top-1/2 shrink-0 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity duration-[120ms] ease-out md:hidden",
+                "pointer-events-none shrink-0 text-muted-foreground opacity-0 transition-opacity duration-[120ms] ease-out md:hidden",
                 "group-hover/dispatch-row:pointer-events-auto group-hover/dispatch-row:opacity-100",
                 "group-focus-within/dispatch-row:pointer-events-auto group-focus-within/dispatch-row:opacity-100",
                 "[@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
@@ -1382,6 +1387,10 @@ export function QueuedMessagesList({
   }
   const getScrollElement = useBottomAnchoredScroll()?.getScrollElement;
   const surfaceRef = useRef<HTMLElement>(null);
+  const scrollFrameRef = useRef<HTMLDivElement>(null);
+  const [measuredDrawerHeight, setMeasuredDrawerHeight] = useState<
+    number | null
+  >(null);
   const listRef = useRef<HTMLUListElement>(null);
   useEffect(() => {
     if (expandedMobileActionsId === null) return;
@@ -1652,6 +1661,29 @@ export function QueuedMessagesList({
     setSendTimeQueuedMessageId(id);
   }, []);
   const windowHeight = useWindowHeight();
+  useLayoutEffect(() => {
+    if (mode !== "drawer" || inlineEditorActive) return;
+    const surface = surfaceRef.current;
+    const frame = scrollFrameRef.current;
+    const list = listRef.current;
+    if (!surface || !frame || !list) return;
+    const measure = () => {
+      const listHeight = list.getBoundingClientRect().height;
+      const surfaceHeight = surface.getBoundingClientRect().height;
+      const frameHeight = frame.getBoundingClientRect().height;
+      if (listHeight <= 0 || surfaceHeight <= 0 || frameHeight <= 0)
+        return null;
+      return Math.min(
+        getQueuedMessagesDrawerMaxHeight(windowHeight),
+        Math.ceil(listHeight + 2 + Math.max(0, surfaceHeight - frameHeight)),
+      );
+    };
+    setMeasuredDrawerHeight(measure());
+    return observeSharedResize([list, surface, frame], {
+      read: measure,
+      write: setMeasuredDrawerHeight,
+    });
+  }, [mode, inlineEditorActive, windowHeight]);
   const systemNoticeCount = queuedMessages.filter(
     (queuedMessage) => queuedMessage.systemNotice !== null,
   ).length;
@@ -1661,11 +1693,12 @@ export function QueuedMessagesList({
           messageCount: queuedMessages.length,
         })
       : mode === "drawer"
-        ? getQueuedMessagesDrawerHeight({
+        ? (measuredDrawerHeight ??
+          getQueuedMessagesDrawerHeight({
             queuedMessages,
             processingMessageId,
             windowHeight,
-          })
+          }))
         : QUEUED_MESSAGES_COLLAPSED_HEIGHT;
   const surfaceHeight =
     inlineEditor && inlineEditorMaxHeight !== null
@@ -1806,6 +1839,7 @@ export function QueuedMessagesList({
         </button>
       </header>
       <div
+        ref={scrollFrameRef}
         className="relative min-h-0 flex-1"
         id={listId}
         data-queued-messages-scroll-frame=""

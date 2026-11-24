@@ -81,6 +81,7 @@ import type {
   ComposerEditorState,
   ComposerEditorSubmission,
   ComposerSubmitExtras,
+  InternalComposerInputSlots,
 } from "@get-bb/plugin-sdk/internal/composer-handle";
 import {
   readMessageClipboardHtml,
@@ -192,21 +193,22 @@ export type ComposerBoxProps = Omit<
   | "attachments"
   | "history"
   | "maxHeight"
-> & {
-  typeahead: TypeaheadConfig;
-  attachments?: AttachmentsConfig;
-  history?: HistoryConfig;
-  draft: ComposerDraftStore;
-  onSubmit(extras?: ComposerSubmitExtras): void | Promise<void>;
-  submission?: PromptBoxSubmissionConfig;
-  textEffects?: readonly ComposerTextEffectSource[];
-  voice?: PromptVoiceConfig;
-  promptBoxRef?: Ref<PromptBoxHandle>;
-  onFocusCommand?(): void;
-  suppressPluginComposerCustomizations?: boolean;
-  onComposerLayoutChange?(layout: ComposerView["layout"]): void;
-  focusEndKey?: string | number;
-};
+> &
+  InternalComposerInputSlots & {
+    typeahead: TypeaheadConfig;
+    attachments?: AttachmentsConfig;
+    history?: HistoryConfig;
+    draft: ComposerDraftStore;
+    onSubmit(extras?: ComposerSubmitExtras): void | Promise<void>;
+    submission?: PromptBoxSubmissionConfig;
+    textEffects?: readonly ComposerTextEffectSource[];
+    voice?: PromptVoiceConfig;
+    promptBoxRef?: Ref<PromptBoxHandle>;
+    onFocusCommand?(): void;
+    suppressPluginComposerCustomizations?: boolean;
+    onComposerLayoutChange?(layout: ComposerView["layout"]): void;
+    focusEndKey?: string | number;
+  };
 
 const COMPOSER_SLOT_KIND = "composer";
 

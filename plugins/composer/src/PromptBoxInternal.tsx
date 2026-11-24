@@ -29,6 +29,7 @@ import { CommandManager } from "@tiptap/core";
 import { closeHistory } from "@tiptap/pm/history";
 import { TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
+import type { InternalComposerInputSlots } from "./core-input-slots";
 import { useEditor, type Editor } from "@tiptap/react";
 import { nanoid } from "nanoid";
 import {
@@ -1030,7 +1031,8 @@ export function PromptBoxInternal({
   compact,
   history,
   voice,
-}: ExperimentalComposerInput) {
+  internal_DO_NOT_USE_queueWithModelAction,
+}: ExperimentalComposerInput & InternalComposerInputSlots) {
   const compactWhen = compact?.when ?? null;
   const compactPlaceholder = compact?.placeholder;
   const renderer = useComposerRenderer();
@@ -3636,59 +3638,66 @@ export function PromptBoxInternal({
                     data-promptbox-submit-group=""
                     className="flex shrink-0 flex-row items-center"
                   >
-                    {showStop ? (
-                      <Button
-                        data-promptbox-submit-action=""
-                        type="button"
-                        size="icon"
-                        variant="secondary"
-                        aria-label="Stop run"
-                        onClick={onStop}
-                        className={
-                          showCompactLayout
-                            ? COMPACT_PROMPT_ACTION_BUTTON_CLASS
-                            : COARSE_POINTER_PROMPT_ICON_ACTION_BUTTON_CLASS
-                        }
-                      >
-                        <Icon
-                          name="Square"
-                          className="size-3.5 fill-current [&_*]:stroke-0"
-                        />
-                      </Button>
-                    ) : showVoiceAsPrimaryAction ? (
-                      <VoiceInputButton
-                        warning={voice?.microphoneWarning ?? null}
-                        data-promptbox-submit-action=""
-                        type="button"
-                        size={showCompactLayout ? "icon" : "sm"}
-                        variant="default"
-                        aria-label="Start voice input"
-                        onPointerDown={handleVoicePointerDown}
-                        onClick={startVoiceInput}
-                        className={cn(
-                          showCompactLayout
-                            ? COMPACT_PROMPT_ACTION_BUTTON_CLASS
-                            : [
-                                "ml-1",
-                                COARSE_POINTER_PROMPT_ACTION_BUTTON_CLASS,
-                              ],
-                          "transition-colors",
-                        )}
-                      >
-                        <Icon name="Mic" className="size-4" />
-                      </VoiceInputButton>
-                    ) : (
-                      <ComposerSendMenu
-                        isPointerCoarse={isPointerCoarse}
-                        modifierKind={modifierSubmitAction?.kind ?? null}
-                        hasInput={hasSubmittableInput}
-                        canSubmit={canSubmit}
-                        onSubmit={
-                          showModifierInMenu && onModifierSubmit
-                            ? submitModifierPrompt
-                            : undefined
-                        }
-                      >
+                    <ComposerSendMenu
+                      isPointerCoarse={isPointerCoarse}
+                      modifierKind={modifierSubmitAction?.kind ?? null}
+                      hasInput={hasSubmittableInput}
+                      canSubmit={canSubmit}
+                      queueWithModelAction={
+                        internal_DO_NOT_USE_queueWithModelAction
+                      }
+                      showContributions={!showStop && !showVoiceAsPrimaryAction}
+                      onSubmit={
+                        !showStop &&
+                        !showVoiceAsPrimaryAction &&
+                        showModifierInMenu &&
+                        onModifierSubmit
+                          ? submitModifierPrompt
+                          : undefined
+                      }
+                    >
+                      {showStop ? (
+                        <Button
+                          data-promptbox-submit-action=""
+                          type="button"
+                          size="icon"
+                          variant="secondary"
+                          aria-label="Stop run"
+                          onClick={onStop}
+                          className={
+                            showCompactLayout
+                              ? COMPACT_PROMPT_ACTION_BUTTON_CLASS
+                              : COARSE_POINTER_PROMPT_ICON_ACTION_BUTTON_CLASS
+                          }
+                        >
+                          <Icon
+                            name="Square"
+                            className="size-3.5 fill-current [&_*]:stroke-0"
+                          />
+                        </Button>
+                      ) : showVoiceAsPrimaryAction ? (
+                        <VoiceInputButton
+                          warning={voice?.microphoneWarning ?? null}
+                          data-promptbox-submit-action=""
+                          type="button"
+                          size={showCompactLayout ? "icon" : "sm"}
+                          variant="default"
+                          aria-label="Start voice input"
+                          onPointerDown={handleVoicePointerDown}
+                          onClick={startVoiceInput}
+                          className={cn(
+                            showCompactLayout
+                              ? COMPACT_PROMPT_ACTION_BUTTON_CLASS
+                              : [
+                                  "ml-1",
+                                  COARSE_POINTER_PROMPT_ACTION_BUTTON_CLASS,
+                                ],
+                            "transition-colors",
+                          )}
+                        >
+                          <Icon name="Mic" className="size-4" />
+                        </VoiceInputButton>
+                      ) : (
                         <PromptSubmitButton
                           canSubmit={canSubmit}
                           icon={submitIcon}
@@ -3716,8 +3725,8 @@ export function PromptBoxInternal({
                           onTouchSubmit={handleTouchSubmit}
                           title={effectiveSubmitTitle}
                         />
-                      </ComposerSendMenu>
-                    )}
+                      )}
+                    </ComposerSendMenu>
                   </div>
                 </>
               </div>

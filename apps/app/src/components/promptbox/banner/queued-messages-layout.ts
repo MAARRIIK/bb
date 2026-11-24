@@ -3,12 +3,14 @@ import type { ThreadQueuedMessage } from "@bb/domain";
 import { queuedMessageHasWaitLine } from "@/lib/queued-message-wait";
 
 export const QUEUED_MESSAGES_COLLAPSED_HEIGHT = 44;
-const DRAWER_MIN_MAX_HEIGHT = 198;
+const DRAWER_MIN_MAX_HEIGHT = 300;
 const DRAWER_MAX_MAX_HEIGHT = 360;
 const DRAWER_WINDOW_SHARE = 0.3;
 const DRAWER_CHROME_HEIGHT = 1 + 32 + 18 + 12 + 2;
-const DRAWER_LIST_PADDING = 4;
-const DRAWER_ROW_HEIGHT = 33;
+const DRAWER_LIST_PADDING = 8;
+const DRAWER_ROW_HEIGHT = 85;
+const DRAWER_MODEL_LINE_HEIGHT = 16;
+const DRAWER_GROUP_DIVIDER_HEIGHT = 18;
 const DRAWER_SECOND_LINE_HEIGHT = 16;
 const DRAWER_SENDER_PILL_LINE_HEIGHT = 22;
 
@@ -60,12 +62,19 @@ export function getQueuedMessagesDrawerHeight({
           (total, queuedMessage) =>
             total +
             DRAWER_ROW_HEIGHT +
+            (queuedMessage.providerId !== null &&
+            queuedMessage.systemNotice === null
+              ? DRAWER_MODEL_LINE_HEIGHT
+              : 0) +
             queuedMessageSecondLineHeight(queuedMessage, processingMessageId),
           0,
         );
   return Math.min(
     getQueuedMessagesDrawerMaxHeight(windowHeight),
-    DRAWER_CHROME_HEIGHT + DRAWER_LIST_PADDING + rowsHeight,
+    DRAWER_CHROME_HEIGHT +
+      DRAWER_LIST_PADDING +
+      rowsHeight +
+      (queuedMessages.length > 1 ? DRAWER_GROUP_DIVIDER_HEIGHT : 0),
   );
 }
 

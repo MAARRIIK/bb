@@ -25,7 +25,10 @@ import type {
   ThreadTimelineActivePromptMode,
 } from "@bb/domain";
 import type { ComposerView, PluginComposerScope } from "@get-bb/plugin-sdk";
-import type { ComposerSubmitExtras } from "@get-bb/plugin-sdk/internal/composer-handle";
+import type {
+  ComposerSubmitExtras,
+  InternalComposerInputSlots,
+} from "@get-bb/plugin-sdk/internal/composer-handle";
 import type { ComposerTextEffectSource } from "@/lib/composer-text-effects";
 import { modifierSubmitShortcutLabel } from "./modifier-submit-shortcut";
 import { isKeyboardFocusTarget } from "@/components/layout/useMobileVisualViewportHeight";
@@ -159,7 +162,7 @@ type ContextWindowUsage = ComponentProps<
   typeof ThreadContextWindowIndicator
 >["usage"];
 
-export interface FollowUpPromptBoxProps {
+export interface FollowUpPromptBoxProps extends InternalComposerInputSlots {
   id?: string;
   attachments: AttachmentsConfig;
   stack: ReactNode | null;
@@ -260,6 +263,7 @@ function FollowUpPromptBoxWithComposer({
   isPrimaryComposer = true,
   showScrollToBottomButton = true,
   pendingInteraction = null,
+  internal_DO_NOT_USE_queueWithModelAction,
 }: FollowUpPromptBoxWithComposerProps) {
   const submitMode = composer.submitMode;
   const hasPendingInteraction =
@@ -810,6 +814,9 @@ function FollowUpPromptBoxWithComposer({
           ) : null
         }
         executionControls={executionControls}
+        internal_DO_NOT_USE_queueWithModelAction={
+          internal_DO_NOT_USE_queueWithModelAction
+        }
       />
       {!isPromptBoxCompact ? (
         <div
