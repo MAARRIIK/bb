@@ -7,6 +7,33 @@ export type InterfaceTranslator = (
 
 const russian = new Map<string, string>(
   Object.entries({
+    "in {count}s": "через {count} с",
+    "in {count}m": "через {count} мин",
+    "in {count}h": "через {count} ч",
+    "in {count}d": "через {count} дн",
+    "Queued message": "Сообщение в очереди",
+    "Resume after bb restarted": "Продолжение после перезапуска bb",
+    "Retry failed turn from {time}": "Повтор неудачного запроса от {time}",
+    "Not sent · a newer message was sent after it":
+      "Не отправлено · более новое сообщение уже отправлено",
+    "held by {plugin} · {reason}": "приостановлено: {plugin} · {reason}",
+    "Held by {plugin} · {reason}": "Приостановлено: {plugin} · {reason}",
+    "resuming at {time}": "продолжение: {time}",
+    "retrying at {time}": "повтор: {time}",
+    "attempt {number}": "попытка {number}",
+    "Turn didn't start · sends on the next turn":
+      "Ход не начался · отправится в следующем ходе",
+    "Waiting for turn to start": "Ожидание начала хода",
+    "Sending when the thread stops": "Отправится после остановки диалога",
+    Scheduled: "Запланировано",
+    "Scheduled for {time}": "Отправка: {time}",
+    "Waiting for workspace": "Ожидание рабочей папки",
+    "Waiting for {host} to be ready": "Ожидание готовности {host}",
+    "Waiting for your reply": "Ожидание твоего ответа",
+    "Sending after bb restarts to update":
+      "Отправится после перезапуска и обновления bb",
+    "Tomorrow {time}": "Завтра {time}",
+
     "Message queue": "Очередь",
     "Loading queued messages": "Загрузка очереди",
     "Queued messages": "Сообщения в очереди",

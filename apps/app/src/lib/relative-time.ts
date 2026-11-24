@@ -1,3 +1,6 @@
+import type { ResolvedInterfaceLanguage } from "@bb/domain";
+import { translateInterfaceText } from "./interface-translations";
+
 interface FormatRelativeTimeArgs {
   timestamp: number;
   now: number;
@@ -39,16 +42,18 @@ export function formatRelativeTime({
 }
 
 interface FormatScheduledTimeArgs {
+  language: ResolvedInterfaceLanguage;
   timestamp: number;
   now: number;
 }
 
 export function formatScheduledTime({
+  language,
   timestamp,
   now,
 }: FormatScheduledTimeArgs): string {
   const target = new Date(timestamp);
-  const clock = target.toLocaleTimeString(undefined, {
+  const clock = target.toLocaleTimeString(language, {
     hour: "numeric",
     minute: "2-digit",
   });
@@ -63,9 +68,9 @@ export function formatScheduledTime({
     return clock;
   }
   if (daysAhead === 1) {
-    return `Tomorrow ${clock}`;
+    return translateInterfaceText("Tomorrow {time}", language, { time: clock });
   }
-  const date = target.toLocaleDateString(undefined, {
+  const date = target.toLocaleDateString(language, {
     month: "short",
     day: "numeric",
   });

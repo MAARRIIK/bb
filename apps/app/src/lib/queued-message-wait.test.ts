@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { QueuedMessageWaitingOn, ThreadStatus } from "@bb/domain";
+import type {
+  QueuedMessageWaitingOn,
+  ThreadStatus,
+  ResolvedInterfaceLanguage,
+} from "@bb/domain";
 import {
   describeQueuedMessageWait,
   formatQueuedMessageCountdown,
@@ -13,7 +17,7 @@ import {
 const NOW = new Date(2026, 7, 28, 9, 0, 0).getTime();
 
 function clockAt(timestamp: number): string {
-  return new Date(timestamp).toLocaleTimeString(undefined, {
+  return new Date(timestamp).toLocaleTimeString("en", {
     hour: "numeric",
     minute: "2-digit",
   });
@@ -24,6 +28,7 @@ const HOUR = 60 * MINUTE;
 function describeWait(
   waitingOn: QueuedMessageWaitingOn | null,
   overrides: {
+    language?: ResolvedInterfaceLanguage;
     failureReason?: string | null;
     now?: number;
     pluginDisplayName?: string | null;
@@ -32,6 +37,7 @@ function describeWait(
   } = {},
 ): string | null {
   return describeQueuedMessageWait({
+    language: overrides.language ?? "en",
     failureReason: overrides.failureReason ?? null,
     now: overrides.now ?? NOW,
     payload: { kind: "inline" },
@@ -43,6 +49,44 @@ function describeWait(
 }
 
 describe("describeQueuedMessageWait", () => {
+  it("localizes core waits while preserving provider errors, plugin text and machine names", () => {
+    expect(describeWait({ kind: "provisioning" }, { language: "ru" })).toBe(
+      "Ожидание рабочей папки",
+    );
+    expect(
+      describeWait(
+        { kind: "host-offline", hostName: "Settings/{time}/$&" },
+        { language: "ru" },
+      ),
+    ).toBe("Ожидание готовности Settings/{time}/$&");
+    expect(
+      describeWait(
+        { kind: "provisioning" },
+        { language: "ru", failureReason: "Waiting for workspace" },
+      ),
+    ).toBe("Waiting for workspace");
+    expect(
+      describeWait(
+        {
+          kind: "plugin",
+          pluginId: "third-party",
+          reason: "Waiting for workspace",
+        },
+        { language: "ru", pluginDisplayName: "Settings" },
+      ),
+    ).toBe("Приостановлено: Settings · Waiting for workspace");
+    expect(
+      describeWait(
+        {
+          kind: "dependency",
+          queuedMessageId: "q_{time}/$&",
+          status: "failed",
+        },
+        { language: "ru", failureReason: "Provider unavailable" },
+      ),
+    ).toBe("Ожидание успешного завершения задания q_{time}/$& (ошибка)");
+  });
+
   it("leaves an ordinary queued message unexplained", () => {
     expect(describeWait({ kind: "thread-busy" })).toBeNull();
     expect(describeWait(null)).toBeNull();
@@ -115,6 +159,7 @@ describe("describeQueuedMessageWait", () => {
   it("leads a retry with why it is being retried, then when and which attempt", () => {
     expect(
       describeQueuedMessageWait({
+        language: "en",
         failureReason: null,
         now: NOW,
         payload: {
@@ -131,6 +176,7 @@ describe("describeQueuedMessageWait", () => {
     ).toBe(`Rate limited · retrying at ${clockAt(NOW + HOUR)} · attempt 2`);
     expect(
       describeQueuedMessageWait({
+        language: "en",
         failureReason: null,
         now: NOW,
         payload: {
@@ -197,6 +243,7 @@ describe("queuedMessageFallbackTitle", () => {
   it("names the failed turn a retry row re-submits", () => {
     expect(
       queuedMessageFallbackTitle({
+        language: "en",
         createdAt: NOW,
         now: NOW,
         payload: {
@@ -217,10 +264,16 @@ describe("queuedMessageFallbackTitle", () => {
       reason: "bb restarted",
     };
     expect(
-      queuedMessageFallbackTitle({ createdAt: NOW, now: NOW, payload }),
+      queuedMessageFallbackTitle({
+        language: "en",
+        createdAt: NOW,
+        now: NOW,
+        payload,
+      }),
     ).toBe("Resume after bb restarted");
     expect(
       describeQueuedMessageWait({
+        language: "en",
         failureReason: null,
         now: NOW,
         payload,
@@ -265,19 +318,54 @@ describe("isQueuedMessageSendNowAllowed", () => {
 
 describe("formatQueuedMessageCountdown", () => {
   it("stays silent once the instant is due", () => {
-    expect(formatQueuedMessageCountdown(0)).toBeNull();
-    expect(formatQueuedMessageCountdown(-1)).toBeNull();
+    expect(formatQueuedMessageCountdown(0, "en")).toBeNull();
+    expect(formatQueuedMessageCountdown(-1, "en")).toBeNull();
   });
 
-  it("steps up a unit exactly at each boundary", () => {
-    expect(formatQueuedMessageCountdown(1)).toBe("in 1s");
-    expect(formatQueuedMessageCountdown(MINUTE - 1)).toBe("in 60s");
-    expect(formatQueuedMessageCountdown(MINUTE)).toBe("in 1m");
-    expect(formatQueuedMessageCountdown(HOUR - 1)).toBe("in 59m");
-    expect(formatQueuedMessageCountdown(HOUR)).toBe("in 1h");
-    expect(formatQueuedMessageCountdown(24 * HOUR - 1)).toBe("in 23h");
-    expect(formatQueuedMessageCountdown(24 * HOUR)).toBe("in 1d");
-  });
+  it.each([
+    {
+      language: "en",
+      labels: [
+        "in 1s",
+        "in 60s",
+        "in 1m",
+        "in 59m",
+        "in 1h",
+        "in 23h",
+        "in 1d",
+      ],
+    },
+    {
+      language: "ru",
+      labels: [
+        "через 1 с",
+        "через 60 с",
+        "через 1 мин",
+        "через 59 мин",
+        "через 1 ч",
+        "через 23 ч",
+        "через 1 дн",
+      ],
+    },
+  ] as const)(
+    "steps up a unit exactly at each boundary in $language",
+    ({ language, labels }) => {
+      const instants = [
+        1,
+        MINUTE - 1,
+        MINUTE,
+        HOUR - 1,
+        HOUR,
+        24 * HOUR - 1,
+        24 * HOUR,
+      ];
+      expect(
+        instants.map((instant) =>
+          formatQueuedMessageCountdown(instant, language),
+        ),
+      ).toEqual(labels);
+    },
+  );
 });
 
 describe("queuedMessageCountdownInstant", () => {

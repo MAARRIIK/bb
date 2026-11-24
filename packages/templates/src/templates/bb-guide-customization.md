@@ -97,8 +97,9 @@ General. Machine-related keys (`machineServerUrl`, `defaultMachineAccess`,
   `bb settings general interfaceLanguage ru`. The current translation covers
   settings navigation, general/appearance controls and descriptions, their pickers,
   CLI installation dialogs, microphone preferences, model switching and queue
-  controls; untranslated text falls back to English. Agent replies and code keep
-  their original language.
+  controls, wait summaries and scheduled dates; untranslated text falls back to
+  English. External error/plugin messages, agent replies and code keep their
+  original language.
 
 - `showDiagnosticEvents` (default false) shows provider environment resolution
   and unhandled provider events in the timeline. Warnings, errors, and model

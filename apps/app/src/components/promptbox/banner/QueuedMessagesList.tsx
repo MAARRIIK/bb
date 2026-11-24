@@ -572,7 +572,9 @@ function QueuedMessageFallbackTitle({
   queuedMessage: ThreadQueuedMessage;
 }) {
   const now = useSecondTick();
+  const { language } = useInterfaceTranslation();
   const title = queuedMessageFallbackTitle({
+    language,
     createdAt: queuedMessage.createdAt,
     now,
     payload: queuedMessage.payload,
@@ -683,22 +685,17 @@ function QueuedMessageWaitLine({
   threadStatus: ThreadStatus;
 }) {
   const now = useSecondTick();
-  const { t } = useInterfaceTranslation();
-  const label =
-    queuedMessage.waitingOn?.kind === "dependency"
-      ? t("Waiting for task {id} to succeed ({status})", {
-          id: queuedMessage.waitingOn.queuedMessageId,
-          status: t(queuedMessage.waitingOn.status),
-        })
-      : describeQueuedMessageWait({
-          failureReason: queuedMessage.failureReason,
-          now,
-          payload: queuedMessage.payload,
-          pluginDisplayName,
-          sendAt: queuedMessage.sendAt,
-          threadStatus,
-          waitingOn: queuedMessage.waitingOn,
-        });
+  const { language } = useInterfaceTranslation();
+  const label = describeQueuedMessageWait({
+    language,
+    failureReason: queuedMessage.failureReason,
+    now,
+    payload: queuedMessage.payload,
+    pluginDisplayName,
+    sendAt: queuedMessage.sendAt,
+    threadStatus,
+    waitingOn: queuedMessage.waitingOn,
+  });
   if (label === null) return null;
   const failed = queuedMessage.failureReason !== null;
   const icon = queuedMessageWaitIcon(queuedMessage);
@@ -706,7 +703,7 @@ function QueuedMessageWaitLine({
   const countdown =
     countdownInstant === null
       ? null
-      : formatQueuedMessageCountdown(countdownInstant - now);
+      : formatQueuedMessageCountdown(countdownInstant - now, language);
   return (
     <span
       data-queued-message-wait=""
