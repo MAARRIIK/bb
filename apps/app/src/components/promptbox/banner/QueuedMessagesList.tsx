@@ -941,6 +941,15 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
               </span>
             ) : null}
           </div>
+          {queuedMessage.providerId !== null &&
+          queuedMessage.systemNotice === null ? (
+            <div
+              className="mt-0.5 truncate text-2xs text-subtle-foreground"
+              title={`${queuedMessage.providerId} · ${queuedMessage.model}`}
+            >
+              {queuedMessage.providerId} · {queuedMessage.model}
+            </div>
+          ) : null}
           {senderLabel !== null || isProcessing || hasWaitLine ? (
             <div
               data-queued-message-metadata=""

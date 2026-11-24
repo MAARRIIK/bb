@@ -62,32 +62,49 @@ describe("bb thread organization commands", () => {
     expect(create).toHaveBeenCalledWith({ json: { name: "Review" } });
   });
 
-  it("creates an explicitly queued message", async () => {
-    const create = vi.fn(async () => ({
-      id: "queued-1",
-      threadId: "thread-1",
-      position: 1,
-      groupBoundary: false,
-      payload: {
-        input: [{ type: "text", text: "next task", mentions: [] }],
-      },
-      createdAt: 1,
-      updatedAt: 1,
-    }));
-    stubServerApi({ "v1.threads.:id.queued-messages.$post": create });
+  it.each([
+    { flags: [], options: {} },
+    {
+      flags: [
+        "--provider",
+        "pi",
+        "--model",
+        "qwen-test",
+        "--permission-mode",
+        "full",
+      ],
+      options: { providerId: "pi", model: "qwen-test", permissionMode: "full" },
+    },
+  ])(
+    "creates an explicitly assigned queued message with $flags",
+    async ({ flags, options }) => {
+      const create = vi.fn(async () => ({
+        id: "queued-1",
+        threadId: "thread-1",
+        position: 1,
+        groupBoundary: false,
+        payload: {
+          input: [{ type: "text", text: "next task", mentions: [] }],
+        },
+        createdAt: 1,
+        updatedAt: 1,
+      }));
+      stubServerApi({ "v1.threads.:id.queued-messages.$post": create });
 
-    await runCommand(
-      ["thread", "queue", "create", "thread-1", "next task"],
-      register,
-    );
+      await runCommand(
+        ["thread", "queue", "create", "thread-1", "next task", ...flags],
+        register,
+      );
 
-    expect(create).toHaveBeenCalledWith({
-      param: { id: "thread-1" },
-      json: {
-        input: [{ type: "text", text: "next task", mentions: [] }],
-      },
-    });
-  });
+      expect(create).toHaveBeenCalledWith({
+        param: { id: "thread-1" },
+        json: {
+          input: [{ type: "text", text: "next task", mentions: [] }],
+          ...options,
+        },
+      });
+    },
+  );
 
   it("queues existing attachment tokens with text and a model without uploading", async () => {
     const create = vi.fn(async () => queuedMessage({}));
@@ -436,7 +453,7 @@ describe("bb thread organization commands", () => {
     }
   });
 
-  it("changes only the execution options, mapping workspace-write to accept-edits", async () => {
+  it("reassigns execution options, mapping workspace-write to accept-edits", async () => {
     const list = vi.fn(async () => [{ id: "queued-1", updatedAt: 42 }]);
     const update = vi.fn(async () => ({ id: "queued-1", sendAt: null }));
     stubServerApi({
@@ -451,6 +468,8 @@ describe("bb thread organization commands", () => {
         "update",
         "thread-1",
         "queued-1",
+        "--provider",
+        "pi",
         "--model",
         "gpt-5.1-codex",
         "--reasoning-level",
@@ -465,6 +484,7 @@ describe("bb thread organization commands", () => {
       param: { id: "thread-1", queuedMessageId: "queued-1" },
       json: {
         expectedUpdatedAt: 42,
+        providerId: "pi",
         model: "gpt-5.1-codex",
         permissionMode: "accept-edits",
         reasoningLevel: "high",

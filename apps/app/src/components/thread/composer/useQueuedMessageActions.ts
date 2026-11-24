@@ -76,8 +76,16 @@ function changedExecutionFields(
   queuedMessage: ThreadQueuedMessage | undefined,
 ): Pick<
   UpdateQueuedMessageRequest,
-  "model" | "permissionMode" | "reasoningLevel" | "serviceTier"
+  "providerId" | "model" | "permissionMode" | "reasoningLevel" | "serviceTier"
 > {
+  if (edit.providerId !== null && edit.providerId !== queuedMessage?.providerId)
+    return {
+      providerId: edit.providerId,
+      model: edit.model,
+      permissionMode: edit.permissionMode,
+      reasoningLevel: edit.reasoningLevel,
+      serviceTier: edit.serviceTier,
+    };
   return {
     ...(edit.model === queuedMessage?.model ? {} : { model: edit.model }),
     ...(edit.permissionMode === queuedMessage?.permissionMode

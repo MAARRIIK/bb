@@ -74,6 +74,7 @@ import { ThreadModelFallbackCard } from "@/components/promptbox/banner/ThreadMod
 import { InlineMessageEditorFrame } from "@/components/promptbox/InlineMessageEditorFrame";
 import type { ModelReasoningPickerSelection } from "@/components/pickers/ModelReasoningPicker";
 import { ThreadProviderSwitchDialog } from "./ThreadProviderSwitch";
+import { QueuedMessageAssignment } from "./QueuedMessageAssignment";
 import {
   buildSessionOptionMenuSections,
   sessionOptionViewSelections,
@@ -2062,42 +2063,59 @@ export function ThreadDetailPromptArea({
       queuedMessageId,
       queuedMessageIndex: inlineEditingQueuedMessage.queuedMessageIndex,
       onDismiss: dismissInlineQueuedMessageEditor,
-      content: buildInlineDraftComposer({
-        attachments: {
-          projectId,
-          isAttaching: isAttachingInlineFiles,
-          pendingUploads: inlinePendingUploads,
-          error: inlineAttachmentError,
-          onAttachFiles: handleAttachInlineFiles,
-          onUpdate: updateActiveComposerAttachments,
-        },
-        canModifierSubmit:
-          inlineComposerDraftInput.length > 0 && !isUpdateQueuedMessagePending,
-        compactPromptPlaceholder,
-        composerId: `${composerId}-queued-${queuedMessageId}`,
-        draft: queuedMessagePluginComposerHost,
-        editFocusNonce,
-        execution: inlineExecutionConfig,
-        executionReadOnly: inlineExecutionReadOnly,
-        focusSessionKey: editSessionId,
-        historyResetKey: `${thread.id}:${editSessionId}`,
-        isSubmitting: isUpdateQueuedMessagePending,
-        onSelectHistoryEntry: (draft) =>
-          createCoreComposerActions(
-            queuedMessagePluginComposerHost,
-          ).restoreDraft(draft),
-        permission: inlinePermissionConfig,
-        permissionReadOnly: isPermissionSnapshot || inlineExecutionReadOnly,
-        pluginComposerHost: queuedMessagePluginComposerHost,
-        promptActions: queuedPromptActions,
-        promptPlaceholder,
-        submit: handleInlineComposerSubmit,
-        submitMode: { kind: "ready" },
-        textEffects: queuedComposerTextEffects,
-        threadRuntimeDisplayStatus: runtimeDisplayStatus,
-        typeahead: queuedTypeaheadConfig,
-        collapseResetKey: `queued-message:${queuedMessageId}`,
-      }),
+      content: (
+        <>
+          {thread.environmentId !== null ? (
+            <QueuedMessageAssignment
+              edit={inlineEditingQueuedMessage}
+              currentProviderId={thread.providerId}
+              environmentId={thread.environmentId}
+              onSelect={(selection) =>
+                updateInlineQueuedMessage((current) =>
+                  current ? { ...current, ...selection } : current,
+                )
+              }
+            />
+          ) : null}
+          {buildInlineDraftComposer({
+            attachments: {
+              projectId,
+              isAttaching: isAttachingInlineFiles,
+              pendingUploads: inlinePendingUploads,
+              error: inlineAttachmentError,
+              onAttachFiles: handleAttachInlineFiles,
+              onUpdate: updateActiveComposerAttachments,
+            },
+            canModifierSubmit:
+              inlineComposerDraftInput.length > 0 &&
+              !isUpdateQueuedMessagePending,
+            compactPromptPlaceholder,
+            composerId: `${composerId}-queued-${queuedMessageId}`,
+            draft: queuedMessagePluginComposerHost,
+            editFocusNonce,
+            execution: inlineExecutionConfig,
+            executionReadOnly: inlineExecutionReadOnly,
+            focusSessionKey: editSessionId,
+            historyResetKey: `${thread.id}:${editSessionId}`,
+            isSubmitting: isUpdateQueuedMessagePending,
+            onSelectHistoryEntry: (draft) =>
+              createCoreComposerActions(
+                queuedMessagePluginComposerHost,
+              ).restoreDraft(draft),
+            permission: inlinePermissionConfig,
+            permissionReadOnly: isPermissionSnapshot || inlineExecutionReadOnly,
+            pluginComposerHost: queuedMessagePluginComposerHost,
+            promptActions: queuedPromptActions,
+            promptPlaceholder,
+            submit: handleInlineComposerSubmit,
+            submitMode: { kind: "ready" },
+            textEffects: queuedComposerTextEffects,
+            threadRuntimeDisplayStatus: runtimeDisplayStatus,
+            typeahead: queuedTypeaheadConfig,
+            collapseResetKey: `queued-message:${queuedMessageId}`,
+          })}
+        </>
+      ),
     };
     return inlineEditor;
   }, [
@@ -2126,6 +2144,9 @@ export function ThreadDetailPromptArea({
     runtimeDisplayStatus,
     thread.id,
     queuedTypeaheadConfig,
+    thread.environmentId,
+    thread.providerId,
+    updateInlineQueuedMessage,
   ]);
   usePublishPluginComposerHost(
     queuedMessageEditor

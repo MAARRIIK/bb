@@ -7,6 +7,14 @@ export type InterfaceTranslator = (
 
 const russian = new Map<string, string>(
   Object.entries({
+    "Assign task model": "Назначить модель заданию",
+    "Model for this queued task": "Модель для этого задания очереди",
+    "Save the editor to keep this assignment. The active conversation does not switch. Return to the assigned provider before this task runs.":
+      "Сохрани изменения в редакторе, чтобы оставить это назначение. Активный агент диалога не меняется. Перед выполнением задания вернись к назначенному провайдеру.",
+    "Could not verify the target model catalog.":
+      "Не удалось проверить каталог целевой модели.",
+    "Use for this task": "Использовать для задания",
+    "Service tier": "Режим обслуживания",
     "Switch model in this conversation": "Сменить модель в этом диалоге",
     "Select a model to review switching in this conversation.":
       "Выбери модель, чтобы посмотреть условия переключения в этом диалоге.",
