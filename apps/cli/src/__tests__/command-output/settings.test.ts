@@ -16,6 +16,44 @@ describe("bb settings commands", () => {
   const register: CommandRegistrar = (program) =>
     registerSettingsCommands(program, () => "http://server");
 
+  it.each(["interface", "en", "ru"])(
+    "sets response language %s without changing the interface preference",
+    async (value) => {
+      const put = vi.fn(async ({ json }) => json);
+      stubServerApi({
+        "v1.system.config.$get": vi.fn(async () => ({
+          generalSettings: { ...defaultAppSettings, interfaceLanguage: "ru" },
+        })),
+        "v1.settings.general.$put": put,
+      });
+      await runCommand(
+        ["settings", "general", "responseLanguage", value],
+        register,
+      );
+      expect(put).toHaveBeenCalledWith({
+        json: {
+          ...defaultAppSettings,
+          interfaceLanguage: "ru",
+          responseLanguage: value,
+        },
+      });
+    },
+  );
+
+  it("rejects an unsupported response language before writing settings", async () => {
+    const put = vi.fn(async ({ json }) => json);
+    stubServerApi({
+      "v1.system.config.$get": vi.fn(async () => ({
+        generalSettings: defaultAppSettings,
+      })),
+      "v1.settings.general.$put": put,
+    });
+    await expect(
+      runCommand(["settings", "general", "responseLanguage", "fr"], register),
+    ).rejects.toThrow("process.exit:1");
+    expect(put).not.toHaveBeenCalled();
+  });
+
   it.each(["5", "0"])(
     "sets the idle timeout to %s through general settings",
     async (value) => {

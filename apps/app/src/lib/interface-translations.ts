@@ -218,8 +218,19 @@ const russian = new Map<string, string>(
       "Использовать поддерживаемый язык этого устройства.",
     "Use English for the interface.": "Показывать интерфейс на английском.",
     "Use Russian for the interface.": "Показывать интерфейс на русском.",
-    "Applies to connected clients without restarting. Code, filenames and model replies are unchanged.":
-      "Применяется на подключённых устройствах без перезапуска. Код, имена файлов и ответы моделей сохраняют исходный язык.",
+    "Applies to connected clients without restarting. Code and filenames keep their original text.":
+      "Применяется на подключённых устройствах без перезапуска. Код и имена файлов сохраняют исходный текст.",
+    "AI response language": "Язык ответов ИИ",
+    "Choose AI response language": "Выбрать язык ответов ИИ",
+    "Follow interface language": "Как в интерфейсе",
+    "Use the selected interface language. With System language, let the model choose from the request.":
+      "Использовать выбранный язык интерфейса. В режиме «Как в системе» модель выбирает язык по запросу.",
+    "Prefer English for AI explanations.":
+      "Предпочитать английский для объяснений ИИ.",
+    "Prefer Russian for AI explanations.":
+      "Предпочитать русский для объяснений ИИ.",
+    "Applies to new requests, including queued messages when they start. An explicit language in your request takes precedence. Existing replies are unchanged.":
+      "Применяется к новым запросам, в том числе к заданиям из очереди при запуске. Явно указанный в запросе язык имеет приоритет. Прежние ответы сохраняются.",
     "Russian translations cover settings navigation, selected settings, model switching and queue controls. Other text uses English while translation continues.":
       "Переведены навигация настроек, часть настроек, переключение моделей и управление очередью. Остальной текст остаётся на английском до завершения перевода.",
     "Threads & editing": "Диалоги и редактирование",

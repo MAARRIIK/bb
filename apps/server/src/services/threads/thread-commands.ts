@@ -1,5 +1,6 @@
 import type { ProviderSessionSource } from "@bb/domain";
 import { requireThreadProviderSessionSource } from "./thread-provider-session-source.js";
+import { withResponseLanguage } from "./thread-response-language.js";
 import {
   getEnvironment,
   getThread,
@@ -234,18 +235,19 @@ function toRuntimeExecutionOptions(
     args.projectId,
     args.hostId,
   );
-  const model = args.deps.lifecycleDedupers.providerModelCatalogs.getCachedModel(
-    args.deps,
-    {
-      hostId: args.hostId,
-      providerId: args.providerId,
-      workspacePaths:
-        checkoutPath === undefined
-          ? [args.workspacePath]
-          : [args.workspacePath, checkoutPath],
-      model: args.execution.model,
-    },
-  );
+  const model =
+    args.deps.lifecycleDedupers.providerModelCatalogs.getCachedModel(
+      args.deps,
+      {
+        hostId: args.hostId,
+        providerId: args.providerId,
+        workspacePaths:
+          checkoutPath === undefined
+            ? [args.workspacePath]
+            : [args.workspacePath, checkoutPath],
+        model: args.execution.model,
+      },
+    );
   const reasoningLevel =
     model === null ||
     model.supportedReasoningEfforts.some(
@@ -316,6 +318,7 @@ export async function buildThreadStartCommand(
     model: args.execution.model,
   });
   const bridgeLaunch = requireBridgeLaunchForProviderId(deps, args.providerId);
+  const prompt = withResponseLanguage(deps.db, args);
   return {
     type: "thread.start",
     environmentId: args.environment.id,
@@ -328,9 +331,9 @@ export async function buildThreadStartCommand(
     bridgeLaunch,
     providerSessionId: runtimeContext.providerSessionId,
     requestId: args.requestId,
-    input: args.input,
-    ...(args.inputGroups !== undefined
-      ? { inputGroups: args.inputGroups }
+    input: prompt.input,
+    ...(prompt.inputGroups !== undefined
+      ? { inputGroups: prompt.inputGroups }
       : {}),
     options: toRuntimeExecutionOptions({
       ...args,
@@ -358,14 +361,15 @@ function buildPreparedTurnSubmitCommandPayload(
     args.deps,
     args.runtimeContext.providerId,
   );
+  const prompt = withResponseLanguage(args.deps.db, args);
   return {
     type: "turn.submit",
     environmentId: args.environmentId,
     threadId: args.threadId,
     bridgeLaunch,
-    input: args.input,
-    ...(args.inputGroups !== undefined
-      ? { inputGroups: args.inputGroups }
+    input: prompt.input,
+    ...(prompt.inputGroups !== undefined
+      ? { inputGroups: prompt.inputGroups }
       : {}),
     options: toRuntimeExecutionOptions({
       ...args,

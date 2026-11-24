@@ -12,6 +12,7 @@ import {
   defaultAppSettings,
   type AppSettings,
   type InterfaceLanguage,
+  type ResponseLanguage,
 } from "@bb/domain";
 import type {
   WorkspaceOpenTarget,
@@ -202,13 +203,17 @@ function GeneralSettingsStory({
   const [terminalCopyOnSelect, setTerminalCopyOnSelect] = useState(true);
   const [interfaceLanguage, setInterfaceLanguage] =
     useState<InterfaceLanguage>("system");
+  const [responseLanguage, setResponseLanguage] =
+    useState<ResponseLanguage>("interface");
 
   return (
     <>
       <LanguageSettingsSection
         preference={interfaceLanguage}
+        responsePreference={responseLanguage}
         disabled={false}
         onChange={setInterfaceLanguage}
+        onResponseChange={setResponseLanguage}
       />
       <GeneralSettingsSection
         resumeThreadsAfterRestart={resumeThreadsAfterRestart}
