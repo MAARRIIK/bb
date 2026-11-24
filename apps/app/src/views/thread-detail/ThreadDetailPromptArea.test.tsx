@@ -824,9 +824,9 @@ describe("ThreadDetailPromptArea", () => {
     renderPromptArea({ queuedMessageCount: 1 });
 
     screen.getByRole("status", { name: "Loading queued messages" });
-    expect(screen.getByLabelText("Queued messages").textContent).toContain(
-      "Queue1",
-    );
+    const queue = within(screen.getByLabelText("Queued messages"));
+    queue.getByText("Message queue");
+    queue.getByText("1");
   });
 
   it("keeps sent-message edit submission out of the normal send path", () => {

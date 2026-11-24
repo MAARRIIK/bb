@@ -23,9 +23,14 @@ import {
   useSystemProviders,
 } from "@/hooks/queries/system-queries";
 import {
-  threadDefaultExecutionOptionsQueryKey,
-  threadQueryKey,
+  providerSwitchOperationIdQueryKey,
+  providerSwitchReceiptQueryKey,
 } from "@/hooks/queries/query-keys";
+import {
+  cacheProviderSwitchOperationId,
+  ingestProviderSwitchReceipt,
+  invalidateProviderSwitchReceipt,
+} from "@/hooks/cache-owners/provider-switch-cache-owner";
 import { useInterfaceTranslation } from "@/lib/interface-language";
 import { BbHttpError, sdk } from "@/lib/sdk";
 import type { ModelReasoningPickerSelection } from "@/components/pickers/ModelReasoningPicker";
@@ -95,7 +100,7 @@ function ProviderSwitchForm({
   const [preview, setPreview] = useState<ProviderSwitchPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const operationStateKey = ["provider-switch-operation", threadId];
+  const operationStateKey = providerSwitchOperationIdQueryKey(threadId);
   const { data: operationId } = useQuery({
     queryKey: operationStateKey,
     queryFn: () => readOperationId(threadId),
@@ -122,7 +127,7 @@ function ProviderSwitchForm({
   );
   const permissions = provider?.capabilities.permissionModes ?? [];
   const operation = useQuery({
-    queryKey: ["provider-switch", threadId, operationId],
+    queryKey: providerSwitchReceiptQueryKey(threadId, operationId),
     queryFn: ({ signal }) =>
       sdk.threads.experimental_providerSwitch.get({
         threadId,
@@ -134,15 +139,9 @@ function ProviderSwitchForm({
     refetchInterval: (query) => (finished(query.state.data) ? false : 1000),
   });
   const waiting = operationId !== null && !finished(operation.data);
-  const refreshThread = () => {
-    void queryClient.invalidateQueries({ queryKey: threadQueryKey(threadId) });
-    void queryClient.invalidateQueries({
-      queryKey: threadDefaultExecutionOptionsQueryKey(threadId),
-    });
-  };
   const remember = (id: string | null) => {
     storeOperationId(threadId, id);
-    queryClient.setQueryData(operationStateKey, id);
+    cacheProviderSwitchOperationId(queryClient, threadId, id);
   };
   const makePreview = async () => {
     if (!model || permission === "") return;
@@ -191,8 +190,7 @@ function ProviderSwitchForm({
         operationId: id,
         preview,
       });
-      queryClient.setQueryData(["provider-switch", threadId, id], result);
-      refreshThread();
+      ingestProviderSwitchReceipt(queryClient, threadId, id, result);
       if (result.phase === "completed") onComplete();
       else if (result.phase === "rolled_back")
         setError(t("The switch failed. The previous provider was retained."));
@@ -204,9 +202,7 @@ function ProviderSwitchForm({
               "The connection was interrupted. Check the saved operation below.",
             ),
       );
-      void queryClient.invalidateQueries({
-        queryKey: ["provider-switch", threadId, id],
-      });
+      invalidateProviderSwitchReceipt(queryClient, threadId, id);
     }
     setBusy(false);
   };
@@ -219,11 +215,7 @@ function ProviderSwitchForm({
         threadId,
         operationId,
       });
-      queryClient.setQueryData(
-        ["provider-switch", threadId, operationId],
-        result,
-      );
-      refreshThread();
+      ingestProviderSwitchReceipt(queryClient, threadId, operationId, result);
       if (result.phase === "completed") onComplete();
     } catch (failure) {
       setError(
