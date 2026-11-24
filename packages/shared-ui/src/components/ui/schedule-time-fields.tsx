@@ -9,6 +9,10 @@ import {
   isScheduleOptionId,
   listSchedulePresets,
   resolveScheduleOption,
+  scheduleTimeText,
+  scheduleValidationText,
+  type ScheduleLanguage,
+  type ScheduleTimeError,
   type CustomScheduleFields,
   type ScheduleOptionId,
 } from "../../lib/schedule-time";
@@ -27,7 +31,8 @@ interface ScheduleTimeFieldsProps {
   custom: CustomScheduleFields;
   now: number;
   disabled: boolean;
-  error: string | null;
+  error: ScheduleTimeError | string | null;
+  language?: ScheduleLanguage;
   onOptionChange: (optionId: ScheduleOptionId) => void;
   onCustomChange: (custom: CustomScheduleFields) => void;
 }
@@ -38,20 +43,31 @@ export function ScheduleTimeFields({
   now,
   disabled,
   error,
+  language = "en",
   onOptionChange,
   onCustomChange,
 }: ScheduleTimeFieldsProps) {
   const whenId = useId();
   const customDateId = useId();
   const customTimeId = useId();
-  const presets = listSchedulePresets(now);
+  const labels = scheduleTimeText(language);
+  const presets = listSchedulePresets(now, language);
   const preview = resolveScheduleOption(optionId, custom, now);
-  const visibleError = error ?? (preview.ok ? null : preview.message);
+  const visibleError =
+    error === null
+      ? preview.ok
+        ? null
+        : scheduleValidationText(preview.message, language)
+      : typeof error === "string"
+        ? error
+        : error.kind === "validation"
+          ? scheduleValidationText(error.message, language)
+          : error.message;
 
   return (
     <>
       <div className="flex flex-col gap-2">
-        <Label htmlFor={whenId}>When</Label>
+        <Label htmlFor={whenId}>{labels.when}</Label>
         <Select
           disabled={disabled}
           onValueChange={(value) => {
@@ -59,7 +75,7 @@ export function ScheduleTimeFields({
           }}
           value={optionId}
         >
-          <SelectTrigger aria-label="When to send" id={whenId}>
+          <SelectTrigger aria-label={labels.whenToSend} id={whenId}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -69,7 +85,7 @@ export function ScheduleTimeFields({
               </SelectItem>
             ))}
             <SelectItem value={CUSTOM_SCHEDULE_OPTION_ID}>
-              Custom date and time
+              {labels.custom}
             </SelectItem>
           </SelectContent>
         </Select>
@@ -78,7 +94,7 @@ export function ScheduleTimeFields({
       {optionId === CUSTOM_SCHEDULE_OPTION_ID ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
-            <Label htmlFor={customDateId}>Date</Label>
+            <Label htmlFor={customDateId}>{labels.date}</Label>
             <Input
               disabled={disabled}
               id={customDateId}
@@ -92,7 +108,7 @@ export function ScheduleTimeFields({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor={customTimeId}>Time</Label>
+            <Label htmlFor={customTimeId}>{labels.time}</Label>
             <Input
               disabled={disabled}
               id={customTimeId}
@@ -109,10 +125,10 @@ export function ScheduleTimeFields({
       {preview.ok ? (
         <div aria-live="polite" className="rounded-md bg-muted/50 px-3 py-2">
           <p className="font-medium">
-            Sends {formatScheduleTime(preview.at, now)}
+            {labels.sends} {formatScheduleTime(preview.at, now, language)}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {formatScheduleTimeZone(preview.at)}
+            {formatScheduleTimeZone(preview.at, language)}
           </p>
         </div>
       ) : null}

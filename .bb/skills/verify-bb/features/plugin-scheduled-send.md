@@ -4,7 +4,7 @@ Status: **2026-09-05: 2 passed, 3 partial/blocked**. See [the audit](../MAINTENA
 
 ## Setup and entry points
 
-Use + → Send later from root and follow-up composers; core thread queue supplies agent access.
+Use Send options beside Submit → Send later from root and follow-up composers; core thread queue supplies agent access.
 
 Use the main skill’s isolated targets and evidence rules. A plugin can be present
 in this checkout but disabled in an installation. Enable it only in the test
@@ -22,7 +22,7 @@ SKILL.md. Inspect nested `--help` before selecting flags and IDs.
 
 | Feature | Drive | Observable success |
 | --- | --- | --- |
-| Presets and custom time | Choose each offered preset, enter a custom local time, and schedule a harmless prompt. | Displayed time/countdown represents intended timezone and future dispatch time. |
+| Presets and custom time | Choose each offered preset, enter a custom local time, switch English/Russian while the picker stays open, and schedule a harmless future prompt. Repeat with the core queue's Change send time; cancel an edit and reopen it. | Labels, validation and previews follow the selected language without losing fields. Stored epoch matches local date/time; cancel preserves the saved queue entry. On compact screens the root stays neither inert nor aria-hidden. |
 | Draft capture | Schedule a draft with file/image attachments, mentions and execution options, then change the current composer. | The scheduled payload retains its own captured content/options and does not borrow later draft edits. |
 | Dispatch | Wait for a near-future root message and thread follow-up to fire. | Exactly one intended thread/turn receives each message at the eligible time. |
 | Send now and delete | Use countdown actions to send one immediately and delete another. | Queue/UI agree; deleted payload never dispatches and send-now does not leave a second scheduled send. |

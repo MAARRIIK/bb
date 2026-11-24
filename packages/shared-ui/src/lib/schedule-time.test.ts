@@ -34,6 +34,17 @@ function at(hour: number, minute = 0): number {
 const NOON = at(12);
 
 describe("listSchedulePresets", () => {
+  it("localizes preset labels without changing their identity or instant", () => {
+    const russian = listSchedulePresets(NOON, "ru");
+    expect(russian.find((preset) => preset.id === "in-5-minutes")).toEqual({
+      id: "in-5-minutes",
+      label: "Через 5 минут",
+      at: NOON + 5 * 60 * 1000,
+    });
+    expect(russian.map(({ id, at }) => ({ id, at }))).toEqual(
+      listSchedulePresets(NOON, "en").map(({ id, at }) => ({ id, at })),
+    );
+  });
   it("offers relative and useful wall-clock choices", () => {
     expect(listSchedulePresets(NOON)).toEqual([
       { id: "in-5-minutes", label: "In 5 minutes", at: NOON + 5 * 60 * 1000 },
@@ -82,6 +93,17 @@ describe("listSchedulePresets", () => {
     expect(isSchedulePresetId("in-1-hour")).toBe(true);
     expect(isSchedulePresetId("custom")).toBe(false);
   });
+});
+
+it("uses Russian dates, clocks and calendar-day words independently of the device locale", () => {
+  expect(formatScheduleTime(at(18), NOON, "ru")).toBe("сегодня в 18:00");
+  expect(formatScheduleTime(localTime(NOON, 1, 9), NOON, "ru")).toBe(
+    "завтра в 9:00",
+  );
+  expect(formatScheduleTime(localTime(NOON, -1, 9), NOON, "ru")).toBe(
+    "вчера в 9:00",
+  );
+  expect(formatScheduleTimeZone(NOON, "ru")).toMatch(/^Местное время · /);
 });
 
 describe("custom schedules", () => {

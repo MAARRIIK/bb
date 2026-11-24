@@ -2,7 +2,7 @@ Write a message now and let bb send it when you choose. The draft keeps its atta
 
 ## What you get
 
-- A **Send later…** entry in the composer plus menu.
+- A **Send later…** entry in the composer's **Send options** menu beside Submit.
 - Presets for 5 minutes, 10 minutes, 30 minutes, 1 hour, 2 hours, this evening, and tomorrow morning.
 - A custom date and time picker with a preview of the local send time and time zone.
 - A queued card above the composer with a countdown, **Send now**, and **Delete**.
@@ -10,7 +10,7 @@ Write a message now and let bb send it when you choose. The draft keeps its atta
 ## How it works
 
 1. Type a message in a thread or in the new-thread screen.
-2. Open the plus menu and choose **Send later…**.
+2. Open **Send options** beside Submit and choose **Send later…**.
 3. Pick a preset or a custom time up to one year ahead.
 4. Choose **Schedule send**.
 
@@ -19,3 +19,11 @@ The **When** choice is remembered across composers and page reloads in this brow
 bb submits the draft through the normal send path, so the scheduled message is the same message you would send with Enter. At the chosen time it starts a turn, or waits behind the one running, even if Enter steers. In the new-thread screen, the thread starts at the chosen time with the provider and environment you selected. The entry is disabled when the draft is empty or a send is in progress.
 
 The plugin adds no agent tools or CLI commands.
+
+## Interface language
+
+The picker follows BB's English or Russian interface preference: presets, date
+and time labels, local preview, timezone label, buttons and validation messages.
+Existing saved timestamps and option IDs use the same scheduling path. Server
+errors remain literal. The composer menu entry still uses its original
+**Send later…** label. Native date/time popup rendering follows the browser.

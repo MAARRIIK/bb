@@ -24,14 +24,22 @@ function fakeComposer(fields: Partial<PluginComposerApi>): PluginComposerApi {
 }
 
 function openPicker(
-  options: { scope?: PluginComposerScope; text?: string } = {},
+  options: {
+    scope?: PluginComposerScope;
+    text?: string;
+    language?: "en" | "ru";
+  } = {},
 ) {
   const scope: PluginComposerScope = options.scope ?? {
     kind: "thread",
     threadId: "thr_scope",
   };
   const text = options.text ?? "ship the release notes";
-  const slot = renderSlot(picker, {}, { composer: { scope, text } });
+  const slot = renderSlot(
+    picker,
+    {},
+    { composer: { scope, text }, interfaceLanguage: options.language ?? "en" },
+  );
   act(() => {
     openSendLater(fakeComposer({ isEmpty: false, key: slot.composer.key }));
   });
@@ -65,6 +73,21 @@ afterEach(() => {
   resetSendLaterState();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+it("schedules a Russian preset at the confirmed instant", async () => {
+  const confirmedAt = new Date(2026, 10, 24, 12).getTime();
+  vi.spyOn(Date, "now").mockReturnValue(confirmedAt);
+  const slot = openPicker({ language: "ru" });
+  expect(slot.getByRole("dialog", { name: "Отправить позже" })).toBeTruthy();
+  fireEvent.click(slot.getByRole("combobox", { name: "Когда отправить" }));
+  fireEvent.click(await slot.findByRole("option", { name: "Через 10 минут" }));
+  expect(slot.getByText(/Отправка: сегодня в 12:10/)).toBeTruthy();
+  fireEvent.click(slot.getByRole("button", { name: "Запланировать отправку" }));
+  await waitFor(() => expect(slot.inspection.composer.submits).toHaveLength(1));
+  expect(slot.inspection.composer.submits[0]?.sendAt).toBe(
+    confirmedAt + 10 * 60_000,
+  );
 });
 
 describe("picker visibility", () => {
