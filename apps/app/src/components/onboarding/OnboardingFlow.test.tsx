@@ -268,8 +268,8 @@ describe("OnboardingFlow", () => {
     const onClose = vi.fn();
     const { setClosing } = renderFlow({ initialStep: "devices", onClose });
 
-    fireEvent.click(button(/Start using bb/u));
-    fireEvent.click(button(/Start using bb/u));
+    fireEvent.click(button(/Start using AI/u));
+    fireEvent.click(button(/Start using AI/u));
     expect(onClose).toHaveBeenCalledTimes(1);
     setClosing(true);
     act(() => {
@@ -280,8 +280,8 @@ describe("OnboardingFlow", () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(finishedOutcomes()).toEqual(["completed"]);
-    button(/Start using bb/u);
-    fireEvent.click(button(/Start using bb/u));
+    button(/Start using AI/u);
+    fireEvent.click(button(/Start using AI/u));
     expect(onClose).toHaveBeenCalledTimes(2);
     expect(finishedOutcomes()).toEqual(["completed", "completed"]);
   });
@@ -443,7 +443,7 @@ describe("OnboardingFlow", () => {
 
     expect(
       await screen.findByText(
-        "Can't reach bee. Make sure bb is running there, then retry.",
+        "Can't reach bee. Make sure AI is running there, then retry.",
       ),
     ).toBeTruthy();
     const retry = button(/^Retry$/u);

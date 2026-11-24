@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 import { spawnHostProcess as spawn, hostToolchain } from "@bb/process-utils";
 import { openApplicationUrl } from "./application-url.js";
 import { createDesktopLogger } from "./desktop-logger.js";
+import { createDesktopRuntimeEnvironment } from "./desktop-runtime-defaults.js";
 import { attachServerUpdateControl } from "./server-update-control.js";
 import { registerServerChoiceIpc } from "./server-choice-ipc.js";
 import { randomUUID } from "node:crypto";
@@ -664,12 +665,21 @@ function sendDesktopWindowStateChanged(
   );
 }
 
+Object.assign(
+  process.env,
+  createDesktopRuntimeEnvironment({
+    env: process.env,
+    homeDir: homedir(),
+    channel: DESKTOP_RELEASE_CHANNEL,
+  }),
+);
+
 const desktopLogger = createDesktopLogger({ logDir: formatLogDirectory() });
 
 function resolveDataDirFromEnv(args: ResolveDataDirFromEnvArgs): string {
   const rawDataDir = args.env.BB_DATA_DIR?.trim();
   if (rawDataDir === undefined || rawDataDir.length === 0) {
-    return join(args.homeDir, ".bb");
+    return join(args.homeDir, ".ai-ide");
   }
   if (rawDataDir === "~") {
     return args.homeDir;
@@ -1735,7 +1745,7 @@ async function runStartupAction(
       actions: [],
       details: error instanceof Error ? error.message : String(error),
       logs: "",
-      title: "Could not open bb",
+      title: "Could not open AI",
     });
   } finally {
     startupActionPending = false;
@@ -1850,7 +1860,7 @@ async function loadServerMovedView(move: DesktopServerMove): Promise<void> {
       ? "The old copy on this computer is locked after the move."
       : "The old copy on this computer was deleted.",
     logs: "",
-    title: `bb moved to ${move.toHostName}`,
+    title: `AI moved to ${move.toHostName}`,
   });
 }
 
@@ -2132,7 +2142,7 @@ async function loadLogViewerWindow(
     minHeight: 520,
     minWidth: 840,
     show: false,
-    title: "bb - Local Logs",
+    title: "AI - Local Logs",
     titleBarStyle: "default",
     webPreferences: {
       contextIsolation: true,
@@ -2239,8 +2249,8 @@ async function loadLoadingView(): Promise<void> {
     url: createLocalViewUrl({
       viewModel: {
         kind: "loading",
-        message: "Starting local services and opening the bb workspace.",
-        title: "Opening bb",
+        message: "Starting local services and opening the AI workspace.",
+        title: "Opening AI",
       },
     }),
   });
@@ -2252,8 +2262,8 @@ async function loadWindowsInstallerWaitView(): Promise<void> {
     url: createLocalViewUrl({
       viewModel: {
         kind: "loading",
-        message: "bb opens when the installer is done.",
-        title: "Finishing the bb update",
+        message: "AI opens when the installer is done.",
+        title: "Finishing the AI update",
       },
     }),
   });
@@ -2661,7 +2671,7 @@ function reportOwnedRuntimeExit({ bbProcess, runtime }: OwnedRuntime): void {
       )}.`,
       logs: bbProcess.logs.text(),
       actions: [],
-      title: "bb stopped",
+      title: "AI stopped",
     });
   });
 }
@@ -2742,7 +2752,7 @@ async function startOwnedRuntime(
       )}.`,
       logs: bbProcess.logs.text(),
       actions: [],
-      title: "Could not start bb",
+      title: "Could not start AI",
     });
     return null;
   }
@@ -2755,11 +2765,11 @@ async function startOwnedRuntime(
   await loadStartupError({
     details:
       raceResult.result.kind === "incompatible"
-        ? `Port ${args.serverUrl} is responding, but it does not look like bb: ${raceResult.result.reason}.`
-        : `Timed out waiting for bb at ${args.serverUrl}: ${raceResult.result.reason}.`,
+        ? `Port ${args.serverUrl} is responding, but it does not look like an AI server: ${raceResult.result.reason}.`
+        : `Timed out waiting for AI at ${args.serverUrl}: ${raceResult.result.reason}.`,
     logs: bbProcess.logs.text(),
     actions: [],
-    title: "Could not start bb",
+    title: "Could not start AI",
   });
   await stopOwnedRuntime();
   return null;
@@ -2838,40 +2848,40 @@ async function decideOnExistingServer(
   if (stopResult.kind === "unverified") {
     await loadStartupError({
       details:
-        `The bb at ${probe.serverUrl} records process ${String(stopResult.pid)}, but that ` +
-        "process no longer matches the record. bb did not stop it. Stop it yourself, then open bb again.",
+        `The AI server at ${probe.serverUrl} records process ${String(stopResult.pid)}, but that ` +
+        "process no longer matches the record. AI did not stop it. Stop it yourself, then open AI again.",
       logs: "",
       actions: [],
-      title: "Could not stop the running bb",
+      title: "Could not stop the running AI",
     });
     return "quit";
   }
   if (stopResult.kind === "still-running") {
     await loadStartupError({
-      details: `bb could not stop process ${String(stopResult.pid)}, even after SIGKILL.`,
+      details: `AI could not stop process ${String(stopResult.pid)}, even after SIGKILL.`,
       logs: "",
       actions: [],
-      title: "Could not stop the running bb",
+      title: "Could not stop the running AI",
     });
     return "quit";
   }
   if (stopResult.kind === "replaced") {
     await loadStartupError({
       details:
-        `Another bb started at ${probe.serverUrl} while the question was open, so bb stopped nothing. ` +
-        "Open bb again to see the copy that runs now.",
+        `Another AI server started at ${probe.serverUrl} while the question was open, so AI stopped nothing. ` +
+        "Open AI again to see the copy that runs now.",
       logs: "",
       actions: [],
-      title: "Could not stop the running bb",
+      title: "Could not stop the running AI",
     });
     return "quit";
   }
   if (!(await waitForServerToStop(probe.serverUrl))) {
     await loadStartupError({
-      details: `The bb at ${probe.serverUrl} stopped, but the address is still in use.`,
+      details: `The AI server at ${probe.serverUrl} stopped, but the address is still in use.`,
       logs: "",
       actions: [],
-      title: "Could not stop the running bb",
+      title: "Could not stop the running AI",
     });
     return "quit";
   }
@@ -2947,7 +2957,7 @@ async function initializeRuntime(args: InitializeRuntimeArgs): Promise<void> {
 async function runDesktopApp(): Promise<void> {
   const applicationName = app.isPackaged
     ? DESKTOP_RELEASE_INFO.applicationName
-    : "bb-dev";
+    : "AI Dev";
   app.setName(applicationName);
   installAboutPanel(applicationName);
 
@@ -3025,11 +3035,7 @@ async function runDesktopApp(): Promise<void> {
     },
   });
 
-  app.setAppUserModelId(
-    DESKTOP_RELEASE_CHANNEL === "nightly"
-      ? "dev.bb.desktop.nightly"
-      : "dev.bb.desktop",
-  );
+  app.setAppUserModelId(DESKTOP_RELEASE_INFO.appId);
   if (app.isPackaged) {
     await hostToolchain.refresh();
     Object.assign(process.env, hostToolchain.environment());
@@ -3493,6 +3499,6 @@ void runDesktopApp().catch((error) => {
     details: message,
     logs: "",
     actions: [],
-    title: "Could not open bb",
+    title: "Could not open AI",
   });
 });

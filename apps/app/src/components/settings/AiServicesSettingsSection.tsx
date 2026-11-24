@@ -99,7 +99,7 @@ export function aiTaskOptions(
       title: "Automatic",
       description:
         automatic === null
-          ? "Nothing bb ships is ready right now."
+          ? "Nothing AI ships is ready right now."
           : `Currently using ${automatic.displayName}.`,
     },
     ...view.services
@@ -138,7 +138,7 @@ function rowDescription(
     const automatic = automaticServiceFor(view, row.task);
     current =
       automatic === null
-        ? " Nothing is ready, so bb falls back."
+        ? " Nothing is ready, so AI falls back."
         : ` Using ${automatic.displayName}.`;
   } else if (selection.mode === "service") {
     const service = view.services.find(

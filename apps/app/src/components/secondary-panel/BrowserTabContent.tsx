@@ -378,7 +378,7 @@ function BrowserUnavailable() {
           COARSE_POINTER_TEXT_SM_CLASS,
         )}
       >
-        The in-app web browser runs in the bb desktop app. Open this thread
+        The in-app web browser runs in the AI desktop app. Open this thread
         there to browse the web.
       </p>
     </div>

@@ -76,7 +76,7 @@ export function MarketplacesSettingsSection() {
         return;
       }
       appToast.error("Refreshing the marketplace failed", {
-        description: `${failed[0]?.error ?? "Unknown error"}. The last catalog bb validated is still in use.`,
+        description: `${failed[0]?.error ?? "Unknown error"}. The last catalog AI validated is still in use.`,
       });
     },
     onError: (error) => {
@@ -166,7 +166,7 @@ export function MarketplacesSettingsSection() {
         </div>
         <p className="text-2xs text-subtle-foreground">
           An https manifest URL, <code>git:&lt;url&gt;[@&lt;ref&gt;]</code>, or{" "}
-          <code>path:&lt;directory&gt;</code> on the bb server&rsquo;s machine.
+          <code>path:&lt;directory&gt;</code> on the AI server&rsquo;s machine.
           {isGitSource
             ? " Set a subdirectory when the repository keeps marketplace.json outside its root."
             : null}

@@ -74,7 +74,7 @@ it("asks to update an older desktop client instead of falling back to browser na
   resolveApplicationUrlConfirmation("open");
   await waitFor(() =>
     expect(error).toHaveBeenCalledWith("Couldn't open application link", {
-      description: "Update the BB desktop app to open application links.",
+      description: "Update the AI desktop app to open application links.",
     }),
   );
   expect(external).not.toHaveBeenCalled();

@@ -1,3 +1,4 @@
+import { seedDefaultAppearance } from "./services/system/default-appearance.js";
 import { createDesktopAppUpdateService } from "./services/system/desktop-app-update.js";
 import {
   AUTO_UPDATE_CHECK_MS,
@@ -501,6 +502,10 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
       { bindHost: serverConfig.BB_SERVER_BIND_HOST },
       "SECURITY WARNING: The public API is unauthenticated and permits command execution and file reads. Wildcard server binding must only be used behind a trusted network boundary.",
     );
+  }
+
+  if (pendingServerMove === null) {
+    seedDefaultAppearance(db);
   }
 
   const server = startHttpListener({

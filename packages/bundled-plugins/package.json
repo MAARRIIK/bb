@@ -7,6 +7,12 @@
     "build": "cd ../.. && node --conditions=source --import tsx packages/bundled-plugins/build.ts"
   },
   "dependencies": {
+    "bb-plugin-agent-team": "workspace:*",
+    "bb-plugin-agent-traces": "workspace:*",
+    "bb-plugin-agent-icons": "workspace:*",
+    "bb-plugin-codex-theme": "workspace:*",
+    "bb-plugin-lavender": "workspace:*",
+    "bb-plugin-provider-deepseek-web": "workspace:*",
     "bb-plugin-account-pool": "workspace:*",
     "bb-plugin-agent-annotations": "workspace:*",
     "bb-plugin-ask-user-question": "workspace:*",

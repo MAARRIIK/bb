@@ -339,7 +339,7 @@ function SidebarTriggerOverlay({
 }
 
 const routeTitles: Record<string, { title: string }> = {
-  "/": { title: "bb" },
+  "/": { title: "AI" },
   "/settings": { title: "Settings" },
   "/automations": { title: "Automations" },
   "/skills": { title: "Skills" },
@@ -715,7 +715,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
       return projectLabel ?? projectId;
     }
     const routeTitle = resolveRouteTitle(location.pathname, t)?.title;
-    return routeTitle && routeTitle.length > 0 ? routeTitle : "BB";
+    return routeTitle && routeTitle.length > 0 ? routeTitle : "AI";
   })();
   const currentThreadPendingInteractionsQuery = useThreadPendingInteractions(
     threadId ?? "",

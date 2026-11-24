@@ -130,7 +130,7 @@ describe("watchRendererCrashes", () => {
     const html = crashPageText(webContents.loads.at(-1));
     expect(html).toContain("This window stopped working");
     expect(html).toContain(
-      `Its page ran out of memory again after bb reloaded it ${RENDERER_RELOAD_DELAYS_MS.length} times.`,
+      `Its page ran out of memory again after AI reloaded it ${RENDERER_RELOAD_DELAYS_MS.length} times.`,
     );
     expect(html).toContain(
       `<a class="action" href="${CRASH_PAGE_RELOAD_URL}">Reload</a>`,

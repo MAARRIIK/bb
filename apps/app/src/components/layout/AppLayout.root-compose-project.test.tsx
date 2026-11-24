@@ -236,7 +236,7 @@ describe("AppLayout root compose project preference", () => {
     });
   });
 
-  it("keeps the stored project when the route has no project", () => {
+  it("keeps the stored project when the route has no project", async () => {
     window.localStorage.setItem(
       ROOT_COMPOSE_PROJECT_ID_STORAGE_KEY,
       "proj_last_run",
@@ -249,6 +249,10 @@ describe("AppLayout root compose project preference", () => {
         </AppLayout>
       </MemoryRouter>,
     );
+
+    await waitFor(() => {
+      expect(document.title).toBe("AI");
+    });
 
     act(() => {
       expect(commandHandlers.get("thread.new")?.()).toBe(true);

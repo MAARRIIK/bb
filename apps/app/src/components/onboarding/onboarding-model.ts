@@ -71,7 +71,7 @@ export const STEP_COPY: Readonly<Record<OnboardingStepId, StepCopy>> = {
   agent: {
     title: "Connect a coding agent",
     description:
-      "Agents run on your machine. bb needs one installed and signed in.",
+      "Agents run on your machine. AI needs one installed and signed in.",
     primaryLabel: "Continue",
   },
   projects: {
@@ -80,16 +80,16 @@ export const STEP_COPY: Readonly<Record<OnboardingStepId, StepCopy>> = {
     primaryLabel: "Continue",
   },
   plugins: {
-    title: "Make bb yours",
+    title: "Make AI yours",
     description:
-      "Customize almost everything in bb with plugins. Turn on a few, change them anytime.",
+      "Customize almost everything in AI with plugins. Turn on a few, change them anytime.",
     primaryLabel: "Continue",
   },
   devices: {
-    title: "Use bb away from this computer",
+    title: "Use AI away from this computer",
     description:
       "Start a task at your desk, then check on it from anywhere. Change these later in Settings.",
-    primaryLabel: "Start using bb",
+    primaryLabel: "Start using AI",
   },
 };
 
@@ -285,7 +285,7 @@ export function agentListFailedMessage({
   machineName: string | null;
 }): string {
   return failure === "host_unavailable"
-    ? `Can't reach ${machineName ?? "this computer"}. Make sure bb is running there, then retry.`
+    ? `Can't reach ${machineName ?? "this computer"}. Make sure AI is running there, then retry.`
     : "Couldn't load agents";
 }
 

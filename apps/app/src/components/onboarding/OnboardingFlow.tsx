@@ -866,7 +866,7 @@ function ProjectsStepContainer({
             : reposQuery.isError
               ? {
                   kind: "error",
-                  message: "bb couldn't scan this computer for git repos.",
+                  message: "AI couldn't scan this computer for git repos.",
                 }
               : { kind: "results", truncated: reposQuery.data.truncated }
         }

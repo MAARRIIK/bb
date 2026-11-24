@@ -90,21 +90,21 @@ export const APP_COMMAND_GROUPS: readonly AppCommandGroup[] = [
         "Open quick palette",
         "Search and run bb commands from the keyboard.",
       ),
-      command("window.new", "New window", "Open another bb desktop window."),
+      command("window.new", "New window", "Open another AI desktop window."),
       command(
         "window.find",
         "Find in window",
-        "Search the text shown in the current bb desktop window.",
+        "Search the text shown in the current AI desktop window.",
       ),
       command(
         "window.reload",
         "Reload window",
-        "Reload the current bb desktop window.",
+        "Reload the current AI desktop window.",
       ),
       paletteHiddenCommand(
         "window.forceReload",
         "Force reload window",
-        "Reload the current bb desktop window, bypassing the cache.",
+        "Reload the current AI desktop window, bypassing the cache.",
       ),
       command("history.back", "Go back", "Go back in this window's history."),
       command(
@@ -117,11 +117,11 @@ export const APP_COMMAND_GROUPS: readonly AppCommandGroup[] = [
         "Back to app",
         "Return from Settings, Plugins, Skills, or a plugin page with its own sidebar to the app.",
       ),
-      command("settings.open", "Open settings", "Open bb settings."),
+      command("settings.open", "Open settings", "Open AI settings."),
       command(
         "settings.openServers",
         "Open server settings",
-        "Open settings to add or manage bb servers.",
+        "Open settings to add or manage AI servers.",
       ),
       command(
         "sidebar.toggle",
@@ -228,7 +228,7 @@ export const APP_COMMAND_GROUPS: readonly AppCommandGroup[] = [
       command(
         "dataDirectory.open",
         "Open data directory",
-        "Reveal the bb data directory in the system file manager.",
+        "Reveal the AI data directory in the system file manager.",
       ),
       command(
         "notifications.open",
@@ -238,7 +238,7 @@ export const APP_COMMAND_GROUPS: readonly AppCommandGroup[] = [
       command(
         "plugins.enterSafeMode",
         "Turn on plugin safe mode",
-        "Stop every plugin you installed, keeping each plugin's enabled setting. Plugins included with bb keep running.",
+        "Stop every plugin you installed, keeping each plugin's enabled setting. Plugins included with AI keep running.",
       ),
       command(
         "plugins.exitSafeMode",
@@ -248,7 +248,7 @@ export const APP_COMMAND_GROUPS: readonly AppCommandGroup[] = [
       command(
         "plugins.pruneCache",
         "Clean up plugin cache",
-        "Delete cached plugin versions that no installed plugin uses, such as versions left by earlier bb releases.",
+        "Delete cached plugin versions that no installed plugin uses, such as versions left by earlier AI releases.",
       ),
     ],
   },
@@ -349,7 +349,7 @@ export const APP_COMMAND_GROUPS: readonly AppCommandGroup[] = [
         paletteHiddenCommand(
           id,
           `Choose answer ${index + 1}`,
-          `Choose visible answer ${index + 1} when bb asks a question.`,
+          `Choose visible answer ${index + 1} when AI asks a question.`,
         ),
       ),
       paletteHiddenCommand(

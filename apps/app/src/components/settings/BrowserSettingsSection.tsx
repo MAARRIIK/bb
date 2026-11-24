@@ -263,7 +263,7 @@ export function BrowserSettingsSectionContent({
     <>
       <SettingsSection
         title="Browsers"
-        description="Bring signed-in sessions from a browser on this machine into the BB browser, so previews and agent tabs open already logged in."
+        description="Bring signed-in sessions from a browser on this machine into the AI browser, so previews and agent tabs open already logged in."
         action={
           supported ? (
             <Button
@@ -279,7 +279,7 @@ export function BrowserSettingsSectionContent({
       >
         {!supported ? (
           <p className="text-sm text-subtle-foreground">
-            Only available in the BB desktop app.
+            Only available in the AI desktop app.
           </p>
         ) : state.status === "loading" ? (
           <p className="text-sm text-muted-foreground">Loading…</p>

@@ -51,7 +51,7 @@ export function useStartAppUpdate(): StartAppUpdate {
       }}
     >
       <ConfirmDeleteDialogContent
-        title="Update bb now?"
+        title="Update AI now?"
         description={runningThreadsWarning(
           confirmingThreads ?? 0,
           threadsResumeAfterRestart,

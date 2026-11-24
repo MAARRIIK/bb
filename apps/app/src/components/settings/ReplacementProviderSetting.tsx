@@ -57,7 +57,7 @@ export function ReplacementProviderSetting({
       ? null
       : {
           key: BUILT_IN_REPLACEMENT_PROVIDER,
-          title: t("bb (built-in)"),
+          title: t("AI (built-in)"),
           description: t(builtInDescription),
         };
   const optionFor = (slot: ReplacementProviderSlot) =>

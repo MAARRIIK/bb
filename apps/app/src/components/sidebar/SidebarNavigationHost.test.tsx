@@ -536,7 +536,7 @@ describe("sidebar navigation providers", () => {
       "Sidebar navigation plugin crashed",
       {
         description:
-          "Broken rail (compact) stopped working, so bb drew Rail instead.",
+          "Broken rail (compact) stopped working, so AI drew Rail instead.",
       },
     );
   });

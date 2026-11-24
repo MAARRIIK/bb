@@ -80,7 +80,7 @@ function crashPageUrl(
   const details =
     automaticReloads === 0
       ? `${cause}.`
-      : `${cause} again after bb reloaded it ${automaticReloads === 1 ? "once" : `${automaticReloads} times`}.`;
+      : `${cause} again after AI reloaded it ${automaticReloads === 1 ? "once" : `${automaticReloads} times`}.`;
   return createLocalViewUrl({
     viewModel: {
       details,

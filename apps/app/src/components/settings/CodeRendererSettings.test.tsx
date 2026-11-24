@@ -116,7 +116,7 @@ describe("CodeRendererSettings", () => {
         .map((item) => item.textContent ?? "");
       expect(items).toHaveLength(4);
       expect(items[3]).toContain(
-        language === "ru" ? "bb (встроенный)" : "bb (built-in)",
+        language === "ru" ? "AI (встроенный)" : "AI (built-in)",
       );
       expect(
         items.some((text) =>

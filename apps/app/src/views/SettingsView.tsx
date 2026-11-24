@@ -504,7 +504,7 @@ async function requestLocalOpenTargetAccess(
   } catch (error) {
     showMutationErrorToast({
       error,
-      fallbackMessage: "Failed to connect to bb on this device",
+      fallbackMessage: "Failed to connect to AI on this device",
     });
   } finally {
     setPending(false);
@@ -536,8 +536,8 @@ export function LocalOpenTargetSettingsSection({
     const descriptionText = accessDenied
       ? "Your browser blocked access to bb on this device. Allow local network access for this site in browser settings, then reload bb."
       : accessAvailable
-        ? "bb couldn’t connect to its local editor helper. Make sure the bb desktop app or CLI is running on this device, then retry. If it is already running, a remote browser origin may need to be configured."
-        : "Connect this browser to bb on this device so it can discover installed editors. bb only contacts the local helper after you choose Enable; your browser may ask for local network access.";
+        ? "AI couldn’t connect to its local editor helper. Make sure the AI desktop app or bb CLI is running on this device, then retry. If it is already running, a remote browser origin may need to be configured."
+        : "Connect this browser to AI on this device so it can discover installed editors. AI only contacts the local helper after you choose Enable; your browser may ask for local network access.";
     const buttonLabel = accessRequestPending
       ? accessAvailable
         ? "Retrying…"
@@ -669,7 +669,7 @@ function ManagedBranchPrefixSetting({
       description={
         valid ? (
           t(
-            "bb puts this in front of every branch it creates for a worktree, such as {branch}. Leave it empty for no prefix.",
+            "AI puts this in front of every branch it creates for a worktree, such as {branch}. Leave it empty for no prefix.",
             {
               branch: `${draft}${MANAGED_BRANCH_PREFIX_EXAMPLE_SLUG}`,
             },
@@ -1170,7 +1170,7 @@ const EXPERIMENT_DEFINITIONS: Record<
   agentCpuPriority: {
     label: "Lower agent CPU priority",
     description:
-      "Keep bb responsive when agents saturate the CPU. Agent processes, setup and teardown scripts, and the builds and tests they launch run at a lower CPU priority; on macOS the bb server and machine daemon also get app-level scheduling. Terminals keep normal priority. Turning it on or off takes effect after restarting bb, including restarts for updates.",
+      "Keep AI responsive when agents saturate the CPU. Agent processes, setup and teardown scripts, and the builds and tests they launch run at a lower CPU priority; on macOS the AI server and machine daemon also get app-level scheduling. Terminals keep normal priority. Turning it on or off takes effect after restarting AI, including restarts for updates.",
   },
   compactExpiredCache: {
     label: "Compact before resuming expired sessions",
@@ -1180,7 +1180,7 @@ const EXPERIMENT_DEFINITIONS: Record<
   keyedPluginCss: {
     label: "Faster styles inside plugins",
     description:
-      "Load each plugin's stylesheet so the browser can skip it inside other plugins' UI, such as the sidebar and composer, which makes style updates there cheaper. bb marks plugin UI that a plugin labeled the old way so its styles still apply. Applies after a reload.",
+      "Load each plugin's stylesheet so the browser can skip it inside other plugins' UI, such as the sidebar and composer, which makes style updates there cheaper. AI marks plugin UI that a plugin labeled the old way so its styles still apply. Applies after a reload.",
   },
   performanceDiagnostics: {
     label: "Server performance diagnostics",
@@ -1206,7 +1206,7 @@ const EXPERIMENT_DEFINITIONS: Record<
   skipFocusedThreadNotifications: {
     label: "Skip notifications for the thread you're viewing",
     description:
-      "Don't show a system notification for a thread that is open in a visible, focused bb window or tab. Other threads, and the same thread in a window you're not using, still notify.",
+      "Don't show a system notification for a thread that is open in a visible, focused AI window or tab. Other threads, and the same thread in a window you're not using, still notify.",
   },
   threadContextCard: {
     label: "Thread context card",
@@ -1216,7 +1216,7 @@ const EXPERIMENT_DEFINITIONS: Record<
   walCheckpointWorker: {
     label: "Background database checkpoints",
     description:
-      "Copy recent writes into bb's database files on a background thread instead of during a save, so heavy writing doesn't pause the server. Applies immediately.",
+      "Copy recent writes into AI's database files on a background thread instead of during a save, so heavy writing doesn't pause the server. Applies immediately.",
   },
 };
 export function visibleExperimentKeys(

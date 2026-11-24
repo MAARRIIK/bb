@@ -11,17 +11,44 @@ const execFileAsync = promisify(execFile);
 
 describe("desktop release compatibility metadata", () => {
   it.each([
-    { platform: "darwin", channel: "latest", suffix: "mac", minimum: "22.0.0" },
     {
       platform: "darwin",
+      architecture: "arm64",
+      channel: "latest",
+      suffix: "mac",
+      minimum: "22.0.0",
+    },
+    {
+      platform: "darwin",
+      architecture: "arm64",
       channel: "nightly",
       suffix: "mac",
       minimum: "22.0.0",
     },
-    { platform: "linux", channel: "latest", suffix: "linux", minimum: null },
+    {
+      platform: "linux",
+      architecture: "x64",
+      channel: "latest",
+      suffix: "linux",
+      minimum: null,
+    },
+    {
+      platform: "linux",
+      architecture: "arm64",
+      channel: "latest",
+      suffix: "linux-arm64",
+      minimum: null,
+    },
+    {
+      platform: "linux",
+      architecture: "arm64",
+      channel: "nightly",
+      suffix: "linux-arm64",
+      minimum: null,
+    },
   ])(
-    "publishes the OS requirement for $platform $channel without losing update fields",
-    async ({ platform, channel, suffix, minimum }) => {
+    "publishes the OS requirement for $platform $architecture $channel without losing update fields",
+    async ({ platform, architecture, channel, suffix, minimum }) => {
       const root = await mkdtemp(join(tmpdir(), "bb-version-feed-test-"));
       try {
         const release = join(root, "release");
@@ -50,7 +77,10 @@ describe("desktop release compatibility metadata", () => {
           banner: {
             js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
           },
-          define: { "process.platform": JSON.stringify(platform) },
+          define: {
+            "process.platform": JSON.stringify(platform),
+            "process.arch": JSON.stringify(architecture),
+          },
         });
         await execFileAsync(process.execPath, [script], {
           cwd: root,

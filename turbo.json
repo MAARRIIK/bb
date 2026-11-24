@@ -293,7 +293,13 @@
     },
     "@bb/desktop#build": {
       "dependsOn": ["bb-app#build"],
-      "env": ["BB_DESKTOP_RELEASE_CHANNEL"],
+      "cache": false,
+      "env": [
+        "BB_DESKTOP_RELEASE_CHANNEL",
+        "BB_DESKTOP_COMMIT",
+        "BB_DESKTOP_BUILD_DATE",
+        "GITHUB_SHA"
+      ],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/desktop/**",

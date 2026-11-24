@@ -23,10 +23,10 @@ export function MobileAppSection() {
       <div>
         <h2 className="text-base font-semibold">Mobile apps</h2>
         <p className="mt-1 text-sm text-subtle-foreground">
-          Use bb from your phone
+          Use AI from your phone
         </p>
       </div>
-      <MachineAccessSettings title="Accessing bb from your phone">
+      <MachineAccessSettings title="Accessing AI from your phone">
         {(pluginId) => <PluginMobileSettingsSections pluginId={pluginId} />}
       </MachineAccessSettings>
       <div className="space-y-5">

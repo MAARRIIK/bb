@@ -250,6 +250,13 @@ change the host-daemon protocol.
 
 ## Common Keys
 
+The personal **AI desktop** distribution has independent defaults: `~/.ai-ide`,
+HTTP `39886`, daemon `39887`; nightly uses `~/.ai-ide-nightly`, `39986`, `39987`.
+Explicit `BB_DATA_DIR`, `BB_SERVER_PORT`, `BB_HOST_DAEMON_PORT` and `BB_SERVER_URL`
+remain authoritative, including isolated source launches. Existing BB data is not
+migrated automatically. The standalone `bb` CLI keeps its original target unless
+configured for AI; see [AI desktop packages](./ai-desktop.md).
+
 | Key                            | Set with                                           | When to set             | Used for                                                                                                                                                                                                                                                                                                                            |
 | ------------------------------ | -------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BB_APP_URL`                   | `bb-app config`                                    | Optional for remote use | Human-facing app URL used for generated links, allowed browser origins, and the allowed DNS hostname for requests. Leave empty for local-only use. Live when set with `bb-app config`.                                                                                                                                              |

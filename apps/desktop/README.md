@@ -1,5 +1,8 @@
 # @bb/desktop
 
+For the personal **AI** distribution, native DMG/DEB builds, isolated profiles and
+fork update feeds, see [AI desktop packages](../../docs/ai-desktop.md).
+
 macOS, Linux, and Windows Electron shell for bb. The desktop app loads the existing bb
 web UI and uses the packaged `bb-app` launcher for server and host-daemon
 lifecycle.
