@@ -77,6 +77,7 @@ function enqueue(
   overrides: QueueRowOverrides = {},
 ): QueuedThreadMessageRow {
   return createQueuedThreadMessage(db, noopNotifier, {
+    providerSwitchPolicy: "manual",
     providerSessionId: null,
     providerId: "codex",
     ...EXECUTION,
@@ -279,6 +280,7 @@ export const QUEUED_THREAD_MESSAGES_COST_CASES: readonly QueryCostCase[] = [
     run: (db, fixture) =>
       db.transaction((tx) =>
         createQueuedThreadMessageInTransaction(tx, {
+          providerSwitchPolicy: "manual",
           providerSessionId: null,
           providerId: "codex",
           ...EXECUTION,
@@ -348,7 +350,13 @@ export const QUEUED_THREAD_MESSAGES_COST_CASES: readonly QueryCostCase[] = [
         content: [
           { type: "text", text: "Then update the changelog.", mentions: [] },
         ],
-        execution: { ...EXECUTION, providerId: "codex", providerSessionId: null, reasoningLevel: "high" },
+        execution: {
+          providerSwitchPolicy: "manual",
+          ...EXECUTION,
+          providerId: "codex",
+          providerSessionId: null,
+          reasoningLevel: "high",
+        },
         reschedule: { sendAt: Date.now() + 60_000 },
         expectedUpdatedAt: queuedMessageUpdatedAt,
       }),

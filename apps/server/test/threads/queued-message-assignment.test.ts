@@ -6,6 +6,7 @@ import {
   getQueuedThreadMessage,
   getThread,
   setQueuedThreadMessageGroupBoundary,
+  setDisabledProviderIds,
 } from "@bb/db";
 import { seedProviderTransitionInput } from "../helpers/provider-transitions.js";
 import { registerProviderHostRpcResponder } from "../helpers/host-rpc.js";
@@ -21,7 +22,7 @@ function fixture(harness: TestAppHarness) {
   registerProviderHostRpcResponder(harness, {
     hostId: data.host.id,
     sessionId: data.session.id,
-    restoreCommandCaptureAfterResponse: true,
+    restoreCommandCaptureAfterResponse: false,
     modelsByProviderId: {
       codex: {
         models: [
@@ -62,6 +63,124 @@ const target = {
 };
 
 describe("assigning a provider to a queued task", () => {
+  it("allows revoking automatic context transfer after the assigned provider is disabled", async () => {
+    await withTestHarness(async (harness) => {
+      const { api, thread } = fixture(harness);
+      const created = await api.create({
+        threadId: thread.id,
+        input: textInput("Keep this task"),
+        ...target,
+        providerSwitchPolicy: "recent-messages",
+      });
+      setDisabledProviderIds(harness.db, ["claude-code"]);
+      const disabled = await api.update({
+        threadId: thread.id,
+        queuedMessageId: created.id,
+        expectedUpdatedAt: created.updatedAt,
+        providerSwitchPolicy: "manual",
+      });
+      expect(disabled).toMatchObject({
+        providerSwitchPolicy: "manual",
+        providerId: "claude-code",
+        model: created.model,
+        permissionMode: created.permissionMode,
+        reasoningLevel: created.reasoningLevel,
+        content: created.content,
+      });
+      expect(getThread(harness.db, thread.id)?.providerId).toBe("codex");
+    });
+  });
+  it.each(["create", "update"] as const)(
+    "persists explicit context consent through %s and resets it when reassigned",
+    async (mode) => {
+      await withTestHarness(async (harness) => {
+        const { api, thread } = fixture(harness);
+        const created = await api.create({
+          threadId: thread.id,
+          input: textInput("Assigned task"),
+          ...target,
+          ...(mode === "create"
+            ? { providerSwitchPolicy: "recent-messages" as const }
+            : {}),
+        });
+        expect(created.providerSwitchPolicy).toBe(
+          mode === "create" ? "recent-messages" : "manual",
+        );
+        const enabled =
+          mode === "create"
+            ? created
+            : await api.update({
+                threadId: thread.id,
+                queuedMessageId: created.id,
+                expectedUpdatedAt: created.updatedAt,
+                providerSwitchPolicy: "recent-messages",
+              });
+        expect(
+          (await api.list({ threadId: thread.id }))[0]?.providerSwitchPolicy,
+        ).toBe("recent-messages");
+        expect(getThread(harness.db, thread.id)?.providerId).toBe("codex");
+        const reassigned = await api.update({
+          threadId: thread.id,
+          queuedMessageId: created.id,
+          expectedUpdatedAt: enabled.updatedAt,
+          providerId: "codex",
+          model: "gpt-5",
+          permissionMode: "accept-edits",
+        });
+        expect(reassigned.providerSwitchPolicy).toBe("manual");
+      });
+    },
+  );
+
+  it.each(["retry", "notice", "legacy"] as const)(
+    "does not authorize automatic context transfer for a %s row",
+    async (kind) => {
+      await withTestHarness(async (harness) => {
+        const { api, thread } = fixture(harness);
+        const row = createQueuedThreadMessage(harness.db, harness.hub, {
+          threadId: thread.id,
+          providerId: kind === "retry" ? "codex" : null,
+          providerSessionId: null,
+          providerSwitchPolicy: "manual",
+          content: textInput("Do not transfer"),
+          model: "gpt-5",
+          permissionMode: "accept-edits",
+          reasoningLevel: "medium",
+          serviceTier: "default",
+          waitingOn: null,
+          sendAt: null,
+          systemNotice:
+            kind === "notice"
+              ? {
+                  kind: "child-outcome-batch",
+                  subject: { kind: "thread-batch", count: 1 },
+                }
+              : null,
+          payload:
+            kind === "retry"
+              ? {
+                  kind: "retry",
+                  retryOfTurnRequestId:
+                    clientTurnRequestIdSchema.parse("creq_autretry22"),
+                  attempt: 2,
+                  reason: "Retry",
+                }
+              : { kind: "inline" },
+        });
+        await expect(
+          api.update({
+            threadId: thread.id,
+            queuedMessageId: row.id,
+            expectedUpdatedAt: row.updatedAt,
+            providerSwitchPolicy: "recent-messages",
+          }),
+        ).rejects.toMatchObject({ status: 400 });
+        expect(
+          getQueuedThreadMessage(harness.db, row.id)?.providerSwitchPolicy,
+        ).toBe("manual");
+      });
+    },
+  );
   it.each(["create", "update"] as const)(
     "keeps a %s assignment without switching or sending to the current provider",
     async (mode) => {
@@ -157,6 +276,7 @@ describe("assigning a provider to a queued task", () => {
       const { api, thread } = fixture(harness);
       const sendAt = Date.now() + 3_600_000;
       const row = createQueuedThreadMessage(harness.db, harness.hub, {
+        providerSwitchPolicy: "manual",
         threadId: thread.id,
         providerId: null,
         providerSessionId: null,
@@ -191,6 +311,7 @@ describe("assigning a provider to a queued task", () => {
       await withTestHarness(async (harness) => {
         const { api, thread } = fixture(harness);
         const row = createQueuedThreadMessage(harness.db, harness.hub, {
+          providerSwitchPolicy: "manual",
           threadId: thread.id,
           providerId: kind === "notice" ? null : "codex",
           providerSessionId: null,

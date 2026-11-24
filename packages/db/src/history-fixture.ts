@@ -948,6 +948,7 @@ export function buildHistoryFixture(
     systemNotice: null,
   };
   const retry = createQueuedThreadMessage(db, noopNotifier, {
+    providerSwitchPolicy: "manual",
     providerSessionId: null,
     providerId: thread.providerId,
     ...execution,
@@ -962,6 +963,7 @@ export function buildHistoryFixture(
     },
   });
   const queued = createQueuedThreadMessage(db, noopNotifier, {
+    providerSwitchPolicy: "manual",
     providerSessionId: null,
     providerId: thread.providerId,
     ...execution,

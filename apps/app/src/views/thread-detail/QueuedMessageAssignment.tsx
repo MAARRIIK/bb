@@ -18,7 +18,12 @@ import { useInterfaceTranslation } from "@/lib/interface-language";
 
 type Selection = Pick<
   InlineQueuedMessageEditState,
-  "providerId" | "model" | "permissionMode" | "reasoningLevel" | "serviceTier"
+  | "providerId"
+  | "providerSwitchPolicy"
+  | "model"
+  | "permissionMode"
+  | "reasoningLevel"
+  | "serviceTier"
 >;
 
 const SELECT_CLASS =
@@ -39,6 +44,9 @@ function AssignmentForm({
   const [permission, setPermission] = useState<string>(initial.permissionMode);
   const [reasoning, setReasoning] = useState<string>(initial.reasoningLevel);
   const [tierId, setTierId] = useState(initial.serviceTier);
+  const [switchAutomatically, setSwitchAutomatically] = useState(
+    initial.providerSwitchPolicy === "recent-messages",
+  );
   const providers = useSystemProviders({ environmentId });
   const catalog = useSystemExecutionOptions({
     environmentId,
@@ -86,6 +94,7 @@ function AssignmentForm({
             setPermission("");
             setReasoning("");
             setTierId("default");
+            setSwitchAutomatically(false);
           }}
         >
           {providers.data
@@ -182,6 +191,22 @@ function AssignmentForm({
           {t("Could not verify the target model catalog.")}
         </p>
       ) : null}
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1 accent-primary"
+          checked={switchAutomatically}
+          onChange={(event) => setSwitchAutomatically(event.target.checked)}
+        />
+        <span>
+          {t("Switch automatically when this task starts")}
+          <span className="mt-1 block text-muted-foreground">
+            {t(
+              "When another provider is active, transfer recent visible messages with a context budget of up to 8192 tokens, also limited by the model catalog. Earlier messages may be omitted. The task waits for the current turn to finish.",
+            )}
+          </span>
+        </span>
+      </label>
       <Button
         disabled={
           !verified ||
@@ -198,6 +223,9 @@ function AssignmentForm({
             return;
           onSelect({
             providerId,
+            providerSwitchPolicy: switchAutomatically
+              ? "recent-messages"
+              : "manual",
             model: model.model,
             permissionMode,
             reasoningLevel,
@@ -224,8 +252,16 @@ export function QueuedMessageAssignment({
 }) {
   const { t } = useInterfaceTranslation();
   const [open, setOpen] = useState(false);
+  const [formSessionId, setFormSessionId] = useState(0);
   return (
-    <Dialog open={open} onOpenChange={setOpen} modal={false}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next && !open) setFormSessionId((session) => session + 1);
+        setOpen(next);
+      }}
+      modal={false}
+    >
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm">
           {t("Assign task model")}
@@ -236,12 +272,12 @@ export function QueuedMessageAssignment({
           <DialogTitle>{t("Model for this queued task")}</DialogTitle>
           <DialogDescription>
             {t(
-              "Save the editor to keep this assignment. The active conversation does not switch. Return to the assigned provider before this task runs.",
+              "Save the editor to keep this assignment. Choose whether this task may switch providers when it starts. Otherwise, return to its provider manually.",
             )}
           </DialogDescription>
         </DialogHeader>
         <AssignmentForm
-          key={`${edit.editSessionId}:${open}`}
+          key={`${edit.editSessionId}:${formSessionId}`}
           environmentId={environmentId}
           initial={{
             ...edit,

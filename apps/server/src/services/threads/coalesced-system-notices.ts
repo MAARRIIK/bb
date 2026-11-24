@@ -82,6 +82,7 @@ export function postCoalescedSystemNotice<State>(
           content: next.input,
           providerId: null,
           providerSessionId: null,
+          providerSwitchPolicy: "manual",
           senderThreadId: null,
           model: args.execution.model,
           reasoningLevel: args.execution.reasoningLevel,

@@ -18,6 +18,7 @@ describe("queued message provider migration", () => {
         providerId: "codex",
       });
       const input = {
+        providerSwitchPolicy: "manual" as const,
         threadId: thread.id,
         providerId: "codex",
         providerSessionId: "source-generation",
@@ -34,6 +35,12 @@ describe("queued message provider migration", () => {
         systemNotice: null,
       };
       const legacy = createQueuedThreadMessage(db, noopNotifier, input);
+      db.$client.exec(
+        "ALTER TABLE queued_thread_messages DROP COLUMN provider_switch_policy",
+      );
+      db.$client.exec(
+        "ALTER TABLE queued_thread_messages DROP COLUMN provider_switch_operation_id",
+      );
       db.$client.exec(
         "ALTER TABLE queued_thread_messages DROP COLUMN provider_session_id",
       );
@@ -55,10 +62,18 @@ describe("queued message provider migration", () => {
       const assigned = createQueuedThreadMessage(db, noopNotifier, {
         ...input,
         providerId: "pi",
+        providerSwitchPolicy: "recent-messages",
       });
       expect(getQueuedThreadMessage(db, assigned.id)?.providerId).toBe("pi");
       expect(getQueuedThreadMessage(db, assigned.id)?.providerSessionId).toBe(
         "source-generation",
+      );
+      migrate(db);
+      expect(
+        getQueuedThreadMessage(db, assigned.id)?.providerSwitchPolicy,
+      ).toBe("recent-messages");
+      expect(getQueuedThreadMessage(db, legacy.id)?.providerSwitchPolicy).toBe(
+        "manual",
       );
     } finally {
       db.$client.close();

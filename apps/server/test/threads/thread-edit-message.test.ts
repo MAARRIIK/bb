@@ -1486,6 +1486,7 @@ describe("editThreadMessage", () => {
         threadId: thread.id,
       });
       const retry = createQueuedThreadMessage(harness.db, harness.deps.hub, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: thread.providerId,
         threadId: thread.id,

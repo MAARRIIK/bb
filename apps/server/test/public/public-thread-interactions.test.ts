@@ -930,6 +930,7 @@ describe("public thread interaction routes", () => {
         threadId: thread.id,
       });
       const queuedMessage = createQueuedThreadMessage(harness.db, harness.hub, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: thread.providerId,
         threadId: thread.id,

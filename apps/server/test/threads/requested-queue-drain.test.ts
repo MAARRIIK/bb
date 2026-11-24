@@ -288,6 +288,7 @@ describe("the requested queue drain", () => {
         status: "idle",
       });
       createQueuedThreadMessage(harness.db, harness.deps.hub, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: null,
         threadId: thread.id,
@@ -365,6 +366,7 @@ describe("the requested queue drain", () => {
         senderThreadId: "thr_sender",
       });
       const system = createQueuedThreadMessage(harness.db, harness.deps.hub, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: null,
         threadId: thread.id,

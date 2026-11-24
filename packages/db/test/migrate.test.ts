@@ -2566,6 +2566,7 @@ describe("migrate", () => {
         status: "idle",
       });
       const workspaceWriteQueue = createQueuedThreadMessage(db, noopNotifier, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: regularThread.providerId,
         threadId: regularThread.id,
@@ -2582,6 +2583,7 @@ describe("migrate", () => {
         systemNotice: null,
       });
       const inheritedQueue = createQueuedThreadMessage(db, noopNotifier, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: sideChatWithHistory.providerId,
         threadId: sideChatWithHistory.id,
@@ -2596,6 +2598,7 @@ describe("migrate", () => {
         systemNotice: null,
       });
       const fallbackQueue = createQueuedThreadMessage(db, noopNotifier, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: sideChatWithoutHistory.providerId,
         threadId: sideChatWithoutHistory.id,

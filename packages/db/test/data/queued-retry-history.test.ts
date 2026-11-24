@@ -64,6 +64,7 @@ it("supersedes an unaccepted retry without repeatedly walking long request histo
       }
     })();
     const retry = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -197,6 +198,7 @@ it.each([
         }),
       );
       const retry = createQueuedThreadMessage(db, noopNotifier, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: thread.providerId,
         threadId: thread.id,

@@ -58,6 +58,7 @@ vi.mock("./QueuedMessageAssignment", () => ({
   }: {
     onSelect: (selection: {
       providerId: string;
+      providerSwitchPolicy: "recent-messages";
       model: string;
       permissionMode: "full";
       reasoningLevel: "medium";
@@ -68,6 +69,7 @@ vi.mock("./QueuedMessageAssignment", () => ({
       onClick={() =>
         onSelect({
           providerId: "pi",
+          providerSwitchPolicy: "recent-messages",
           model: "shared-model",
           permissionMode: "full",
           reasoningLevel: "medium",
@@ -1247,6 +1249,7 @@ describe("ThreadDetailPromptArea", () => {
         queuedMessageId: "qmsg_1",
         input: [{ type: "text", text: "Already queued", mentions: [] }],
         providerId: "pi",
+        providerSwitchPolicy: "recent-messages",
         model: "shared-model",
         permissionMode: "full",
         reasoningLevel: "medium",

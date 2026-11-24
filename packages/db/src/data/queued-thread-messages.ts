@@ -40,6 +40,7 @@ import type {
   PermissionMode,
   PromptInput,
   QueuedMessagePayload,
+  QueuedMessageProviderSwitchPolicy,
   QueuedMessageSystemNotice,
   StartedOnBehalfOf,
   ThreadCreateOrigin,
@@ -72,6 +73,7 @@ export interface CreateQueuedThreadMessageInput {
   threadId: string;
   providerId: string | null;
   providerSessionId: string | null;
+  providerSwitchPolicy: QueuedMessageProviderSwitchPolicy;
   content: PromptInput[];
   senderThreadId?: string | null;
   /**
@@ -119,6 +121,7 @@ export interface UpdateCoalescedQueuedThreadMessageInput {
 export interface QueuedThreadMessageExecution {
   providerId: string | null;
   providerSessionId: string | null;
+  providerSwitchPolicy: QueuedMessageProviderSwitchPolicy;
   model: string;
   reasoningLevel: string;
   permissionMode: PermissionMode;
@@ -547,6 +550,8 @@ function queuedMessageGroupingEnvelopeMatches(
     firstQueuedMessage !== null &&
     queuedMessage.providerId === firstQueuedMessage.providerId &&
     queuedMessage.providerSessionId === firstQueuedMessage.providerSessionId &&
+    queuedMessage.providerSwitchPolicy === firstQueuedMessage.providerSwitchPolicy &&
+    queuedMessage.providerSwitchOperationId === firstQueuedMessage.providerSwitchOperationId &&
     queuedMessage.senderThreadId === firstQueuedMessage.senderThreadId &&
     queuedMessage.model === firstQueuedMessage.model &&
     queuedMessage.reasoningLevel === firstQueuedMessage.reasoningLevel &&
@@ -874,6 +879,8 @@ export function createQueuedThreadMessageInTransaction(
       requestedByThreadId: input.requestedBy?.senderThreadId ?? null,
       providerId: input.providerId,
       providerSessionId: input.providerSessionId,
+      providerSwitchPolicy: input.providerSwitchPolicy,
+      providerSwitchOperationId: null,
       model: input.model,
       reasoningLevel: input.reasoningLevel,
       permissionMode: input.permissionMode,
@@ -1098,7 +1105,8 @@ export function updateQueuedThreadMessage(
           : rescheduleTransition(existing, input.reschedule.sendAt);
       if (
         input.execution !== null &&
-        input.execution.providerId !== existing.providerId &&
+        (input.execution.providerId !== existing.providerId ||
+          input.execution.providerSwitchPolicy !== existing.providerSwitchPolicy) &&
         transition?.event !== "wait.recorded"
       ) {
         transition = {
@@ -1132,6 +1140,7 @@ export function updateQueuedThreadMessage(
         .set({
           ...contentPatch,
           ...(input.execution ?? {}),
+          ...(input.execution === null ? {} : { providerSwitchOperationId: null }),
           ...schedulePatch,
           coalesceKey: null,
           coalesceState: null,
@@ -1558,6 +1567,43 @@ function claimQueuedThreadMessagesInTransaction(
 export type QueuedThreadMessageGroupEligibility = (
   rows: readonly QueuedThreadMessageRow[],
 ) => boolean;
+
+export function setClaimedQueuedMessageProviderSwitchOperation(
+  db: DbConnection,
+  input: {
+    claimed: readonly ClaimedQueuedThreadMessageRow[];
+    expectedOperationId: string | null;
+    operationId: string;
+  },
+): boolean {
+  if (input.claimed.length === 0) return false;
+  return db.transaction(
+    (tx) => {
+      const rows = input.claimed.map((claim) => {
+        const row = getQueuedThreadMessage(tx, claim.id);
+        return row !== null &&
+          row.threadId === claim.threadId &&
+          row.state === "claimed" &&
+          row.claimToken === claim.claimToken &&
+          row.providerSwitchOperationId === input.expectedOperationId
+          ? row
+          : null;
+      });
+      if (rows.some((row) => row === null)) return false;
+      tx.update(queuedThreadMessages)
+        .set({ providerSwitchOperationId: input.operationId })
+        .where(
+          inArray(
+            queuedThreadMessages.id,
+            input.claimed.map((row) => row.id),
+          ),
+        )
+        .run();
+      return true;
+    },
+    { behavior: "immediate" },
+  );
+}
 
 export type QueuedThreadMessageGroupClaimPolicy =
   | {

@@ -615,8 +615,8 @@ create/update explicitly assigns `providerId`. Cross-provider assignment require
 a model and explicit permissions, checked against the target catalog and host
 ceiling through the same resolver as provider-switch previews. Assignment does
 not switch the active chat or transfer history. UI queue editors, SDK and CLI
-share these routes. Execution edits use the assigned provider; dispatch and
-send-now still require that provider to be current. Retries and system notices
+share these routes. Execution edits use the assigned provider; manual-mode dispatch and
+send-now require that provider to be current. Retries and system notices
 cannot be reassigned. Reassignment clears obsolete failure state while retaining
 schedules and plugin holds.
 Core's queue and CLI use the same checks, including atomic claim consumption.
@@ -625,10 +625,22 @@ generation, while ordinary new tasks may run in a later session of their assigne
 provider. Retry coalescing and failed-turn recovery use the current session.
 Null preserves unknown provenance on legacy rows and the intentional current-agent
 delivery of core system notices. Grouping requires matching assignments and
-source generations. This
-does not authorize an automatic provider transition. Before extending queue
-selection, audit reviewed handoff policy, crash recovery, retries, legacy null
-handling and per-task context collection. Docs: Plugin Guide, The bb SDK
+source generations, context policy and transition operation. Queue rows expose
+`providerSwitchPolicy: "manual" | "recent-messages"`; omitted create values and
+legacy rows use manual. Explicit recent-messages consent permits the ordinary
+task to use the existing provider-switch preview/commit/recovery path after
+plugin admission and core waits. The server builds current visible-text context
+with an 8192-token budget capped at one quarter of the target catalog window;
+hidden input, reasoning, tools and attachment contents are excluded and recognized
+credentials are redacted. Reassigning without a new policy resets it to manual;
+retries, notices and unassigned legacy rows cannot opt in. A claim-owned internal
+operation ID survives recovery. Policy-only edits preserve execution parameters
+without catalog access, allowing consent to be revoked while a provider is
+disabled; dispatch still validates the target. The existing hook evaluation lock
+covers queued preparation and turn admission so concurrent limit checks see the winner; a slow
+executor can delay other hook-gated submissions. Before stabilization, audit
+that latency, durable recovery and context consent across UI, SDK and CLI.
+Docs: Plugin Guide, The bb SDK
 (`plugins/plugin-api-docs/src/surfaces.ts`).
 
 `bb.sdk.threads.queuedMessages.experimental_holdForEdit({ threadId, queuedMessageId })`

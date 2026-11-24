@@ -15,6 +15,7 @@ import {
   promptInputSchema,
   clientTurnRequestIdSchema,
   queuedMessageWaitHolderSchema,
+  queuedMessageProviderSwitchPolicySchema,
   queuedMessageWaitingOnSchema,
   queuedMessageWaitReasonSchema,
   reasoningLevelSchema,
@@ -435,6 +436,7 @@ export type SendQueuedMessageMode = z.infer<typeof sendQueuedMessageModeSchema>;
 export const createQueuedMessageRequestSchema = z.object({
   input: z.array(promptInputSchema).min(1),
   providerId: z.string().min(1).optional(),
+  providerSwitchPolicy: queuedMessageProviderSwitchPolicySchema.optional(),
   model: z.string().optional(),
   serviceTier: serviceTierSchema.optional(),
   reasoningLevel: reasoningLevelSchema.optional(),
@@ -450,6 +452,7 @@ export const updateQueuedMessageRequestSchema = z
   .object({
     expectedUpdatedAt: z.number().int().nonnegative(),
     providerId: z.string().min(1).optional(),
+    providerSwitchPolicy: queuedMessageProviderSwitchPolicySchema.optional(),
     input: z.array(promptInputSchema).min(1).optional(),
     sendAt: z.number().int().nonnegative().nullable().optional(),
     model: z.string().min(1).optional(),
@@ -462,7 +465,7 @@ export const updateQueuedMessageRequestSchema = z
       Object.values(changes).some((value) => value !== undefined),
     {
       message:
-        "Provide at least one of input, sendAt, providerId, model, reasoningLevel, permissionMode, or serviceTier",
+        "Provide at least one of input, sendAt, providerId, providerSwitchPolicy, model, reasoningLevel, permissionMode, or serviceTier",
     },
   );
 export type UpdateQueuedMessageRequest = z.infer<

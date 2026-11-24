@@ -194,6 +194,7 @@ describe("context clear dispatch races", () => {
         });
         if (source !== "new notice") {
           createQueuedThreadMessage(harness.db, harness.hub, {
+            providerSwitchPolicy: "manual",
             providerSessionId: null,
             providerId: null,
             threadId: thread.id,
