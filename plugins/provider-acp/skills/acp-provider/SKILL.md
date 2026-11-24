@@ -23,6 +23,48 @@ runs `npx -y <package>` or `uvx <package>` on the thread's host, so the host
 needs Node.js or uv. The list is cached for six hours; when the registry cannot
 be reached the saved copy is shown with the reason.
 
+## Subscription account sign-in
+
+Open Subscriptions in the sidebar, or Settings → Plugins → ACP providers →
+Open subscription connections. This page adds official Antigravity, Kimi Code,
+and cloud Qwen Code profiles. Select the connected
+machine where threads will run, add the agent, then choose Sign in. Complete
+the agent's account selection and browser/device authorization in the opened
+BB terminal. Adding the profile or opening its terminal does not confirm login,
+subscription eligibility, or quota. Verify a real model request afterward.
+
+```sh
+bb acp subscriptions list --json
+bb acp subscriptions add kimi-code
+bb acp subscriptions login kimi-code --machine <host-id>
+```
+
+Profile ids are `antigravity-acp`, `kimi-code`, and `qwen-code`; resulting
+providers are `acp-antigravity-acp`, `acp-kimi-code`, and `acp-qwen-code`.
+Antigravity requires the official `agy` CLI installed on that machine and uses
+`agy acp --login`. Kimi and Qwen require Node.js/npx and download pinned official
+packages on first use. Kimi opens its `login` command; Qwen opens its native
+interactive account selection. Choose the subscription/account route offered
+by the agent, not an API-key route. These are separate from local Ollama Qwen
+and Pi API connections. A web-chat subscription is not proof of agent access.
+
+The same operations are available through `sdk.plugins.callRpc` on
+`provider-acp`: `listSubscriptionAgents` with `{}`,
+`configureSubscriptionAgent` with `{id}`, and `startSubscriptionSignIn` with
+`{id, hostId}`. Login returns `{terminalId}`. Keep that receipt if the current
+surface cannot display the terminal; use BB's terminal list to reopen it.
+Repeated calls reuse a running sign-in terminal for that profile and machine;
+after it exits, the next call starts a new terminal. No token or password is
+returned through RPC or CLI output.
+
+Profile additions preserve existing custom agents and never replace an existing
+entry with the same id. A changed command, arguments, environment or cwd requires
+its own sign-in procedure; the subscription shortcut is disabled for it. Login
+credentials remain in the native agent's storage on the chosen machine. No new
+credentials are copied between machines. GLM subscription support through ZCode
+needs a separately verified adapter; the registry's key-based GLM adapter is
+not an account-login substitute.
+
 To hide a detected ACP agent, use `bb provider disable acp-opencode`, or Disable
 on Settings → Providers. Restore it with `bb provider enable acp-opencode`.
 This leaves other ACP agents and the host CLI intact. Disabled agents skip

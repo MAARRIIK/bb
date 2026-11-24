@@ -60,6 +60,11 @@ export const customAcpAgentSchema = z
   .strict();
 export type CustomAcpAgent = z.infer<typeof customAcpAgentSchema>;
 
+export interface CustomAcpAgentSettings {
+  read(): Promise<string>;
+  update(change: (value: string) => string): Promise<void>;
+}
+
 const CUSTOM_AGENT_GLYPH = "Toolbox";
 
 export function customAcpAgentDefinition(

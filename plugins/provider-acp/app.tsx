@@ -1,3 +1,7 @@
+import {
+  SubscriptionConnections,
+  SubscriptionSettingsEntry,
+} from "./src/subscription-connections.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   definePluginApp,
@@ -234,6 +238,17 @@ function AcpRegistrySettings() {
 }
 
 export default definePluginApp((app) => {
+  app.slots.settingsSection({
+    id: "subscriptions",
+    component: SubscriptionSettingsEntry,
+  });
+  app.slots.navPanel({
+    id: "subscriptions",
+    title: "Subscriptions",
+    icon: "LogIn",
+    path: "subscriptions",
+    component: SubscriptionConnections,
+  });
   app.slots.settingsSection({
     id: "registry",
     component: AcpRegistrySettings,

@@ -47,7 +47,7 @@ function registry(
 describe("ACP agent registry settings", () => {
   it("lists agents with the action each status allows and filters by search", async () => {
     const slot = renderSlot(
-      app.settingsSections[0]!,
+      app.settingsSections.find((section) => section.id === "registry")!,
       {},
       {
         rpc: {
@@ -104,7 +104,7 @@ describe("ACP agent registry settings", () => {
       ]);
     });
     const slot = renderSlot(
-      app.settingsSections[0]!,
+      app.settingsSections.find((section) => section.id === "registry")!,
       {},
       {
         rpc: {
@@ -138,7 +138,7 @@ describe("ACP agent registry settings", () => {
 
   it("says when it is showing a saved copy because the registry could not be reached", async () => {
     const slot = renderSlot(
-      app.settingsSections[0]!,
+      app.settingsSections.find((section) => section.id === "registry")!,
       {},
       {
         rpc: {

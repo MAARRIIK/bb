@@ -1,3 +1,4 @@
+import { registerSubscriptionAgents } from "./src/subscription-agents.js";
 import { registerUsageSource } from "./src/usage-source.js";
 import type {
   BbPluginApi,
@@ -5,7 +6,10 @@ import type {
 } from "@get-bb/plugin-sdk";
 import type { AcpAgentProbe } from "@get-bb/plugin-sdk/provider-bridge/acp";
 import { z } from "zod";
-import { type AcpAgentDefinition } from "./src/agents.js";
+import {
+  type AcpAgentDefinition,
+  type CustomAcpAgentSettings,
+} from "./src/agents.js";
 import { resolveConfiguredAcpAgents } from "./src/configured-agents.js";
 import { acpHostContract } from "./src/contract.js";
 import { acpProviderDeclaration } from "./src/declaration.js";
@@ -77,12 +81,26 @@ export default async function acpProvidersPlugin(
     },
   });
 
+  let pendingSettingsUpdate = Promise.resolve();
+  const customAgents: CustomAcpAgentSettings = {
+    read: async () => (await settings.get()).customAgents,
+    update(change) {
+      const update = pendingSettingsUpdate.then(async () => {
+        const previous = (await settings.get()).customAgents;
+        const next = change(previous);
+        if (next !== previous)
+          await settings.experimental_set({ customAgents: next });
+      });
+      pendingSettingsUpdate = update.catch(() => {});
+      return update;
+    },
+  };
+  const subscriptionCommands = registerSubscriptionAgents({ bb, customAgents });
+
   registerAcpRegistry({
     bb,
-    readCustomAgents: async () => (await settings.get()).customAgents,
-    writeCustomAgents: async (value) => {
-      await settings.experimental_set({ customAgents: value });
-    },
+    customAgents,
+    subscriptionCommands,
     reservedProviderIds: new Set([
       ...KNOWN_ACP_AGENTS.map((agent) => agent.id),
       ...REGISTRY_PROVIDER_IDS_OF_SHIPPED_AGENTS,

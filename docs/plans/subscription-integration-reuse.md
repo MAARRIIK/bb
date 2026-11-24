@@ -36,16 +36,18 @@ systematic-debugging и using-git-worktrees. Ориентир распростр
 
 ## Вход в модели без API-ключа
 
-| Решение | Что уже готово | Что делать в BB |
-| --- | --- | --- |
-| Google Antigravity | Официальный Google OAuth, повторное использование локального входа, ACP | Использовать существующий `provider-acp`; основной кандидат для подписки Google |
-| Gemini CLI | Запись `gemini` в ACP registry и готовый транспорт | Потребительские Pro/Ultra больше не обслуживаются этим login; для данного пользователя выбрать Antigravity |
-| Codex | Отдельный штатный BB-плагин и вход Codex | Сохранить уже используемый путь, не заменять Pi-обёрткой |
-| Claude Code | Отдельный штатный BB-плагин и авторизация CLI | Проверять штатный путь Claude отдельно от Pi и от API |
-| GitHub Copilot CLI | Запись `github-copilot-cli` в официальном ACP registry | Подключать существующим ACP-путём при наличии доступа Copilot |
-| Kimi Code | Официальный `kimi-code` в ACP registry | Проверить штатный login и условия аккаунта; не путать с ключом Moonshot API |
-| Pi | Подписочные входы для ряда провайдеров, API и локальные модели | Оставить для поддерживаемых входов и Qwen/Ollama; Gemini в установленной версии настроен через API |
-| OpenCode | ACP-путь в BB, подключения и собственная система плагинов | Переиспользовать, если нужного входа нет в более прямом штатном агенте |
+| Решение            | Что уже готово                                                           | Что делать в BB                                                                                            |
+| ------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Google Antigravity | Официальный Google OAuth, повторное использование локального входа, ACP  | Использовать существующий `provider-acp`; основной кандидат для подписки Google                            |
+| Gemini CLI         | Запись `gemini` в ACP registry и готовый транспорт                       | Потребительские Pro/Ultra больше не обслуживаются этим login; для данного пользователя выбрать Antigravity |
+| Codex              | Отдельный штатный BB-плагин и вход Codex                                 | Сохранить уже используемый путь, не заменять Pi-обёрткой                                                   |
+| Claude Code        | Отдельный штатный BB-плагин и авторизация CLI                            | Проверять штатный путь Claude отдельно от Pi и от API                                                      |
+| GitHub Copilot CLI | Запись `github-copilot-cli` в официальном ACP registry                   | Подключать существующим ACP-путём при наличии доступа Copilot                                              |
+| Kimi Code          | Официальный `kimi login` и `kimi acp`, запись `kimi-code` в ACP registry | Переиспользовать OAuth CLI и проверить доступ Kimi Code аккаунта; не путать с ключом Moonshot API          |
+| Qwen Code          | Официальный OAuth аккаунта Qwen и ACP                                    | Использовать Plus/Pro от chat.qwen.ai через штатный `/auth`; не смешивать с ключами QwenCloud/ModelStudio  |
+| GLM / ZCode        | Официальный browser login и сторонний `zcode-acp-server`                 | Следующий кандидат после проверки совместимости конкретных версий; пока не готовое подключение BB          |
+| Pi                 | Подписочные входы для ряда провайдеров, API и локальные модели           | Оставить для поддерживаемых входов и Qwen/Ollama; Gemini в установленной версии настроен через API         |
+| OpenCode           | ACP-путь в BB, подключения и собственная система плагинов                | Переиспользовать, если нужного входа нет в более прямом штатном агенте                                     |
 
 Google прямо описывает команду `agy acp`, передачу JSON-RPC по stdin/stdout и
 повторное использование настроек и входа агента внутри стороннего редактора.
@@ -72,6 +74,79 @@ API-баланс, подписка веб-чата и доступ к CLI дол
 Установленная документация Pi также отдельно указывает, что Claude через
 сторонний harness может расходовать платную extra usage; нельзя автоматически
 обещать расходование включённых лимитов подписки через любую обёртку.
+
+## Kimi, облачный Qwen и кандидат GLM
+
+Для Kimi и Qwen отдельный auth-плагин не требуется: официальные CLI уже имеют
+вход в аккаунт и ACP. Проверены их документация и исходники; реальный login,
+модельный ответ и расходование квоты пользователя этим исследованием не проверены.
+
+**Kimi Code:** `kimi login` выполняет OAuth device-code flow RFC 8628 без запуска
+TUI: печатает verification URL и user code, ожидает подтверждения в браузере и
+сохраняет токен там же, где TUI `/login`. Затем `kimi acp` использует локальный
+вход и общается с IDE через JSON-RPC stdin/stdout. Команда login завершается с
+кодом `0` при успехе и `1` при отмене или ошибке; флагов у неё нет.
+[Официальная справка команд](https://github.com/MoonshotAI/kimi-code/blob/main/docs/en/reference/kimi-command.md).
+В исследованном registry: `@moonshot-ai/kimi-code@2.7.3`, аргумент `acp`.
+Нужен доступ именно Kimi Code; членство и лимиты необходимо сверить с аккаунтом,
+а Moonshot API с оплатой по использованию — отдельный способ подключения.
+[Условия членства Kimi Code](https://www.kimi.ai/help/kimi-code/membership-guide).
+
+**Qwen Code:** запустить `qwen`, открыть `/auth`, выбрать **Qwen Account with
+Subscription** и завершить browser login тем же аккаунтом, на котором оформлен
+**Plus или Pro от chat.qwen.ai**. Этот путь не требует ручного API-ключа.
+QwenCloud Token Plan и Alibaba ModelStudio Coding/Token Plan — другие продукты;
+их наличие не заменяет права Qwen Account with Subscription. В исследованном
+registry: `@qwen-code/qwen-code@0.28.4`, аргументы `--acp --experimental-skills`.
+[Официальная авторизация Qwen Code](https://github.com/QwenLM/qwen-code/blob/main/docs/users/configuration/auth.md).
+
+**GLM / ZCode:** официальный CLI поддерживает
+`zcode login [zai|bigmodel] [--no-browser]`. Для глобального аккаунта подходит
+`zcode login zai` (также значение по умолчанию), для BigModel —
+`zcode login bigmodel`. Команда открывает браузер и печатает запасную ссылку;
+`--no-browser` оставляет только ссылку. Эти команды можно представить как
+терминальный вход BB без сбора пароля или ключа в чате.
+[Исходник команды login](https://github.com/zai-org/ZCode/blob/main/apps/zcode-cli/packages/cli/src/login-command.ts),
+[официальный контракт OAuth](https://github.com/zai-org/ZCode/blob/main/apps/zcode-cli/docs/design/v2/auth-login.md).
+Нужна **GLM Coding Plan**, а не произвольная подписка веб-чата Z.ai. Текущий
+desktop использует единый Z.ai login: для mainland China — Z.ai China с номером
+BigModel; регион выбирается на экране входа. Это интерфейс desktop, его не следует
+путать с явными аргументами `zai|bigmodel` CLI.
+[Официальные способы подключения и права плана](https://zcode.z.ai/en/docs/configuration).
+
+Готовый community adapter
+[`zcode-acp-server@0.93.1`](https://github.com/william0wang/zcode-acp/blob/main/package.json)
+запускает настоящий `zcode app-server --stdio`. Он использует сохранённый OAuth
+ZCode и получает краткоживущий Project Access Token; пользователю не требуется
+извлекать API-ключ. Если официальный ZCode ещё не создал служебный `zcode-api-key`
+в аккаунте, adapter просит сначала открыть ZCode, сам этот объект не создаёт.
+[Архитектура и запуск](https://github.com/william0wang/zcode-acp/blob/main/README.md),
+[реализация обмена токенов](https://github.com/william0wang/zcode-acp/blob/main/src/config/project-token.ts).
+Его ACP `authenticate` только проверяет наличие credentials и не открывает login.
+Команда `zcode-acp setup --provider zai|bigmodel` запрашивает Coding Plan API key;
+для сценария входа по подписке её не использовать.
+[Проверка authenticate](https://github.com/william0wang/zcode-acp/blob/main/src/handlers/authenticate.ts),
+[реализация setup](https://github.com/william0wang/zcode-acp/blob/main/src/account-setup.ts).
+Другой готовый [`glm-acp-agent`](https://github.com/stefandevo/glm-acp-agent/blob/main/README.md)
+также требует Coding Plan API key и не решает задачу browser login.
+
+Перед добавлением GLM как четвёртого managed profile нужна отдельная QA версий:
+официальный ZCode обновился до **4.0.0 23 ноября 2026 года**, а OAuth-совместимость
+adapter описана относительно ZCode 3.17.x. Нативный ACP в исследованном дереве
+ZCode не найден; adapter обслуживает внутренний app-server и зависит от его
+контрактов и credential store. Наличие кода не доказывает совместимость v4.
+Manifest `@zcode/cli` имеет `private: true`: не предлагать его как опубликованный
+npm-пакет. Использовать официальный standalone distribution либо CLI из
+установленного desktop; adapter умеет искать macOS bundle по пути
+`/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs`.
+[Версия ZCode и способы запуска](https://github.com/zai-org/ZCode/blob/main/README.md),
+[manifest CLI](https://github.com/zai-org/ZCode/blob/main/apps/zcode-cli/packages/cli/package.json).
+Bridge требует Node >=22; для текущего source CLI указаны Node **24.14.0** и
+pnpm **10.33.2**. SEA содержит Node; заявлены targets macOS/Linux/Windows на
+arm64/x64, что само по себе не подтверждает запуск на каждой платформе.
+[Официальный quickstart](https://github.com/zai-org/ZCode/blob/main/apps/zcode-cli/docs/usage/01-quickstart.md).
+В рамках исследования не выполнялись даже проверки запуска этих CLI без аккаунта,
+установка, browser login или модельный запрос; готовность GLM в BB не заявляется.
 
 ## Точный зазор Antigravity в текущем BB
 
@@ -121,12 +196,12 @@ Antigravity ACP он не выбран основным путём. Он пол�
 
 ## Другие распространённые готовые решения
 
-| Проект | Что предоставляет | Применимость |
-| --- | --- | --- |
-| [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) | Локальный gateway с OAuth-входами, несколькими аккаунтами и совместимыми OpenAI/Gemini/Claude endpoints | Сильный кандидат, если понадобится общий локальный endpoint для разных клиентов; это готовый сервис, а не BB-плагин. Дополнительный сервер и его токены пока не нужны для прямого Antigravity ACP |
-| [Antigravity Manager / Tools](https://github.com/lbjlaq/Antigravity-Manager) | Desktop-панель Google OAuth, аккаунты, квоты, локальный proxy и маршрутизация | Полезно сравнить UX аккаунтов; не заменяет BB. Автоматические подмены моделей из его настроек нельзя переносить в наш сценарий без явного выбора пользователя |
-| [opencode-gemini-auth](https://github.com/jenslys/opencode-gemini-auth) | Google OAuth для OpenCode | Текущий README прямо исключает личные consumer-планы после отключения Gemini CLI; для годовой Pro-подписки не выбран |
-| [OmO / Oh My OpenAgent](https://github.com/code-yeongyu/oh-my-openagent) | Отдельный harness на форке Pi, подписочные login, память, skills и оркестрация | Уже гораздо больше, чем auth-плагин. Сравнить отдельные решения и проверять совместимость; целиком не внедрять поверх BB, особенно автоматический запуск множества агентов |
+| Проект                                                                       | Что предоставляет                                                                                       | Применимость                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)                  | Локальный gateway с OAuth-входами, несколькими аккаунтами и совместимыми OpenAI/Gemini/Claude endpoints | Сильный кандидат, если понадобится общий локальный endpoint для разных клиентов; это готовый сервис, а не BB-плагин. Дополнительный сервер и его токены пока не нужны для прямого Antigravity ACP |
+| [Antigravity Manager / Tools](https://github.com/lbjlaq/Antigravity-Manager) | Desktop-панель Google OAuth, аккаунты, квоты, локальный proxy и маршрутизация                           | Полезно сравнить UX аккаунтов; не заменяет BB. Автоматические подмены моделей из его настроек нельзя переносить в наш сценарий без явного выбора пользователя                                     |
+| [opencode-gemini-auth](https://github.com/jenslys/opencode-gemini-auth)      | Google OAuth для OpenCode                                                                               | Текущий README прямо исключает личные consumer-планы после отключения Gemini CLI; для годовой Pro-подписки не выбран                                                                              |
+| [OmO / Oh My OpenAgent](https://github.com/code-yeongyu/oh-my-openagent)     | Отдельный harness на форке Pi, подписочные login, память, skills и оркестрация                          | Уже гораздо больше, чем auth-плагин. Сравнить отдельные решения и проверять совместимость; целиком не внедрять поверх BB, особенно автоматический запуск множества агентов                        |
 
 Эти проекты изучены по первичным README и документации. Рекламные обещания моделей,
 цен и «бесплатности» не приняты как доказательство прав аккаунта или тарифа.
@@ -135,29 +210,29 @@ Antigravity ACP он не выбран основным путём. Он пол�
 
 ## Что уже переиспользовать для остального roadmap
 
-| Потребность | Готовая основа в BB | Остаток работы |
-| --- | --- | --- |
-| Квоты и остаток | Provider usage, контракты источников, Codex/Claude/OpenCode Go collectors | Добавлять только проверенные источники нового агента; не угадывать квоту по названию модели |
-| Несколько аккаунтов | Account Pooler | Сейчас Claude/Codex; не выдавать за универсальный Google-пул |
-| Ожидание лимита и повтор | Provider retry и существующая очередь | Сохранить текущую привязку к реальному провайдеру/аккаунту и ручной выбор пользователя |
-| Worktree и параллельные папки | Worktree environment provider, Project checkout, Conductor layout | Проверить совместную работу и ограничения; базовую Git-обвязку не писать снова |
-| Память между моделями | Memory | Переиспользовать существующее хранилище; отдельная проверка переносимого контекста |
-| Задачи и устойчивые цепочки | Tasks, Workflows, Automations, Concurrency limit | Собрать нужный пользовательский сценарий на существующих контрактах |
-| Просмотр кода и Git | File Editor, Git, GitHub, PR status | Доработать локализацию и UX, сохранить текущие поверхности CLI/SDK |
-| Удалённый доступ и телефон | bb Connect, Tailscale, Push notifications | Реальные VPS/iOS/Android остаются отдельными проверками |
-| Настоящая QA | verify-bb, test-audit, debugging guide | Продолжать изолированные проверки, не использовать рабочую IDE как временный стенд |
+| Потребность                   | Готовая основа в BB                                                       | Остаток работы                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Квоты и остаток               | Provider usage, контракты источников, Codex/Claude/OpenCode Go collectors | Добавлять только проверенные источники нового агента; не угадывать квоту по названию модели |
+| Несколько аккаунтов           | Account Pooler                                                            | Сейчас Claude/Codex; не выдавать за универсальный Google-пул                                |
+| Ожидание лимита и повтор      | Provider retry и существующая очередь                                     | Сохранить текущую привязку к реальному провайдеру/аккаунту и ручной выбор пользователя      |
+| Worktree и параллельные папки | Worktree environment provider, Project checkout, Conductor layout         | Проверить совместную работу и ограничения; базовую Git-обвязку не писать снова              |
+| Память между моделями         | Memory                                                                    | Переиспользовать существующее хранилище; отдельная проверка переносимого контекста          |
+| Задачи и устойчивые цепочки   | Tasks, Workflows, Automations, Concurrency limit                          | Собрать нужный пользовательский сценарий на существующих контрактах                         |
+| Просмотр кода и Git           | File Editor, Git, GitHub, PR status                                       | Доработать локализацию и UX, сохранить текущие поверхности CLI/SDK                          |
+| Удалённый доступ и телефон    | bb Connect, Tailscale, Push notifications                                 | Реальные VPS/iOS/Android остаются отдельными проверками                                     |
+| Настоящая QA                  | verify-bb, test-audit, debugging guide                                    | Продолжать изолированные проверки, не использовать рабочую IDE как временный стенд          |
 
 ## Какие skills полезны
 
-| Набор | Польза для форка | Решение |
-| --- | --- | --- |
-| Локальные acp-provider / codex-provider / claude-code-provider / pi-provider | Знают реальные команды и ограничения BB | Использовать первыми |
-| Локальные verify-bb / test-audit / deslop | Реальная QA и требования репозитория | Уже применяются; не дублировать общей методологией |
-| [Vercel skills / find-skills](https://github.com/vercel-labs/skills) | Поиск готовых skills, версии и lock-файл | Использовать как каталог перед созданием нового skill |
-| [Vercel agent-skills](https://github.com/vercel-labs/agent-skills) | React performance, web design review | Брать подходящие React-рекомендации; BB не является Next.js, RSC-правила не применять вслепую |
-| [Anthropic skills](https://github.com/anthropics/skills) | Frontend design, документы, PDF, spreadsheets | Дизайн сверять с выбранным оформлением Codex и токенами BB; документные возможности уже есть среди доступных skills |
-| [Superpowers](https://github.com/obra/superpowers) | Диагностика, планирование, worktree и завершение веток | Отдельные приёмы полезны; полный пакет не включать поверх правил BB и запрета пользователя на дополнительных агентов |
-| Playwright / dev-browser и локальная browser automation | Проверка UI и браузерных сценариев | Переиспользовать имеющиеся инструменты; не писать ещё один браузерный исполнитель |
+| Набор                                                                        | Польза для форка                                       | Решение                                                                                                              |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Локальные acp-provider / codex-provider / claude-code-provider / pi-provider | Знают реальные команды и ограничения BB                | Использовать первыми                                                                                                 |
+| Локальные verify-bb / test-audit / deslop                                    | Реальная QA и требования репозитория                   | Уже применяются; не дублировать общей методологией                                                                   |
+| [Vercel skills / find-skills](https://github.com/vercel-labs/skills)         | Поиск готовых skills, версии и lock-файл               | Использовать как каталог перед созданием нового skill                                                                |
+| [Vercel agent-skills](https://github.com/vercel-labs/agent-skills)           | React performance, web design review                   | Брать подходящие React-рекомендации; BB не является Next.js, RSC-правила не применять вслепую                        |
+| [Anthropic skills](https://github.com/anthropics/skills)                     | Frontend design, документы, PDF, spreadsheets          | Дизайн сверять с выбранным оформлением Codex и токенами BB; документные возможности уже есть среди доступных skills  |
+| [Superpowers](https://github.com/obra/superpowers)                           | Диагностика, планирование, worktree и завершение веток | Отдельные приёмы полезны; полный пакет не включать поверх правил BB и запрета пользователя на дополнительных агентов |
+| Playwright / dev-browser и локальная browser automation                      | Проверка UI и браузерных сценариев                     | Переиспользовать имеющиеся инструменты; не писать ещё один браузерный исполнитель                                    |
 
 Skill — инструкции и вспомогательные ресурсы. Он не выдаёт подписку, не добавляет
 OAuth на стороне сервиса и не заменяет работающего провайдера.
@@ -179,3 +254,20 @@ OAuth на стороне сервиса и не заменяет работаю
 manifest локальных плагинов, снимок registry и `bb-existing-registry-proof.json`.
 Исследование не меняло запущенную IDE, не добавляло аккаунты и не запускало
 сторонние установщики или skills.
+
+## Дополнительные готовые панели
+
+[Agent Traces](https://github.com/charpeni/bb-plugins/tree/main/plugins/agent-traces)
+версии 1.0.0 предлагает страницу Traces, панель Trace и Trace this turn: live
+waterfall, вложенные делегирования и дочерние диалоги, вывод и ошибки, экспорт
+HTML/OTLP. Его `trace.ts` понимает `delegation` и `parentToolCallId`, которые уже
+формирует наш Codex provider. Это кандидат для видимости субагентов перед
+разработкой собственной панели; соответствие кода не заменяет настоящую QA.
+Выбор моделей, остановка и увеличение параллельности им не реализованы.
+
+[Antigravity Usage](https://github.com/defacid/bb-antigravity-usage) версии 0.1.7
+добавляет weekly quota в Provider Usage после native login. В исходнике provider
+жёстко задан как `acp-antigravity`, тогда как наш профиль использует
+`acp-antigravity-acp`; до подключения нужно согласовать ID и проверить модель
+аккаунтов (`accountKey: null`). Он не устанавливает ACP-провайдера и не заменяет
+авторизацию. Ни один из этих внешних плагинов пока не установлен в рабочую IDE.
