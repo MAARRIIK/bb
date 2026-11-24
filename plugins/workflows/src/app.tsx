@@ -346,7 +346,14 @@ function buildSharedWorkflowView(run: WorkflowRunView): SharedWorkflowView {
       call.startedAt !== null && call.finishedAt !== null
         ? Math.max(0, call.finishedAt - call.startedAt)
         : undefined,
-    metadata: [call.provider, shortModelName(call.model), call.reasoningLevel],
+    metadata: [
+      call.provider,
+      shortModelName(call.model),
+      call.reasoningLevel,
+      call.workspace.type === "shared"
+        ? "Shared workspace"
+        : `Worktree · ${call.workspace.baseBranch}`,
+    ],
   }));
   return {
     callsById,
@@ -968,6 +975,14 @@ function WorkflowRunPanelLoaded({
           settled={!isRunActive(run)}
           className="mt-3"
         />
+        {[...shared.callsById.values()].some(
+          (call) => call.workspace.type === "worktree",
+        ) ? (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Worktrees are kept until you delete them in BB. Review and merge
+            their changes separately.
+          </p>
+        ) : null}
         {stopError === null ? null : (
           <div
             role="alert"

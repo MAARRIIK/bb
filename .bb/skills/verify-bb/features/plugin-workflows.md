@@ -20,16 +20,34 @@ SKILL.md. Inspect nested `--help` before selecting flags and IDs.
 
 ## Feature recipes
 
-| Feature | Drive | Observable success |
-| --- | --- | --- |
-| Validate and inputs | Validate/run scripts by saved name, workspace file and inline source with literal meta and schema-valid args. | All entry points resolve the intended script and reject malformed metadata/arguments before dispatch. |
-| Agent steps and structured output | Run sequential agent steps with output schemas and inspect parent/worker links. | Outputs satisfy the declared contract or show a specific validation failure; children belong to the run. |
-| Parallel, pipeline, barriers | Run a small fan-out and pipeline with phase barriers and dependencies. | Independent work overlaps while dependencies receive only completed required results. |
-| Live progress and completion | Emit the exact returned preview directive once; inspect phase/call cards, status and bounded history pages. | UI and CLI agree on durable progress and final completion; child links open the correct threads. |
-| Stop and timeout | Stop a running fixture and exercise a short configured timeout. | Run and active children settle under the documented cancellation policy without orphaned work. |
-| Resume and cache | Resume a terminal run unchanged, then edit a later step and resume again. | Only the causally safe unchanged prefix is reused; changed/downstream work runs live with correct inputs. |
-| Failures, limits, retention | Trigger a child failure and configured limits; inspect history and hidden-worker retention. | Run failure is durable and inspectable; limits prevent uncontrolled dispatch and retained records remain coherent. |
-| Sandbox and tool boundary | Attempt unsupported filesystem/network/clock/shell access in workflow JS and a permitted agent tool call. | Script sandbox rejects unsupported direct capabilities; supported work occurs through declared agent steps. |
+| Feature                           | Drive                                                                                                         | Observable success                                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Validate and inputs               | Validate/run scripts by saved name, workspace file and inline source with literal meta and schema-valid args. | All entry points resolve the intended script and reject malformed metadata/arguments before dispatch.              |
+| Agent steps and structured output | Run sequential agent steps with output schemas and inspect parent/worker links.                               | Outputs satisfy the declared contract or show a specific validation failure; children belong to the run.           |
+| Parallel, pipeline, barriers      | Run a small fan-out and pipeline with phase barriers and dependencies.                                        | Independent work overlaps while dependencies receive only completed required results.                              |
+| Live progress and completion      | Emit the exact returned preview directive once; inspect phase/call cards, status and bounded history pages.   | UI and CLI agree on durable progress and final completion; child links open the correct threads.                   |
+| Stop and timeout                  | Stop a running fixture and exercise a short configured timeout.                                               | Run and active children settle under the documented cancellation policy without orphaned work.                     |
+| Resume and cache                  | Resume a terminal run unchanged, then edit a later step and resume again.                                     | Only the causally safe unchanged prefix is reused; changed/downstream work runs live with correct inputs.          |
+| Failures, limits, retention       | Trigger a child failure and configured limits; inspect history and hidden-worker retention.                   | Run failure is durable and inspectable; limits prevent uncontrolled dispatch and retained records remain coherent. |
+| Sandbox and tool boundary         | Attempt unsupported filesystem/network/clock/shell access in workflow JS and a permitted agent tool call.     | Script sandbox rejects unsupported direct capabilities; supported work occurs through declared agent steps.        |
+
+## Independent worker worktrees
+
+In isolated QA, run a fan-out with explicit provider/model/reasoning tuples and
+`workspace: {type: "worktree", baseBranch: "refs/heads/main"}`. Require distinct
+worker environment IDs and paths on the origin machine, user-held workspaces,
+and unique marker files absent from the origin. Check UI workspace labels and
+worker navigation, CLI history and RPC view. Use more than three concurrent
+workers where machine/provider capacity permits; verify limits separately.
+
+Wait for worker archival/maintenance and confirm the user-held workspaces and
+changes remain. Resume unchanged to reuse results without creating workspaces;
+change workspace mode or branch to require live work. Invalid inputs or failed
+provisioning must fail without falling back to the origin folder. Stop an active
+fixture and confirm no new worker starts after cancellation; retain its already
+created workspace. Legacy stored options default to shared and retain cache keys.
+Clean up only the run's explicit environments and Git fixtures via normal core
+operations. Real model work and synthetic harness tests are separate evidence.
 
 ## Evidence and cleanup
 

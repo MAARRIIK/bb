@@ -1,3 +1,5 @@
+import type { WorkflowWorkspace } from "./worker-workspace.js";
+
 type JsonPrimitive = string | number | boolean | null;
 export type JsonValue =
   | JsonPrimitive
@@ -14,6 +16,7 @@ interface ExplicitModelSelection {
 }
 
 export interface WorkflowAgentOptions {
+  workspace: WorkflowWorkspace;
   selection: ExplicitModelSelection | null;
   outputSchema: JsonSchema | null;
   title: string | null;

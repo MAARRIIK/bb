@@ -128,6 +128,7 @@ describe("workflow durable data", () => {
         phase: null,
         outputSchema: null,
         selection: null,
+        workspace: { type: "shared" },
       },
       selection: resolvedSelection,
       replay: null,
@@ -201,6 +202,7 @@ describe("workflow durable data", () => {
         phase: null,
         outputSchema: null,
         selection: null,
+        workspace: { type: "shared" },
       },
       selection: resolvedSelection,
       replay: null,
@@ -234,6 +236,7 @@ describe("workflow durable data", () => {
           phase: null,
           outputSchema: null,
           selection: null,
+          workspace: { type: "shared" },
         },
         selection: resolvedSelection,
         replay: null,
@@ -297,6 +300,7 @@ describe("workflow durable data", () => {
       prompt: "inspect",
       options: {
         selection: null,
+        workspace: { type: "shared" },
         outputSchema: null,
         title: null,
         phase: null,
@@ -311,10 +315,18 @@ describe("workflow durable data", () => {
       error: null,
     });
 
+    expect(
+      JSON.parse(getCall(db, run.id, 0)?.optionsJson ?? "null"),
+    ).toMatchObject({
+      selection: null,
+      outputSchema: null,
+      title: null,
+      phase: null,
+      workspace: { type: "shared" },
+    });
     expect(getCall(db, run.id, 0)).toMatchObject({
       cacheKey: "cache",
-      optionsJson:
-        '{"selection":null,"outputSchema":null,"title":null,"phase":null}',
+
       resolvedProvider: "codex",
       resolvedModel: "gpt-test",
       resolvedReasoningLevel: "medium",
@@ -335,6 +347,7 @@ describe("workflow durable data", () => {
       prompt: "inspect",
       options: {
         selection: null,
+        workspace: { type: "shared" },
         outputSchema: null,
         title: null,
         phase: null,
@@ -378,6 +391,7 @@ describe("workflow durable data", () => {
         prompt: `inspect ${callIndex}`,
         options: {
           selection: null,
+          workspace: { type: "shared" },
           outputSchema: null,
           title: null,
           phase: null,
@@ -434,6 +448,7 @@ describe("workflow durable data", () => {
       prompt: "inspect",
       options: {
         selection: null,
+        workspace: { type: "shared" },
         outputSchema: null,
         title: null,
         phase: null,
@@ -463,6 +478,7 @@ describe("workflow durable data", () => {
       prompt: "return null",
       options: {
         selection: null,
+        workspace: { type: "shared" },
         outputSchema: null,
         title: null,
         phase: null,
@@ -489,6 +505,7 @@ describe("workflow durable data", () => {
       prompt: "answer",
       options: {
         selection: null,
+        workspace: { type: "shared" },
         outputSchema: { type: "object" },
         title: null,
         phase: null,
@@ -527,6 +544,7 @@ describe("workflow durable data", () => {
       prompt: "answer",
       options: {
         selection: null,
+        workspace: { type: "shared" },
         outputSchema: { type: "number" },
         title: null,
         phase: null,
@@ -592,6 +610,7 @@ describe("workflow durable data", () => {
       prompt: "slow",
       options: {
         selection: null,
+        workspace: { type: "shared" },
         outputSchema: null,
         title: null,
         phase: null,
@@ -641,6 +660,7 @@ describe("workflow durable data", () => {
           prompt: "state matrix",
           options: {
             selection: null,
+            workspace: { type: "shared" },
             outputSchema: null,
             title: null,
             phase: null,
@@ -667,6 +687,7 @@ describe("workflow durable data", () => {
         prompt: "state matrix",
         options: {
           selection: null,
+          workspace: { type: "shared" },
           outputSchema: null,
           title: null,
           phase: null,

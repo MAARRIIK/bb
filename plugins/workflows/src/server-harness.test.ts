@@ -1,4 +1,5 @@
-import type { PluginThreadSettledEvent } from "@get-bb/plugin-sdk";
+import { z } from "zod";
+import type { BbPluginApi, PluginThreadSettledEvent } from "@get-bb/plugin-sdk";
 import {
   createFakePluginHost,
   makePluginAgentConfigurationContext,
@@ -14,6 +15,36 @@ import {
 } from "./data.js";
 import plugin from "./server.js";
 import { createWorkflowService } from "./service.js";
+
+function workflowEnvironment(
+  id: string,
+): Awaited<ReturnType<BbPluginApi["sdk"]["environments"]["get"]>> {
+  return {
+    id,
+    name: id,
+    projectId: "project-test",
+    hostId: "host-origin",
+    path: "/workspaces/" + id,
+    isGitRepo: true,
+    isWorktree: true,
+    branchName: "worker-branch",
+    baseBranch: "main",
+    defaultBranch: "main",
+    mergeBaseBranch: "main",
+    status: "ready",
+    statusMessage: null,
+    environmentProviderId: "git-worktree",
+    lifecycle: { phase: "active", retireAt: null, teardown: null },
+    hostLifecycle: "active",
+    environmentProviderSelection: null,
+    environmentProviderInstanceKey: id,
+    managed: true,
+    heldBy: "user",
+    workspaceProvisionType: "managed-worktree",
+    createdAt: 0,
+    updatedAt: 0,
+  };
+}
 
 async function eventually(
   assertion: () => void | Promise<void>,
@@ -1030,6 +1061,15 @@ describe("workflow resume cache integration", () => {
     hosts.push(harness);
     const db = bb.storage.database();
     bb.storage.migrate(db, migrations);
+    harness.sdk.stub("environments.get", () =>
+      Promise.resolve(workflowEnvironment("environment-1")),
+    );
+    let createdWorkspaces = 0;
+    harness.sdk.stub("environments.experimental_create", () =>
+      Promise.resolve(
+        workflowEnvironment(`cache-workspace-${++createdWorkspaces}`),
+      ),
+    );
     const service = createWorkflowService(bb, db);
 
     async function start(source: string, resumedFromRunId: string | null) {
@@ -1065,6 +1105,55 @@ describe("workflow resume cache integration", () => {
       },
     };
   }
+
+  it("does not replay a successful call after changing workspace mode or base branch", async () => {
+    const test = setup();
+    const controller = new AbortController();
+    const worker = test.service.runWorker(controller.signal);
+    try {
+      const shared = await test.start(
+        workflowSource(`return await agent("same edit");`),
+        null,
+      );
+      await eventually(() => expect(test.childCount()).toBe(1));
+      await test.finish("cache-child-1", "shared result");
+      await eventually(() =>
+        expect(getRunRequired(test.db, shared.id).status).toBe("succeeded"),
+      );
+      const isolated = await test.start(
+        workflowSource(`return await agent("same edit", {
+        workspace: { type: "worktree", baseBranch: "main" },
+      });`),
+        shared.id,
+      );
+      await eventually(() => expect(test.childCount()).toBe(2));
+      expect(getCall(test.db, isolated.id, 0)?.replayedFromCallId).toBeNull();
+      await test.finish("cache-child-2", "isolated main result");
+      await eventually(() =>
+        expect(getRunRequired(test.db, isolated.id).status).toBe("succeeded"),
+      );
+      const changedBranch = await test.start(
+        workflowSource(`return await agent("same edit", {
+        workspace: { type: "worktree", baseBranch: "release" },
+      });`),
+        isolated.id,
+      );
+      await eventually(() => expect(test.childCount()).toBe(3));
+      expect(
+        getCall(test.db, changedBranch.id, 0)?.replayedFromCallId,
+      ).toBeNull();
+      await test.finish("cache-child-3", "isolated release result");
+      await eventually(() =>
+        expect(getRunRequired(test.db, changedBranch.id)).toMatchObject({
+          status: "succeeded",
+          resultJson: '"isolated release result"',
+        }),
+      );
+    } finally {
+      controller.abort();
+      await worker;
+    }
+  });
 
   it("retries a transient provider failure before settling the call", async () => {
     const test = setup();
@@ -1188,9 +1277,16 @@ describe("workflow resume cache integration", () => {
       expect(getRunRequired(test.db, displayOnly.id).status).toBe("succeeded"),
     );
     expect(test.childCount()).toBe(2);
+    expect(
+      JSON.parse(getCall(test.db, displayOnly.id, 0)?.optionsJson ?? "null"),
+    ).toMatchObject({
+      selection: null,
+      outputSchema: null,
+      title: "Renamed first",
+      phase: "Display A",
+      workspace: { type: "shared" },
+    });
     expect(getCall(test.db, displayOnly.id, 0)).toMatchObject({
-      optionsJson:
-        '{"selection":null,"outputSchema":null,"title":"Renamed first","phase":"Display A"}',
       replaySource: "resumed-run",
       replayedFromCallId: getCall(test.db, base.id, 0)?.id,
       resolvedProvider: "codex",
@@ -1668,4 +1764,423 @@ describe("workflow resume cache integration", () => {
     secondController.abort();
     await secondWorker;
   });
+});
+
+describe("workflow worker workspaces through the real plugin", () => {
+  const hosts: Array<ReturnType<typeof createFakePluginHost>["harness"]> = [];
+
+  afterEach(async () => {
+    await Promise.all(hosts.splice(0).map((host) => host.dispose()));
+  });
+
+  async function setup() {
+    let nextChild = 0;
+    let nextEnvironment = 0;
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "workflows",
+      agentSkillIds: ["workflows"],
+      sdk: {
+        threads: {
+          get: async ({ threadId }) =>
+            makeThreadResponse({
+              id: threadId,
+              projectId: "project-test",
+              environmentId: "origin-environment",
+              providerId: "codex",
+              status: threadId === "thread-test" ? "idle" : "active",
+            }),
+          defaultExecutionOptions: async () => ({
+            model: "model-a",
+            reasoningLevel: "medium",
+            permissionMode: "full",
+            serviceTier: "default",
+            source: "default",
+          }),
+          spawn: async () =>
+            makeThreadResponse({ id: `workspace-child-${++nextChild}` }),
+          stop: async () => ({ ok: true }),
+          send: async () => ({ ok: true }),
+          archive: async () => ({ ok: true }),
+        },
+        environments: {
+          get: async () => workflowEnvironment("origin-environment"),
+          experimental_create: async () =>
+            workflowEnvironment(`worker-environment-${++nextEnvironment}`),
+        },
+        providers: {
+          list: async () => [
+            {
+              id: "codex",
+              displayName: "Codex",
+              logoUrl: null,
+              available: true,
+              capabilities: { permissionModes: ["full"] },
+              composerActions: [],
+            },
+          ],
+          models: async () => ({
+            providers: [],
+            models: [availableModel("model-a")],
+            selectedOnlyModels: [],
+            modelLoadError: null,
+          }),
+        },
+      },
+    });
+    hosts.push(harness);
+    await plugin(bb);
+    return { bb, harness };
+  }
+
+  async function start(
+    harness: ReturnType<typeof createFakePluginHost>["harness"],
+    body: string,
+  ) {
+    const result = await harness.callAgentTool("bb_workflow_run", {
+      source: `export const meta = { name: "workspace-launch", description: "Workspace launches" }; ${body}`,
+    });
+    return z
+      .object({ runId: z.string() })
+      .parse(JSON.parse(z.string().parse(result)));
+  }
+
+  it("requests independent managed worktrees on the origin host for parallel workers", async () => {
+    const { bb, harness } = await setup();
+    const started = await start(
+      harness,
+      `return await parallel([
+      () => agent("Edit module A", { workspace: { type: "worktree", baseBranch: "main" } }),
+      () => agent("Edit module B", { workspace: { type: "worktree", baseBranch: "release" } }),
+    ]);`,
+    );
+    const worker = harness.runService("workflow-worker");
+    try {
+      await eventually(() =>
+        expect(harness.sdk.callsTo("threads.spawn")).toHaveLength(2),
+      );
+      expect(harness.sdk.callsTo("environments.experimental_create")).toEqual([
+        [
+          {
+            projectId: "project-test",
+            hostId: "host-origin",
+            hold: "user",
+            provider: {
+              id: "git-worktree",
+              inputs: { branch: { kind: "named", name: "main" } },
+            },
+            name: `workspace-launch · worker 1 · ${getCall(bb.storage.database(), started.runId, 0)?.id}`,
+          },
+        ],
+        [
+          {
+            projectId: "project-test",
+            hostId: "host-origin",
+            hold: "user",
+            provider: {
+              id: "git-worktree",
+              inputs: { branch: { kind: "named", name: "release" } },
+            },
+            name: `workspace-launch · worker 2 · ${getCall(bb.storage.database(), started.runId, 1)?.id}`,
+          },
+        ],
+      ]);
+      expect(harness.sdk.callsTo("threads.spawn")).toEqual([
+        [
+          expect.objectContaining({
+            environment: {
+              type: "reuse",
+              environmentId: "worker-environment-1",
+            },
+          }),
+        ],
+        [
+          expect.objectContaining({
+            environment: {
+              type: "reuse",
+              environmentId: "worker-environment-2",
+            },
+          }),
+        ],
+      ]);
+      expect(
+        getCall(bb.storage.database(), started.runId, 0)?.childThreadId,
+      ).toBe("workspace-child-1");
+      expect(
+        getCall(bb.storage.database(), started.runId, 1)?.childThreadId,
+      ).toBe("workspace-child-2");
+    } finally {
+      worker.controller.abort();
+      await worker.done;
+    }
+  });
+
+  it("waits for asynchronous worktree provisioning before spawning its worker", async () => {
+    const { harness } = await setup();
+    let provisioned = workflowEnvironment("async-worktree");
+    provisioned = { ...provisioned, status: "provisioning", path: null };
+    harness.sdk.stub("environments.experimental_create", async () => ({
+      ...workflowEnvironment("async-worktree"),
+      status: "creating",
+      path: null,
+    }));
+    harness.sdk.stub(
+      "environments.get",
+      async ({
+        environmentId,
+      }: Parameters<BbPluginApi["sdk"]["environments"]["get"]>[0]) =>
+        environmentId === "origin-environment"
+          ? workflowEnvironment("origin-environment")
+          : provisioned,
+    );
+    await start(
+      harness,
+      `return await agent("Edit", { workspace: { type: "worktree", baseBranch: "main" } });`,
+    );
+    const worker = harness.runService("workflow-worker");
+    try {
+      await eventually(() =>
+        expect(
+          harness.sdk.callsTo("environments.get").length,
+        ).toBeGreaterThanOrEqual(2),
+      );
+      expect(harness.sdk.callsTo("threads.spawn")).toEqual([]);
+      provisioned = workflowEnvironment("async-worktree");
+      await eventually(() =>
+        expect(harness.sdk.callsTo("threads.spawn")).toHaveLength(1),
+      );
+      expect(harness.sdk.callsTo("threads.spawn")[0]).toEqual([
+        expect.objectContaining({
+          environment: { type: "reuse", environmentId: "async-worktree" },
+        }),
+      ]);
+    } finally {
+      worker.controller.abort();
+      await worker.done;
+    }
+  });
+
+  it.each(["error", "destroyed"])(
+    "preserves a %s provisioning failure in a parallel call instead of parent-finished cancellation",
+    async (status) => {
+      const { bb, harness } = await setup();
+      const failed = workflowEnvironment("failed-worktree");
+      failed.status = status === "error" ? "error" : "destroyed";
+      failed.statusMessage = "Worktree provisioning denied";
+      failed.path = null;
+      harness.sdk.stub("environments.experimental_create", async () => ({
+        ...workflowEnvironment("failed-worktree"),
+        status: "creating",
+        path: null,
+      }));
+      harness.sdk.stub(
+        "environments.get",
+        async ({
+          environmentId,
+        }: Parameters<BbPluginApi["sdk"]["environments"]["get"]>[0]) =>
+          environmentId === "origin-environment"
+            ? workflowEnvironment("origin-environment")
+            : failed,
+      );
+      const started = await start(
+        harness,
+        `return await parallel([
+      () => agent("Edit", { workspace: { type: "worktree", baseBranch: "main" } }),
+    ]);`,
+      );
+      const worker = harness.runService("workflow-worker");
+      try {
+        await eventually(() =>
+          expect(
+            getRunRequired(bb.storage.database(), started.runId),
+          ).toMatchObject({
+            status: "succeeded",
+            resultJson: "[null]",
+          }),
+        );
+        expect(getCall(bb.storage.database(), started.runId, 0)).toMatchObject({
+          status: "failed",
+          error: expect.stringContaining("Worktree provisioning denied"),
+          childThreadId: null,
+        });
+        expect(harness.sdk.callsTo("threads.spawn")).toEqual([]);
+      } finally {
+        worker.controller.abort();
+        await worker.done;
+      }
+      expect(harness.sdk.callsTo("environments.experimental_cleanup")).toEqual(
+        [],
+      );
+      expect(harness.sdk.callsTo("environments.delete")).toEqual([]);
+    },
+  );
+
+  it("cancels during provisioning without spawning a worker or deleting its user-held worktree", async () => {
+    const { bb, harness } = await setup();
+    harness.sdk.stub("environments.experimental_create", async () => ({
+      ...workflowEnvironment("pending-worktree"),
+      status: "creating",
+      path: null,
+    }));
+    harness.sdk.stub(
+      "environments.get",
+      async ({
+        environmentId,
+      }: Parameters<BbPluginApi["sdk"]["environments"]["get"]>[0]) =>
+        environmentId === "origin-environment"
+          ? workflowEnvironment("origin-environment")
+          : {
+              ...workflowEnvironment("pending-worktree"),
+              status: "provisioning",
+              path: null,
+            },
+    );
+    const started = await start(
+      harness,
+      `return await agent("Edit", { workspace: { type: "worktree", baseBranch: "main" } });`,
+    );
+    const worker = harness.runService("workflow-worker");
+    try {
+      await eventually(() =>
+        expect(
+          harness.sdk.callsTo("environments.get").length,
+        ).toBeGreaterThanOrEqual(2),
+      );
+      expect(
+        await harness.callRpc("workflowStopRun", {
+          threadId: "thread-test",
+          runId: started.runId,
+        }),
+      ).toMatchObject({ stopped: true, run: { status: "cancelled" } });
+    } finally {
+      worker.controller.abort();
+      await worker.done;
+    }
+    expect(getRunRequired(bb.storage.database(), started.runId).status).toBe(
+      "cancelled",
+    );
+    expect(harness.sdk.callsTo("environments.experimental_create")[0]).toEqual([
+      expect.objectContaining({ hold: "user" }),
+    ]);
+    expect(harness.sdk.callsTo("threads.spawn")).toEqual([]);
+    expect(harness.sdk.callsTo("environments.experimental_cleanup")).toEqual(
+      [],
+    );
+    expect(harness.sdk.callsTo("environments.delete")).toEqual([]);
+  });
+
+  it.each(["environment", "thread"])(
+    "fails %s creation without falling back to the shared checkout",
+    async (failure) => {
+      const { bb, harness } = await setup();
+      harness.sdk.stub(
+        failure === "environment"
+          ? "environments.experimental_create"
+          : "threads.spawn",
+        async () => {
+          throw new Error("Isolated launch rejected");
+        },
+      );
+      const started = await start(
+        harness,
+        `return await agent("Edit", { workspace: { type: "worktree", baseBranch: "main" } });`,
+      );
+      const worker = harness.runService("workflow-worker");
+      try {
+        await eventually(() =>
+          expect(
+            getRunRequired(bb.storage.database(), started.runId),
+          ).toMatchObject({
+            status: "failed",
+            error: expect.stringContaining("Isolated launch rejected"),
+          }),
+        );
+        expect(
+          harness.sdk.callsTo("environments.experimental_create"),
+        ).toHaveLength(1);
+        expect(harness.sdk.callsTo("threads.spawn")).toHaveLength(
+          failure === "environment" ? 0 : 1,
+        );
+        if (failure === "thread") {
+          expect(harness.sdk.callsTo("threads.spawn")[0]).toEqual([
+            expect.objectContaining({
+              environment: {
+                type: "reuse",
+                environmentId: "worker-environment-1",
+              },
+            }),
+          ]);
+        }
+      } finally {
+        worker.controller.abort();
+        await worker.done;
+      }
+      expect(harness.sdk.callsTo("environments.experimental_cleanup")).toEqual(
+        [],
+      );
+      expect(harness.sdk.callsTo("environments.delete")).toEqual([]);
+    },
+  );
+
+  it.each(["", ", { workspace: { type: 'shared' } }"])(
+    "preserves reuse of the origin environment for shared options %s",
+    async (options) => {
+      const { harness } = await setup();
+      await start(
+        harness,
+        `return await agent("Review without isolated edits"${options});`,
+      );
+      const worker = harness.runService("workflow-worker");
+      try {
+        await eventually(() =>
+          expect(harness.sdk.callsTo("threads.spawn")).toHaveLength(1),
+        );
+        expect(harness.sdk.callsTo("threads.spawn")[0]).toEqual([
+          expect.objectContaining({
+            environment: { type: "reuse", environmentId: "origin-environment" },
+          }),
+        ]);
+        expect(harness.sdk.callsTo("environments.experimental_create")).toEqual(
+          [],
+        );
+      } finally {
+        worker.controller.abort();
+        await worker.done;
+      }
+    },
+  );
+
+  it.each([
+    null,
+    { type: "worktree", baseBranch: 42 },
+    { type: "worktree", baseBranch: "" },
+    { type: "worktree", baseBranch: "   " },
+    { type: "worktree" },
+    { type: "shared", baseBranch: "main" },
+  ])(
+    "rejects invalid workspace %j before launching a worker",
+    async (workspace) => {
+      const { bb, harness } = await setup();
+      const started = await start(
+        harness,
+        `return await agent("Edit", { workspace: ${JSON.stringify(workspace)} });`,
+      );
+      const worker = harness.runService("workflow-worker");
+      try {
+        await eventually(() =>
+          expect(
+            getRunRequired(bb.storage.database(), started.runId),
+          ).toMatchObject({
+            status: "failed",
+            error: expect.stringMatching(
+              workspace === null ? /expected object/i : /baseBranch/i,
+            ),
+          }),
+        );
+        expect(harness.sdk.callsTo("threads.spawn")).toEqual([]);
+      } finally {
+        worker.controller.abort();
+        await worker.done;
+      }
+    },
+  );
 });

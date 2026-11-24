@@ -584,6 +584,54 @@ export function createWorkflowService(
     await Promise.all(Array.from(threadIds, (threadId) => stopChild(threadId)));
   }
 
+  async function workerEnvironment(
+    run: WorkflowRunRow,
+    call: WorkflowCallRow,
+    options: WorkflowAgentOptions,
+    signal: AbortSignal,
+  ): Promise<
+    Parameters<BbPluginApi["sdk"]["threads"]["spawn"]>[0]["environment"]
+  > {
+    if (options.workspace.type === "shared") {
+      return { type: "reuse", environmentId: run.environmentId };
+    }
+    const origin = await bb.sdk.environments.get({
+      environmentId: run.environmentId,
+      signal,
+    });
+    throwIfCancelled(signal);
+    let workspace = await bb.sdk.environments.experimental_create({
+      projectId: run.projectId,
+      hostId: origin.hostId,
+      provider: {
+        id: "git-worktree",
+        inputs: {
+          branch: { kind: "named", name: options.workspace.baseBranch },
+        },
+      },
+      name: `${run.name} · worker ${call.callIndex + 1} · ${call.id}`,
+      hold: "user",
+    });
+    throwIfCancelled(signal);
+    while (
+      workspace.status === "creating" ||
+      workspace.status === "provisioning"
+    ) {
+      await sleep(250, signal);
+      workspace = await bb.sdk.environments.get({
+        environmentId: workspace.id,
+        signal,
+      });
+      throwIfCancelled(signal);
+    }
+    if (workspace.status !== "ready" || workspace.path === null) {
+      throw new Error(
+        `Workflow worktree ${workspace.id} is unavailable: ${workspace.statusMessage ?? workspace.status}`,
+      );
+    }
+    return { type: "reuse", environmentId: workspace.id };
+  }
+
   async function resolveOrigin(input: StartWorkflowInput) {
     const thread = await bb.sdk.threads.get({ threadId: input.originThreadId });
     if (thread.environmentId === null) {
@@ -965,7 +1013,7 @@ export function createWorkflowService(
             originThreadId: run.originThreadId,
           },
           projectId: run.projectId,
-          environment: { type: "reuse", environmentId: run.environmentId },
+          environment: await workerEnvironment(run, call, options, signal),
           prompt: childPrompt(run, prompt, options),
           title: options.title ?? `${run.name} · ${callIndex + 1}`,
           providerId: selection.providerId,
@@ -1032,6 +1080,13 @@ export function createWorkflowService(
         }
         const delay = PROVIDER_RETRY_DELAYS_MS[call.providerRetryAttempts];
         if (delay === undefined || !isRetryableProviderFailure(failure)) {
+          settleCall(db, {
+            id: call.id,
+            status: "failed",
+            result: null,
+            error: message(failure),
+          });
+          publishRunsChanged(run.originThreadId);
           throw failure;
         }
         const detail = message(failure);
@@ -1493,6 +1548,7 @@ export function createWorkflowService(
             prompt,
             selection,
             outputSchema: options.outputSchema,
+            workspace: options.workspace,
             executionSemantics: {
               workerPromptVersion: WORKER_PROMPT_VERSION,
               resultProtocolVersion: RESULT_PROTOCOL_VERSION,

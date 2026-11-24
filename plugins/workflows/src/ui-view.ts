@@ -28,6 +28,7 @@ function callView(
     status: call.status,
     provider: call.execution.provider,
     model: call.execution.model,
+    workspace: call.options.workspace,
     reasoningLevel: call.execution.reasoningLevel,
     cached: call.source === "cached",
     childThreadId: call.childThreadId,

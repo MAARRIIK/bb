@@ -10,6 +10,7 @@ import {
 
 function cacheInput(): WorkflowCallCacheInput {
   return {
+    workspace: { type: "shared" },
     version: WORKFLOW_CALL_CACHE_VERSION,
     previousCacheKey: null,
     prompt: "Review the implementation",
@@ -36,6 +37,7 @@ describe("workflow call cache identity", () => {
   it("is deterministic and independent of recursive object key order", () => {
     const first = cacheInput();
     const second: WorkflowCallCacheInput = {
+      workspace: { type: "shared" },
       executionSemantics: {
         maxRepairAttempts: 2,
         resultProtocolVersion: "structured-result-v1",
@@ -139,6 +141,24 @@ describe("workflow call cache identity", () => {
     const original = cacheInput();
     expect(computeWorkflowCallCacheKey(change(original))).not.toBe(
       computeWorkflowCallCacheKey(original),
+    );
+  });
+
+  it("separates isolated workspace and branch identities from the legacy shared cache", () => {
+    const shared = cacheInput();
+    const main: WorkflowCallCacheInput = {
+      ...shared,
+      workspace: { type: "worktree", baseBranch: "main" },
+    };
+    const release: WorkflowCallCacheInput = {
+      ...main,
+      workspace: { type: "worktree", baseBranch: "release" },
+    };
+    expect(computeWorkflowCallCacheKey(main)).not.toBe(
+      computeWorkflowCallCacheKey(shared),
+    );
+    expect(computeWorkflowCallCacheKey(release)).not.toBe(
+      computeWorkflowCallCacheKey(main),
     );
   });
 

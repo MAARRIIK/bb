@@ -53,16 +53,24 @@ same project and environment workspace and always creates a new run. The
 longest unchanged prefix of successful `agent()` calls returns cached results;
 the first edited or new call and everything after it runs live. The cache key
 includes call order, prompt, resolved provider/model/reasoning/permission,
-output schema, and worker protocol semantics. Display-only phase, label, and
-title changes do not invalidate it.
+output schema, workspace mode and base branch, and worker protocol semantics.
+Changing between shared and worktree mode, or changing `baseBranch`, invalidates
+that call's cache identity. Omitted workspace and explicit `{ type: "shared" }`
+retain the existing shared-workspace cache identity. Display-only phase, label,
+and title changes do not invalidate it. Workspace options are persisted with
+the durable call and remain part of restart and replay handling.
 
 Parallel calls receive cache identities in deterministic invocation order, so
 concurrency alone does not stop replay. Successful calls that edited files or
-performed other writes are cached too: resume is restricted to the same
-environment workspace, where their side effects remain. Failed, cancelled,
-incomplete, and null-result calls are not reusable; the first such call and the
-entire suffix run live. Legacy runs without replay-safety metadata replay
-nothing. A plugin restart applies the same longest-prefix rule.
+performed other writes are cached too. Resume is restricted to the same origin
+environment workspace. Replaying a successful worktree call returns its saved
+result; it does not create a new worktree, rerun edits, or copy files into the
+origin. Worktree environments have a user hold and remain until explicitly
+deleted through BB's environment controls; replay does not recreate an
+environment the user deleted. Failed, cancelled, incomplete, and null-result
+calls are not reusable; the first such call and the entire suffix run live.
+Legacy runs without replay-safety metadata replay nothing. A plugin restart
+applies the same longest-prefix rule.
 
 Each `agent()` call retries transient provider failures twice with bounded
 backoff before surfacing the error to `parallel()`/`pipeline()` or the script.
@@ -73,7 +81,12 @@ call first waits up to a minute for the provider retry plugin to decide. If
 provider retry, or core after a bb restart, queues or runs a retry in the
 worker's thread, the call keeps that worker and waits for its result instead
 of starting a replacement. Only a failure nobody else retries starts a new
-worker.
+worker. A retry in the same worker keeps its workspace. A replacement worker
+for a worktree call receives a fresh user-held managed worktree from the
+requested base branch; edits from the failed worker are not copied into it.
+The previous worktree remains available for inspection and explicit cleanup.
+Shared calls continue to reuse the origin environment across replacement
+attempts.
 
 The CLI equivalents are:
 
@@ -140,3 +153,12 @@ retained history. Completion notification becomes `abandoned` for an archived
 or deleted origin; unrelated send conflicts and transient failures retry.
 Upgrades recover existing call references; older attempts already missing from
 those references require a separate historical audit.
+
+Archiving workers does not release the user-held worktree environments created
+for `workspace: { type: "worktree", baseBranch: "…" }`. Each created environment
+is named with its run and call ids and retained after success, cancellation,
+failure, or a failure before the worker starts. Replacements can therefore
+leave several worktrees for one call. They consume disk space until the user
+inspects their changes and explicitly deletes them through normal BB environment
+controls. Workflow history retention and worker cleanup do not delete these
+environments; deleting one does not make a cached replay create a replacement.

@@ -34,6 +34,7 @@ function call(index: number, phase: string | null): WorkflowCallInspection {
       outputSchema: null,
       title: `Agent ${index}`,
       phase,
+      workspace: { type: "shared" },
     },
     execution: {
       provider: "codex",
@@ -85,10 +86,15 @@ function run(calls: WorkflowCallInspection[]): WorkflowRunInspection {
 
 describe("workflow UI view", () => {
   it("preserves distinct undeclared phases and an empty current phase", () => {
+    const isolatedCall = call(2, null);
+    isolatedCall.options.workspace = {
+      type: "worktree",
+      baseBranch: "release/2026",
+    };
     const inspection = run([
       call(0, "Declared"),
       call(1, "Dynamic B"),
-      call(2, null),
+      isolatedCall,
       call(3, "Dynamic A"),
     ]);
 
@@ -104,6 +110,11 @@ describe("workflow UI view", () => {
       view.phases.map((phase) => phase.calls.map((entry) => entry.id)),
     ).toEqual([["wfc_0"], ["wfc_1"], ["wfc_3"], []]);
     expect(view.unphasedCalls.map((entry) => entry.id)).toEqual(["wfc_2"]);
+    expect(view.unphasedCalls[0]?.workspace).toEqual({
+      type: "worktree",
+      baseBranch: "release/2026",
+    });
+    expect(view.phases[0]?.calls[0]?.workspace).toEqual({ type: "shared" });
   });
 
   it("truncates fallback labels by display width", () => {
