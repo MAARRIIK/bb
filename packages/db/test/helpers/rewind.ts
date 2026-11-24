@@ -255,6 +255,9 @@ export function restoreDiffViewedFilesTable(db: DbConnection): void {
 }
 
 export function dropQueuedTaskDependencies(db: DbConnection): void {
+  db.$client.exec(
+    "DROP INDEX IF EXISTS events_thread_type_provider_session_sequence_idx",
+  );
   db.$client.exec("DROP TABLE IF EXISTS queued_task_runs");
   const columns = db.$client
     .prepare<[], { name: string }>("PRAGMA table_info(queued_thread_messages)")

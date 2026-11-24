@@ -180,6 +180,7 @@ export function buildTurnFailedEvent(
   // inside a provider turn at all: it carries both the turn id and the
   // structured classification, so one row answers two fields.
   const providerError = getLatestStoredThreadEventOfTypes(db, {
+    scope: "current-session",
     threadId,
     types: ["provider/error"],
     afterSequence: failed.requestSequence,
@@ -207,6 +208,7 @@ function latestRateLimits(
   thread: Thread,
 ): ProviderRateLimitState | null {
   const row = getLatestStoredRateLimitsEvent(db, {
+    scope: "current-session",
     threadId: thread.id,
   });
   if (row === null) return null;

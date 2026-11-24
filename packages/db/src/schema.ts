@@ -940,6 +940,12 @@ export const events = sqliteTable(
       table.type,
       table.sequence,
     ),
+    index("events_thread_type_provider_session_sequence_idx").on(
+      table.threadId,
+      table.type,
+      table.providerSessionId,
+      table.sequence,
+    ),
     index("events_thread_turn_type_item_sequence_idx").on(
       table.threadId,
       table.turnId,

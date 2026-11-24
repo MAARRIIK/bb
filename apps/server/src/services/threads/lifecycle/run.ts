@@ -118,6 +118,7 @@ export function pendingInteractionStopReason(
 function hasInterruptedEvent(db: DbQueryConnection, threadId: string): boolean {
   return (
     getLatestStoredThreadEventOfTypes(db, {
+      scope: "thread",
       afterSequence: 0,
       threadId,
       types: ["system/thread/interrupted"],
