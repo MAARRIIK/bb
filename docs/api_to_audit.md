@@ -610,8 +610,15 @@ before the toggle is reachable.
 ## Queued message edit holds
 
 Queue rows now expose `providerId: string | null` through the existing queue
-SDK and plugin events. New ordinary requests retain the accepting provider;
-dispatch, send-now and execution edits refuse a different current provider.
+SDK and plugin events. New ordinary requests retain the accepting provider unless
+create/update explicitly assigns `providerId`. Cross-provider assignment requires
+a model and explicit permissions, checked against the target catalog and host
+ceiling through the same resolver as provider-switch previews. Assignment does
+not switch the active chat or transfer history. UI queue editors, SDK and CLI
+share these routes. Execution edits use the assigned provider; dispatch and
+send-now still require that provider to be current. Retries and system notices
+cannot be reassigned. Reassignment clears obsolete failure state while retaining
+schedules and plugin holds.
 Core's queue and CLI use the same checks, including atomic claim consumption.
 Source generations are stored internally. Saved retries require that original
 generation, while ordinary new tasks may run in a later session of their assigned

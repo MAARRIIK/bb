@@ -1,0 +1,258 @@
+import { useState } from "react";
+import { Button } from "@bb/shared-ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@bb/shared-ui/dialog";
+import { providerServiceTierOptions } from "@bb/domain";
+import type { InlineQueuedMessageEditState } from "@/components/thread/composer/useInlineQueuedMessageEditing";
+import {
+  useSystemExecutionOptions,
+  useSystemProviders,
+} from "@/hooks/queries/system-queries";
+import { useInterfaceTranslation } from "@/lib/interface-language";
+
+type Selection = Pick<
+  InlineQueuedMessageEditState,
+  "providerId" | "model" | "permissionMode" | "reasoningLevel" | "serviceTier"
+>;
+
+const SELECT_CLASS =
+  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
+
+function AssignmentForm({
+  environmentId,
+  initial,
+  onSelect,
+}: {
+  environmentId: string;
+  initial: Selection & { providerId: string };
+  onSelect: (selection: Selection) => void;
+}) {
+  const { t } = useInterfaceTranslation();
+  const [providerId, setProviderId] = useState(initial.providerId);
+  const [modelId, setModelId] = useState(initial.model);
+  const [permission, setPermission] = useState<string>(initial.permissionMode);
+  const [reasoning, setReasoning] = useState<string>(initial.reasoningLevel);
+  const [tierId, setTierId] = useState(initial.serviceTier);
+  const providers = useSystemProviders({ environmentId });
+  const catalog = useSystemExecutionOptions({
+    environmentId,
+    providerId,
+    selectedModel: modelId || undefined,
+  });
+  const provider = catalog.data?.providers.find(
+    (entry) => entry.id === providerId,
+  );
+  const models = [
+    ...(catalog.data?.models ?? []),
+    ...(catalog.data?.selectedOnlyModels ?? []),
+  ];
+  const model =
+    models.find((entry) => entry.model === modelId) ??
+    models.find((entry) => entry.isDefault) ??
+    models[0];
+  const permissionMode = provider?.capabilities.permissionModes.find(
+    (mode) => mode === permission,
+  );
+  const reasoningLevel =
+    model?.supportedReasoningEfforts.find(
+      (effort) => effort.reasoningEffort === reasoning,
+    )?.reasoningEffort ?? model?.defaultReasoningEffort;
+  const tiers =
+    model?.supportedServiceTiers ??
+    (provider ? providerServiceTierOptions(provider) : []);
+  const verified =
+    catalog.data !== undefined &&
+    catalog.data.modelLoadError === null &&
+    !catalog.isFetching &&
+    !catalog.isPlaceholderData &&
+    !catalog.isError;
+  return (
+    <div className="flex flex-col gap-3">
+      <label className="text-sm">
+        {t("Provider")}
+        <select
+          aria-label={t("Provider")}
+          className={SELECT_CLASS}
+          value={providerId}
+          onChange={(event) => {
+            setProviderId(event.target.value);
+            setModelId("");
+            setPermission("");
+            setReasoning("");
+            setTierId("default");
+          }}
+        >
+          {providers.data
+            ?.filter((entry) => entry.available)
+            .map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.displayName}
+              </option>
+            ))}
+        </select>
+      </label>
+      <label className="text-sm">
+        {t("Model")}
+        <select
+          aria-label={t("Model")}
+          className={SELECT_CLASS}
+          value={model?.model ?? ""}
+          disabled={!verified}
+          onChange={(event) => {
+            setModelId(event.target.value);
+            setReasoning("");
+            setTierId("default");
+          }}
+        >
+          {models.map((entry) => (
+            <option key={entry.model} value={entry.model}>
+              {entry.displayName}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="text-sm">
+        {t("Permissions")}
+        <select
+          aria-label={t("Permissions")}
+          className={SELECT_CLASS}
+          value={permissionMode ?? ""}
+          onChange={(event) => setPermission(event.target.value)}
+        >
+          <option value="" disabled>
+            {t("Choose permissions")}
+          </option>
+          {provider?.capabilities.permissionModes.map((mode) => (
+            <option key={mode} value={mode}>
+              {t(
+                mode === "full"
+                  ? "Full access"
+                  : mode === "auto"
+                    ? "Automatic approval"
+                    : "Approve commands",
+              )}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="text-sm">
+        {t("Reasoning")}
+        <select
+          aria-label={t("Reasoning")}
+          className={SELECT_CLASS}
+          value={reasoning}
+          onChange={(event) => setReasoning(event.target.value)}
+        >
+          <option value="">{t("Model default")}</option>
+          {model?.supportedReasoningEfforts.map((effort) => (
+            <option key={effort.reasoningEffort} value={effort.reasoningEffort}>
+              {effort.reasoningEffort}
+            </option>
+          ))}
+        </select>
+      </label>
+      {provider?.capabilities.supportsServiceTier ? (
+        <label className="text-sm">
+          {t("Service tier")}
+          <select
+            aria-label={t("Service tier")}
+            className={SELECT_CLASS}
+            value={tierId}
+            onChange={(event) => setTierId(event.target.value)}
+          >
+            <option value="default">{t("Default")}</option>
+            {tiers
+              .filter((tier) => tier.id !== "default")
+              .map((tier) => (
+                <option key={tier.id} value={tier.id}>
+                  {tier.label}
+                </option>
+              ))}
+          </select>
+        </label>
+      ) : null}
+      {catalog.data?.modelLoadError || catalog.isError ? (
+        <p role="alert" className="text-sm text-destructive-text">
+          {t("Could not verify the target model catalog.")}
+        </p>
+      ) : null}
+      <Button
+        disabled={
+          !verified ||
+          !model ||
+          permissionMode === undefined ||
+          reasoningLevel === undefined
+        }
+        onClick={() => {
+          if (
+            !model ||
+            permissionMode === undefined ||
+            reasoningLevel === undefined
+          )
+            return;
+          onSelect({
+            providerId,
+            model: model.model,
+            permissionMode,
+            reasoningLevel,
+            serviceTier: tierId,
+          });
+        }}
+      >
+        {t("Use for this task")}
+      </Button>
+    </div>
+  );
+}
+
+export function QueuedMessageAssignment({
+  edit,
+  currentProviderId,
+  environmentId,
+  onSelect,
+}: {
+  edit: InlineQueuedMessageEditState;
+  currentProviderId: string;
+  environmentId: string;
+  onSelect: (selection: Selection) => void;
+}) {
+  const { t } = useInterfaceTranslation();
+  const [open, setOpen] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={setOpen} modal={false}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm">
+          {t("Assign task model")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("Model for this queued task")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              "Save the editor to keep this assignment. The active conversation does not switch. Return to the assigned provider before this task runs.",
+            )}
+          </DialogDescription>
+        </DialogHeader>
+        <AssignmentForm
+          key={`${edit.editSessionId}:${open}`}
+          environmentId={environmentId}
+          initial={{
+            ...edit,
+            providerId: edit.providerId ?? currentProviderId,
+          }}
+          onSelect={(selection) => {
+            onSelect(selection);
+            setOpen(false);
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -52,6 +52,34 @@ import {
 } from "./ThreadDetailPromptArea";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
 
+vi.mock("./QueuedMessageAssignment", () => ({
+  QueuedMessageAssignment: ({
+    onSelect,
+  }: {
+    onSelect: (selection: {
+      providerId: string;
+      model: string;
+      permissionMode: "full";
+      reasoningLevel: "medium";
+      serviceTier: "default";
+    }) => void;
+  }) => (
+    <button
+      onClick={() =>
+        onSelect({
+          providerId: "pi",
+          model: "shared-model",
+          permissionMode: "full",
+          reasoningLevel: "medium",
+          serviceTier: "default",
+        })
+      }
+    >
+      Assign to Pi
+    </button>
+  ),
+}));
+
 vi.mock("./ThreadProviderSwitch", () => ({
   ThreadProviderSwitchDialog: ({
     open,
@@ -1193,6 +1221,41 @@ describe("ThreadDetailPromptArea", () => {
       expect(mocks.sendMessageMutateAsync).not.toHaveBeenCalled();
     },
   );
+
+  it("saves a provider reassignment with the complete tuple even when model names match", async () => {
+    mocks.queuedMessages = [
+      makeQueuedMessage({
+        providerId: "codex",
+        model: "shared-model",
+        permissionMode: "full",
+      }),
+    ];
+    renderPromptArea({
+      thread: makeThread({ environmentId: "env_assignment" }),
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit queued message 1" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Assign to Pi" }));
+    const editor = within(screen.getByTestId("inline-queued-message-editor"));
+    expect(editor.getByTestId("selected-provider").textContent).toBe("pi");
+    fireEvent.click(editor.getByRole("button", { name: "Submit composer" }));
+    await waitFor(() =>
+      expect(mocks.updateQueuedMessageMutateAsync).toHaveBeenCalledWith({
+        expectedUpdatedAt: 1,
+        id: "thr_1",
+        queuedMessageId: "qmsg_1",
+        input: [{ type: "text", text: "Already queued", mentions: [] }],
+        providerId: "pi",
+        model: "shared-model",
+        permissionMode: "full",
+        reasoningLevel: "medium",
+        serviceTier: "default",
+      }),
+    );
+    expect(mocks.sendMessageMutateAsync).not.toHaveBeenCalled();
+    expect(mocks.updateThreadMutate).not.toHaveBeenCalled();
+  });
 
   it("saves the inline editor's model and permission picks onto the queued message only", async () => {
     mocks.queuedMessages = [makeQueuedMessage()];

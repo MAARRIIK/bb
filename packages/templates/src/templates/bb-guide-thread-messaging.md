@@ -115,8 +115,10 @@ Queued messages:
 
   bb thread queue list [<thread-id>] [--wait-holder plugin:<plugin-id>]
   bb thread queue create <thread-id> <message> [--file <path>] [--image <path>]
+                         [--provider <id>] [--model <model>] [--permission-mode <mode>]
+                         [--reasoning-level <level>] [--service-tier <tier>]
   bb thread queue update <thread-id> <message-id> [<message>] [--file <path>] [--image <path>]
-                         [--send-at <when> | --clear-send-at] [--model <model>]
+                         [--send-at <when> | --clear-send-at] [--provider <id>] [--model <model>]
                          [--reasoning-level <level>] [--permission-mode <mode>]
                          [--service-tier <tier>]
                                            create and update also take --message-file <path>
@@ -127,6 +129,8 @@ Queued messages:
 
   The `Sender` column identifies agent threads and system notices; user messages
   leave it blank. The SDK and `--json` include `initiator` and `senderThreadId`.
+  `Provider` and `Model` show each task's assignment; an em dash marks a null
+  provider, whose legacy or system-notice meaning is described below.
   SDK: `threads.queue.list` (all threads) and
   `threads.queuedMessages.list|send|update|delete` (one thread).
 
@@ -135,9 +139,21 @@ Queued messages:
   a legacy row whose provider was never recorded, or a core system notice that
   follows the chat's current provider. After switching the chat's provider, an
   assigned message stays queued with a failure instead of running on the other
-  agent. Switch back before using `queue send` or changing its execution options.
-  Text, timing, and deletion remain available. Grouped rows must have matching
-  provider assignments and source generations. A saved retry also requires its
+  agent. Switch back before using `queue send`. Execution edits validate the
+  assigned provider, including when a different agent is current. Text, timing,
+  and deletion remain available.
+
+  Use `queue create` or `queue update` with `--provider <id> --model <model>
+  --permission-mode <mode>` to assign an ordinary task. SDK create/update take
+  `providerId`. A different provider requires an explicit model and permissions;
+  inherited execution input sources are not accepted. Assignment does not switch
+  the chat or transmit context. In the queue editor, choose Assign task model,
+  select parameters, then save the editor. Retry rows and core notices cannot
+  be reassigned. Changing a provider clears its old failure without removing
+  plugin holds or a scheduled send time.
+
+  Grouped rows must have matching provider assignments and source generations.
+  A saved retry also requires its
   original native session; after a new session starts, cancel that retry and
   send a new request. Ordinary new tasks may run in a later session of their
   assigned provider. Failure recovery reads requests from the current session.

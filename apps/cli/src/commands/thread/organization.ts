@@ -62,6 +62,10 @@ interface QueueListOptions extends JsonOptions {
 }
 
 interface QueueCreateOptions extends JsonOptions {
+  provider?: string;
+  permissionMode?: string;
+  reasoningLevel?: string;
+  serviceTier?: string;
   file?: string[];
   image?: string[];
   messageFile?: string;
@@ -69,6 +73,7 @@ interface QueueCreateOptions extends JsonOptions {
 }
 
 interface QueueUpdateOptions extends JsonOptions {
+  provider?: string;
   clearSendAt?: boolean;
   file?: string[];
   image?: string[];
@@ -128,6 +133,8 @@ function printQueueTable(rows: ThreadQueuedMessagesResult): void {
       : row.initiator === "system"
         ? "System"
         : (row.senderThreadId ?? "Agent"),
+    row.providerId ?? "—",
+    truncateCell(row.model, MAX_QUEUE_TEXT_WIDTH),
     truncateCell(
       row.payload.kind === "retry" &&
         row.payload.reason === RESTART_RESUME_RETRY_REASON
@@ -150,12 +157,14 @@ function printQueueTable(rows: ThreadQueuedMessagesResult): void {
         "ID",
         "Thread",
         "Sender",
+        "Provider",
+        "Model",
         "Message",
         "State",
         "Waiting on",
         "Send at",
       ],
-      colWidths: columnWidths(table, [2, 6, 6, 7, 5, 10, 7]),
+      colWidths: columnWidths(table, [2, 6, 6, 8, 5, 7, 5, 10, 7]),
     },
     table,
   );
@@ -367,7 +376,17 @@ export function registerOrganizationCommands(
   queue
     .command("create <threadId> [message]")
     .description("Create a queued message with text and attachments")
+    .option(
+      "--provider <id>",
+      "Assign this task to a provider without switching the chat",
+    )
     .option("--model <model>", "Model override for the queued message")
+    .option("--permission-mode <mode>", PERMISSION_MODE_HELP)
+    .option(
+      "--reasoning-level <level>",
+      "Reasoning level supported by the assigned model",
+    )
+    .option("--service-tier <tier>", SERVICE_TIER_HELP)
     .option(
       "--message-file <path>",
       `Read the message from a file instead of [message]; ${TEXT_FILE_HELP_SUFFIX}`,
@@ -412,6 +431,10 @@ export function registerOrganizationCommands(
           const result = await sdk.threads.queuedMessages.create({
             threadId,
             input,
+            ...(opts.provider ? { providerId: opts.provider } : {}),
+            permissionMode: parsePermissionMode(opts.permissionMode),
+            reasoningLevel: parseReasoningLevel(opts.reasoningLevel),
+            serviceTier: parseServiceTier(opts.serviceTier),
             ...(opts.model ? { model: opts.model } : {}),
           });
           if (outputJson(opts, result)) return;
@@ -425,6 +448,10 @@ export function registerOrganizationCommands(
     .command("update <threadId> <messageId> [message]")
     .description(
       "Update a queued message's text, send time, or execution options in place",
+    )
+    .option(
+      "--provider <id>",
+      "Assign this task to a provider without switching the chat",
     )
     .option(
       "--message-file <path>",
@@ -481,6 +508,7 @@ export function registerOrganizationCommands(
                 ? null
                 : undefined;
           const execution = {
+            providerId: opts.provider,
             model: opts.model,
             permissionMode: parsePermissionMode(opts.permissionMode),
             reasoningLevel: parseReasoningLevel(opts.reasoningLevel),
@@ -530,6 +558,9 @@ export function registerOrganizationCommands(
             expectedUpdatedAt: existing.updatedAt,
             ...(input === undefined ? {} : { input }),
             ...(sendAt === undefined ? {} : { sendAt }),
+            ...(execution.providerId === undefined
+              ? {}
+              : { providerId: execution.providerId }),
             ...(execution.model === undefined
               ? {}
               : { model: execution.model }),

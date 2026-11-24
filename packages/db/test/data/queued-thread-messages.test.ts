@@ -2143,6 +2143,62 @@ describe("queued thread messages", () => {
       serviceTier: "fast",
     };
 
+    it.each(["thread-busy", "time", "plugin"] as const)(
+      "clears an old assignment failure while retaining the %s wait",
+      (kind) => {
+        const { db, thread } = setup();
+        const sendAt = kind === "time" ? Date.now() + 60_000 : null;
+        const waitingOn =
+          kind === "plugin"
+            ? { kind, pluginId: "gate", reason: "Held" }
+            : { kind };
+        const queued = createQueuedThreadMessage(db, noopNotifier, {
+          threadId: thread.id,
+          providerId: "codex",
+          providerSessionId: null,
+          content: defaultInput,
+          model: "gpt-5",
+          reasoningLevel: "medium",
+          permissionMode: "full",
+          serviceTier: "default",
+          waitingOn,
+          sendAt,
+          payload: { kind: "inline" },
+          systemNotice: null,
+        });
+        const failed = setQueuedThreadMessageFailureReason(db, noopNotifier, {
+          id: queued.id,
+          threadId: thread.id,
+          failureReason: "This message is assigned to codex",
+          now: Date.now(),
+          retryDelaysMs: [],
+        });
+        const result = updateQueuedThreadMessage(db, noopNotifier, {
+          id: queued.id,
+          threadId: thread.id,
+          expectedUpdatedAt: failed?.updatedAt ?? -1,
+          content: null,
+          reschedule: null,
+          execution: {
+            ...opus,
+            providerId: "claude-code",
+            providerSessionId: null,
+          },
+        });
+        expect(result).toMatchObject({
+          kind: "updated",
+          queuedMessage: {
+            providerId: "claude-code",
+            failureReason: null,
+            failureCount: 0,
+            sendAt,
+            waitingOn: JSON.stringify(waitingOn),
+            state: kind === "time" ? "scheduled" : "waiting",
+          },
+        });
+      },
+    );
+
     it("changes a row's execution options without touching its text or edit hold", () => {
       const { db, thread } = setup();
       const heldUntil = Date.now() + 60_000;
@@ -2155,7 +2211,7 @@ describe("queued thread messages", () => {
 
       const result = updateQueuedThreadMessage(db, noopNotifier, {
         content: null,
-        execution: opus,
+        execution: { ...opus, providerId: "codex", providerSessionId: null },
         reschedule: null,
         expectedUpdatedAt: queued.updatedAt,
         id: queued.id,
@@ -2190,7 +2246,7 @@ describe("queued thread messages", () => {
       const update = (row: { id: string }) =>
         updateQueuedThreadMessage(db, noopNotifier, {
           content: null,
-          execution: opus,
+          execution: { ...opus, providerId: "codex", providerSessionId: null },
           reschedule: null,
           expectedUpdatedAt: getQueuedThreadMessage(db, row.id)?.updatedAt ?? -1,
           id: row.id,

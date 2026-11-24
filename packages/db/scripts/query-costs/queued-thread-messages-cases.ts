@@ -348,7 +348,7 @@ export const QUEUED_THREAD_MESSAGES_COST_CASES: readonly QueryCostCase[] = [
         content: [
           { type: "text", text: "Then update the changelog.", mentions: [] },
         ],
-        execution: { ...EXECUTION, reasoningLevel: "high" },
+        execution: { ...EXECUTION, providerId: "codex", providerSessionId: null, reasoningLevel: "high" },
         reschedule: { sendAt: Date.now() + 60_000 },
         expectedUpdatedAt: queuedMessageUpdatedAt,
       }),

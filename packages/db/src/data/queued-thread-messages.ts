@@ -117,6 +117,8 @@ export interface UpdateCoalescedQueuedThreadMessageInput {
 }
 
 export interface QueuedThreadMessageExecution {
+  providerId: string | null;
+  providerSessionId: string | null;
   model: string;
   reasoningLevel: string;
   permissionMode: PermissionMode;
@@ -1090,10 +1092,28 @@ export function updateQueuedThreadMessage(
           projectAttachmentPaths(input.content),
         );
       }
-      const transition =
+      let transition =
         input.reschedule === null
           ? null
           : rescheduleTransition(existing, input.reschedule.sendAt);
+      if (
+        input.execution !== null &&
+        input.execution.providerId !== existing.providerId &&
+        transition?.event !== "wait.recorded"
+      ) {
+        transition = {
+          event: "wait.recorded",
+          sendAt:
+            input.reschedule === null ? existing.sendAt : input.reschedule.sendAt,
+          recheckAt: input.reschedule === null ? existing.recheckAt : null,
+          waitingOn:
+            transition === null && existing.waitingOn !== null
+              ? queuedMessageWaitingOnSchema.parse(
+                  JSON.parse(existing.waitingOn),
+                )
+              : { kind: "thread-busy" },
+        };
+      }
       const schedulePatch =
         transition === null
           ? {}

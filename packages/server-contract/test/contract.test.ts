@@ -404,6 +404,7 @@ const OPTIONAL_SERVER_FIELD_GROUPS: readonly OptionalServerFieldGroup[] = [
       "Follow-up and queued messages may omit execution fields so the thread's current/default execution settings are reused.",
     fields: [
       "createQueuedMessageRequestSchema.model",
+      "createQueuedMessageRequestSchema.providerId",
       "createQueuedMessageRequestSchema.reasoningLevel",
       "createQueuedMessageRequestSchema.permissionMode",
       "createQueuedMessageRequestSchema.serviceTier",

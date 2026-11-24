@@ -81,6 +81,7 @@ import { requireProviderTransitionSettled } from "./provider-transition-guard.js
 import { requireThreadProviderSessionSource } from "./thread-provider-session-source.js";
 import { requireCurrentProviderSession } from "../../internal/provider-session.js";
 import { requireQueuedMessageProvider } from "./queued-message-provider.js";
+import { resolveProviderTargetExecution } from "./provider-target-execution.js";
 
 interface SendQueuedMessageArgs {
   claimPolicy: QueuedThreadMessageGroupClaimPolicy;
@@ -222,9 +223,24 @@ async function createQueuedMessageForCurrentProvider(
     projectId: thread.projectId,
     hostId: threadTargetHostId(deps, thread),
   });
-  const execution = await buildExecutionOptions(deps, payload, {
-    threadId: thread.id,
-  });
+  const providerId = payload.providerId ?? thread.providerId;
+  if (
+    providerId !== thread.providerId &&
+    payload.executionInputSources !== undefined
+  )
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Provider assignments require explicit execution options without inherited input sources",
+    );
+  const execution =
+    providerId === thread.providerId
+      ? await buildExecutionOptions(deps, payload, { threadId: thread.id })
+      : await resolveAssignedExecution(deps, {
+          thread,
+          providerId,
+          request: payload,
+        });
   const senderThreadId = resolveMessageSenderThreadId(deps, {
     senderThreadId: payload.senderThreadId,
     targetThread: thread,
@@ -240,8 +256,11 @@ async function createQueuedMessageForCurrentProvider(
         requireQueuedMessageProvider(currentThread.providerId, [thread]);
         const queuedMessage = createQueuedThreadMessageInTransaction(tx, {
           threadId: thread.id,
-          providerId: thread.providerId,
-          providerSessionId: currentThread.providerSessionId,
+          providerId,
+          providerSessionId:
+            providerId === currentThread.providerId
+              ? currentThread.providerSessionId
+              : null,
           content: input,
           senderThreadId,
           model: execution.model,
@@ -277,7 +296,7 @@ async function createQueuedMessageForCurrentProvider(
     captureUserMessageSentTelemetry(deps, {
       isChildThread: thread.parentThreadId !== null,
       messageSource: "queued_message",
-      providerId: thread.providerId,
+      providerId,
       initiator: "user",
     });
   }
@@ -298,7 +317,7 @@ export interface ResolveQueuedMessageExecutionChangeArgs {
   queuedMessageId: string;
   request: Pick<
     UpdateQueuedMessageRequest,
-    "model" | "permissionMode" | "reasoningLevel" | "serviceTier"
+    "providerId" | "model" | "permissionMode" | "reasoningLevel" | "serviceTier"
   >;
   thread: Thread;
 }
@@ -309,6 +328,7 @@ export async function resolveQueuedMessageExecutionChange(
 ): Promise<QueuedThreadMessageExecution | null> {
   const { request } = args;
   if (
+    request.providerId === undefined &&
     request.model === undefined &&
     request.permissionMode === undefined &&
     request.reasoningLevel === undefined &&
@@ -326,31 +346,91 @@ export async function resolveQueuedMessageExecutionChange(
     return null;
   }
   const current = toThreadQueuedMessage(row);
+  const providerId =
+    request.providerId ?? row.providerId ?? args.thread.providerId;
+  const reassigning =
+    request.providerId !== undefined && request.providerId !== row.providerId;
+  if (reassigning && (row.payloadKind === "retry" || row.systemNotice !== null))
+    throw new ApiError(
+      409,
+      "invalid_request",
+      "Retries and system notices cannot be assigned to another provider",
+    );
   requireProviderTransitionSettled(deps.db, args.thread.id);
   const source = requireThreadProviderSessionSource(deps.db, args.thread.id);
   requireQueuedMessageProvider(source.providerId, [args.thread]);
-  requireQueuedMessageProvider(args.thread.providerId, [row]);
-  const resolved = await buildExecutionOptions(
-    deps,
-    {
-      model: request.model ?? current.model,
-      permissionMode: request.permissionMode ?? current.permissionMode,
-      reasoningLevel: request.reasoningLevel ?? current.reasoningLevel,
-      serviceTier: request.serviceTier ?? current.serviceTier,
-    },
-    { threadId: args.thread.id },
-  );
+  const selected = reassigning
+    ? request
+    : {
+        model: request.model ?? current.model,
+        permissionMode: request.permissionMode ?? current.permissionMode,
+        reasoningLevel: request.reasoningLevel ?? current.reasoningLevel,
+        serviceTier: request.serviceTier ?? current.serviceTier,
+      };
+  const resolved =
+    providerId === args.thread.providerId && !reassigning
+      ? await buildExecutionOptions(deps, selected, {
+          threadId: args.thread.id,
+        })
+      : await resolveAssignedExecution(deps, {
+          thread: args.thread,
+          providerId,
+          request: selected,
+        });
   requireProviderTransitionSettled(deps.db, args.thread.id);
   requireCurrentProviderSession(
     requireThreadProviderSessionSource(deps.db, args.thread.id),
     source,
   );
   return {
+    providerId: reassigning ? providerId : row.providerId,
+    providerSessionId: reassigning
+      ? providerId === source.providerId
+        ? source.providerSessionId
+        : null
+      : row.providerSessionId,
     model: resolved.model,
     permissionMode: resolved.permissionMode,
     reasoningLevel: resolved.reasoningLevel,
     serviceTier: resolved.serviceTier,
   };
+}
+
+async function resolveAssignedExecution(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+  args: {
+    thread: Thread;
+    providerId: string;
+    request: ResolveQueuedMessageExecutionChangeArgs["request"];
+  },
+) {
+  if (!args.request.model || args.request.permissionMode === undefined)
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Choose a model and explicit permissions when assigning a provider",
+    );
+  const environment =
+    args.thread.environmentId === null
+      ? null
+      : getEnvironment(deps.db, args.thread.environmentId);
+  if (environment === null)
+    throw new ApiError(
+      409,
+      "invalid_request",
+      "A workspace is required to check the assigned provider",
+    );
+  const { execution } = await resolveProviderTargetExecution(deps, {
+    environment,
+    request: {
+      providerId: args.providerId,
+      model: args.request.model,
+      permissionMode: args.request.permissionMode,
+      reasoningLevel: args.request.reasoningLevel ?? null,
+      serviceTier: args.request.serviceTier ?? "default",
+    },
+  });
+  return execution;
 }
 
 function isQueuedMessageAutoSendCandidate(

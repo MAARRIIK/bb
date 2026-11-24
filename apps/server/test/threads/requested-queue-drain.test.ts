@@ -21,6 +21,7 @@ import { runStartupRecoverySweep } from "../../src/services/system/periodic-swee
 import { moveThreadStatus } from "../helpers/thread-status.js";
 import { acceptThreadSendRequest } from "../../src/services/threads/thread-send-request.js";
 import { textInput } from "../helpers/prompt-input.js";
+import { readJson } from "../helpers/json.js";
 import {
   reportQueuedCommandSuccess,
   waitForQueuedCommand,
@@ -177,7 +178,10 @@ describe("the requested queue drain", () => {
           }),
         },
       );
-      expect(edited.status).toBe(409);
+      expect(edited.status).toBe(400);
+      await expect(readJson(edited)).resolves.toMatchObject({
+        message: "The chosen model is not in the target provider catalog",
+      });
       expect(getQueuedThreadMessage(harness.db, held.id)?.model).toBe(
         held.model,
       );
