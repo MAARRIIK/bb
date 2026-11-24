@@ -53,6 +53,17 @@ export const SETTINGS_SEARCH_INDEX: Record<
         ],
       },
       {
+        title: "AI response language",
+        keywords: [
+          "language",
+          "model replies",
+          "English",
+          "Russian",
+          "язык ответов",
+          "ИИ",
+        ],
+      },
+      {
         title: "Navigate to threads on creation",
         keywords: ["new thread", "open", "background"],
       },

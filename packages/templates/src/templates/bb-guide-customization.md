@@ -101,6 +101,15 @@ General. Machine-related keys (`machineServerUrl`, `defaultMachineAccess`,
   English. External error/plugin messages, agent replies and code keep their
   original language.
 
+- `responseLanguage` (`interface`, `en`, or `ru`, default `interface`) sets the
+  default language of AI explanations independently of the interface. Use Settings
+  → General → AI response language or `bb settings general responseLanguage en`.
+  SDK callers use `system.updateGeneralSettings({ ...config.generalSettings,
+  responseLanguage: "en" })`. Applies on each new request and when queued messages
+  start; an explicit language in the request takes precedence. `interface` follows
+  an explicit English/Russian interface selection. With System language, the
+  model chooses from the request; automatic per-device reply selection is not yet
+  available. Existing replies, prompt contents, code and tool output are preserved.
 - `showDiagnosticEvents` (default false) shows provider environment resolution
   and unhandled provider events in the timeline. Warnings, errors, and model
   fallback stay visible either way.

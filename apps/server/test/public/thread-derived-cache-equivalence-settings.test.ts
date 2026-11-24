@@ -23,6 +23,7 @@ const VALUE_SETTING_CHANGES: {
   [K in ValueSetting]-?: (settings: AppSettings) => Pick<AppSettings, K>;
 } = {
   interfaceLanguage: () => ({ interfaceLanguage: "ru" }),
+  responseLanguage: () => ({ responseLanguage: "ru" }),
   providerOrder: () => ({ providerOrder: ["codex", PROVIDER_ID] }),
   defaultProviderId: () => ({ defaultProviderId: "codex" }),
   providerCompletedTurnDisplay: () => ({

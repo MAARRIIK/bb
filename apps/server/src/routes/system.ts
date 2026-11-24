@@ -313,6 +313,7 @@ export function registerSystemRoutes(
       ...settings,
       interfaceLanguage:
         settings.interfaceLanguage ?? current.interfaceLanguage,
+      responseLanguage: settings.responseLanguage ?? current.responseLanguage,
       idleProviderSessionTimeoutMinutes:
         settings.idleProviderSessionTimeoutMinutes === undefined
           ? current.idleProviderSessionTimeoutMinutes

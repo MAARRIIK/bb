@@ -291,6 +291,19 @@ their pickers, CLI installation dialogs and microphone preferences; other text
 falls back to English. Model replies, source code, paths and tool output are not translated.
 Older clients that omit this field preserve its stored value.
 
+`responseLanguage` (`interface`, `en`, or `ru`, default `interface`) sets a
+preference for AI explanations independently of the interface. Use Settings →
+General → AI response language, `bb settings general responseLanguage en`, or
+`sdk.system.updateGeneralSettings({ ...config.generalSettings, responseLanguage: "en" })`.
+The server adds an agent-only preference block to each request sent to the model, including
+queued messages at dispatch and requests in existing sessions. An explicit
+language requested by the user takes precedence; existing replies and prompt
+contents are preserved. `interface` follows an explicit English/Russian interface
+selection. With `interfaceLanguage: "system"`, the model chooses from the request;
+the server does not infer a remote device's locale from its own operating system.
+Automatic per-device reply selection is not implemented yet. Older clients that
+omit `responseLanguage` preserve its saved value.
+
 `idleProviderSessionTimeoutMinutes` (default `30`) sets how long an agent can sit idle after its last turn before every machine stops its provider process to free memory. Allowed values are `0` (ASAP), `5`, `10`, `30`, and `60`. Use Settings → Providers → Configuration → Release idle agent sessions, `bb settings general idleProviderSessionTimeoutMinutes 5`, or SDK `system.updateGeneralSettings({ ...config.generalSettings, idleProviderSessionTimeoutMinutes: 5 })`. Read `config` with `system.config()` or inspect the value with `bb settings show`. Changes apply live and on reconnect. Machines check every five minutes, so release can take up to five minutes beyond the timeout. Only restorable sessions without active, pending, or background work are eligible; threads keep their history and resume on the next message. Manual `bb thread stop` still works. This is not a memory or loaded-process limit.
 
 Server-wide preferences, stored in the bb database and applied live to every

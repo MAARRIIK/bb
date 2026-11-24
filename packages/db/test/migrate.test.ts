@@ -1958,6 +1958,7 @@ describe("migrate", () => {
 
       expect(getAppSettings(db)).toEqual({
         interfaceLanguage: "system",
+        responseLanguage: "interface",
         showKeyboardHints: false,
         steerActiveThreadOnEnter: true,
         terminalCopyOnSelect: true,

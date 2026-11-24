@@ -10,6 +10,9 @@ export const interfaceLanguageSchema = z.enum(["system", "en", "ru"]);
 export type InterfaceLanguage = z.infer<typeof interfaceLanguageSchema>;
 export type ResolvedInterfaceLanguage = Exclude<InterfaceLanguage, "system">;
 
+export const responseLanguageSchema = z.enum(["interface", "en", "ru"]);
+export type ResponseLanguage = z.infer<typeof responseLanguageSchema>;
+
 export function resolveInterfaceLanguage(
   preference: InterfaceLanguage,
   languages: readonly string[],
@@ -40,6 +43,7 @@ export const managedBranchPrefixSchema = z
 export const appSettingsSchema = z
   .object({
     interfaceLanguage: interfaceLanguageSchema,
+    responseLanguage: responseLanguageSchema,
     showKeyboardHints: z.boolean(),
     steerActiveThreadOnEnter: z.boolean(),
     terminalCopyOnSelect: z.boolean(),
@@ -81,6 +85,7 @@ export type AppSettings = z.infer<typeof appSettingsSchema>;
 
 export const defaultAppSettings: AppSettings = {
   interfaceLanguage: "system",
+  responseLanguage: "interface",
   showKeyboardHints: true,
   steerActiveThreadOnEnter: true,
   terminalCopyOnSelect: true,
@@ -123,6 +128,7 @@ export type ServerAccessOrigin = z.infer<
 export const appSettingsUpdateSchema = z.union([
   appSettingsSchema.extend({
     interfaceLanguage: interfaceLanguageSchema.optional(),
+    responseLanguage: responseLanguageSchema.optional(),
     idleProviderSessionTimeoutMinutes:
       idleProviderSessionTimeoutMinutesSchema.optional(),
     terminalCopyOnSelect: z.boolean().optional(),
@@ -138,6 +144,7 @@ export const appSettingsUpdateSchema = z.union([
   }),
   appSettingsSchema.omit({ showDiagnosticEvents: true }).extend({
     interfaceLanguage: interfaceLanguageSchema.optional(),
+    responseLanguage: responseLanguageSchema.optional(),
     idleProviderSessionTimeoutMinutes:
       idleProviderSessionTimeoutMinutesSchema.optional(),
     terminalCopyOnSelect: z.boolean().optional(),

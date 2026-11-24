@@ -1,9 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { setExperiments, setThreadExecutionOverride } from "@bb/db";
+import {
+  setAppSettings,
+  setExperiments,
+  setThreadExecutionOverride,
+} from "@bb/db";
 import {
   defaultExperiments,
+  defaultAppSettings,
+  createStandaloneBuiltinCompactCommandInput,
   encodeClientTurnRequestIdNumber,
   normalizeProviderNativeRoots,
 } from "@bb/domain";
@@ -15,6 +21,7 @@ import { setPluginAgentContributions } from "../../src/services/plugins/plugin-a
 import { SkillTreeRegistry } from "../../src/services/skills/injected-skills.js";
 import type { PluginAgentToolContribution } from "../../src/services/plugins/plugin-service.js";
 import { resolveThreadRuntimeCommandConfig } from "../../src/services/threads/thread-runtime-config.js";
+import { withResponseLanguage } from "../../src/services/threads/thread-response-language.js";
 import {
   buildExecutionOptions,
   buildThreadStartCommand,
@@ -149,6 +156,136 @@ function registerRemoteRuntimeFileResponder(
 }
 
 describe("thread runtime config", () => {
+  it("does not turn empty starts or compaction commands into language prompts", async () => {
+    await withTestHarness(async (harness) => {
+      setAppSettings(harness.db, {
+        ...defaultAppSettings,
+        responseLanguage: "ru",
+      });
+      for (const input of [[], createStandaloneBuiltinCompactCommandInput()]) {
+        expect(withResponseLanguage(harness.db, { input })).toEqual({ input });
+      }
+    });
+  });
+
+  it("refreshes response language for cold starts and subsequent requests without changing user blocks or execution", async () => {
+    await withTestHarness(async (harness) => {
+      const { host } = seedHostSession(harness.deps);
+      const { project } = seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+      });
+      const environment = seedEnvironment(harness.deps, {
+        hostId: host.id,
+        projectId: project.id,
+      });
+      const thread = seedThread(harness.deps, {
+        projectId: project.id,
+        environmentId: environment.id,
+        providerId: "codex",
+      });
+      seedThreadRuntimeState(harness.deps, {
+        environmentId: environment.id,
+        providerThreadId: "response-language-native",
+        threadId: thread.id,
+      });
+      const first = textInput(
+        'Explain const language = "Русский / {language} / $&";',
+      );
+      const second = textInput("Explain the second grouped message.");
+      const input = [...first, ...second];
+      const inputGroups = [first, second];
+      const execution = {
+        model: "test-model",
+        permissionMode: "accept-edits",
+        reasoningLevel: "medium",
+        serviceTier: "default",
+        source: "client/turn/requested",
+      } as const;
+      for (const choice of [
+        {
+          responseLanguage: "interface",
+          interfaceLanguage: "ru",
+          expected: "Russian",
+        },
+        {
+          responseLanguage: "en",
+          interfaceLanguage: "ru",
+          expected: "English",
+        },
+        {
+          responseLanguage: "ru",
+          interfaceLanguage: "en",
+          expected: "Russian",
+        },
+        {
+          responseLanguage: "interface",
+          interfaceLanguage: "en",
+          expected: "English",
+        },
+        {
+          responseLanguage: "interface",
+          interfaceLanguage: "system",
+          expected: null,
+        },
+      ] as const) {
+        setAppSettings(harness.db, {
+          ...defaultAppSettings,
+          responseLanguage: choice.responseLanguage,
+          interfaceLanguage: choice.interfaceLanguage,
+        });
+        const start = await buildThreadStartCommand(harness.deps, {
+          environment,
+          execution,
+          fork: null,
+          permissionEscalation: "ask",
+          input,
+          inputGroups,
+          projectId: project.id,
+          providerId: "codex",
+          requestId: encodeClientTurnRequestIdNumber({ value: 101 }),
+          syncGeneratedTitle: false,
+          thread,
+        });
+        const submit = await prepareTurnSubmitCommandPayload(harness.deps, {
+          environment,
+          execution,
+          permissionEscalation: "ask",
+          input,
+          inputGroups,
+          target: { mode: "start" },
+          thread,
+        });
+        for (const command of [start, submit]) {
+          const context = command.input[0];
+          expect(command.options.model).toBe(execution.model);
+          expect(command.inputGroups?.flat()).toEqual(command.input);
+          if (choice.expected === null) {
+            expect(command.input).toEqual(input);
+          } else {
+            expect(context).toMatchObject({
+              type: "text",
+              visibility: "agent-only",
+              mentions: [],
+            });
+            if (context?.type !== "text")
+              throw new Error("Language context missing");
+            expect(context.text).toContain(
+              `Use ${choice.expected} for user-facing explanations`,
+            );
+            expect(context.text).toContain(
+              "unless the current request explicitly asks for another language",
+            );
+            expect(command.input.slice(1)).toEqual(input);
+          }
+        }
+      }
+      expect(input).toEqual([
+        ...textInput('Explain const language = "Русский / {language} / $&";'),
+        ...textInput("Explain the second grouped message."),
+      ]);
+    });
+  });
+
   it("carries a configured ACP agent's launch spec on thread start and turn submit", async () => {
     await withTestHarness(
       {

@@ -1479,9 +1479,13 @@ export function SettingsView() {
       <>
         <LanguageSettingsSection
           preference={generalSettings.interfaceLanguage}
+          responsePreference={generalSettings.responseLanguage}
           disabled={systemConfigQuery.data === undefined}
           onChange={(interfaceLanguage) =>
             updateGeneralSettingsMutation.mutate({ interfaceLanguage })
+          }
+          onResponseChange={(responseLanguage) =>
+            updateGeneralSettingsMutation.mutate({ responseLanguage })
           }
         />
         <GeneralSettingsSection

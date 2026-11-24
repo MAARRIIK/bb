@@ -176,6 +176,51 @@ function latestClientTurnRequestSequence(
 }
 
 describe("queued message dispatch hook", () => {
+  it("uses the current response preference when a queued message dispatches", async () => {
+    await withTestHarness(async (harness) => {
+      const { thread } = seedProviderThreadFixture({ harness, value: 3717 });
+      const input = textInput("Русский / {language} / $&");
+      setAppSettings(harness.db, {
+        ...getAppSettings(harness.db),
+        responseLanguage: "ru",
+      });
+      const accepted = await acceptThreadSendRequest(harness.deps, {
+        thread,
+        payload: { input, mode: "start", sendAt: Date.now() + 60_000 },
+      });
+      expect(accepted.delivery).toBe("queued");
+      if (accepted.delivery !== "queued")
+        throw new Error("Expected a future queued request");
+      setAppSettings(harness.db, {
+        ...getAppSettings(harness.db),
+        responseLanguage: "en",
+      });
+      await sendQueuedMessageNow(harness.deps, {
+        threadId: thread.id,
+        queuedMessageId: accepted.queuedMessage.id,
+        mode: "auto",
+      });
+      const commands = listQueuedThreadCommands(
+        harness,
+        "turn.submit",
+        thread.id,
+      );
+      expect(commands).toHaveLength(1);
+      const [command] = commands;
+      if (command?.type !== "turn.submit")
+        throw new Error("Expected turn submit");
+      expect(command.input.slice(1)).toEqual(input);
+      expect(command.input[0]).toMatchObject({
+        type: "text",
+        visibility: "agent-only",
+        text: expect.stringContaining(
+          "Use English for user-facing explanations",
+        ),
+      });
+      expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+    });
+  });
+
   it("rolls back and sends no host command when the idle thread was archived between claim and dispatch", async () => {
     await withTestHarness(async (harness) => {
       const { thread } = seedProviderThreadFixture({ harness, value: 1 });
