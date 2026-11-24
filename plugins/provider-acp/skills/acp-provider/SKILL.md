@@ -26,9 +26,10 @@ be reached the saved copy is shown with the reason.
 ## Subscription account sign-in
 
 Open Subscriptions in the sidebar, or Settings → Plugins → ACP providers →
-Open subscription connections. This page adds official Antigravity, Kimi Code,
-and cloud Qwen Code profiles. Select the connected
-machine where threads will run, add the agent, then choose Sign in. Complete
+Open subscription connections. Official Antigravity, Kimi Code, and cloud
+Qwen Code are built-in providers in the normal model picker alongside Codex
+and Claude; no Add agent step is required. This page is for account setup.
+Select the connected machine where threads will run, then choose Sign in. Complete
 the agent's account selection and browser/device authorization in the opened
 BB terminal. Adding the profile or opening its terminal does not confirm login,
 subscription eligibility, or quota. Verify a real model request afterward.
@@ -57,8 +58,13 @@ Repeated calls reuse a running sign-in terminal for that profile and machine;
 after it exits, the next call starts a new terminal. No token or password is
 returned through RPC or CLI output.
 
-Profile additions preserve existing custom agents and never replace an existing
-entry with the same id. A changed command, arguments, environment or cwd requires
+The add command remains compatible: it saves an explicit profile without
+replacing an existing custom entry. Existing overrides of these three providers
+keep their command, arguments, environment, and working directory; removing an
+override restores the built-in provider. Disable it with `bb provider disable
+<provider-id>` to hide it from the picker. Models come from the agent's ACP
+catalog; presence in the picker does not confirm account authentication.
+ A changed command, arguments, environment or cwd requires
 its own sign-in procedure; the subscription shortcut is disabled for it. Login
 credentials remain in the native agent's storage on the chosen machine. No new
 credentials are copied between machines. GLM subscription support through ZCode

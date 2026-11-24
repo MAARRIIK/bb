@@ -18,7 +18,7 @@ const copy = {
     title: "Sign in with subscriptions",
     open: "Open subscription connections",
     intro:
-      "Use the agent's own account login. API connections remain available through Pi. Adding an agent does not sign you in or verify your plan.",
+      "Antigravity, Kimi Code and Qwen Code are in the model picker alongside Codex and Claude. Use this page to sign in on the execution machine. Account access and quota depend on the agent.",
     machine: "Sign-in machine",
     choose: "Choose a connected machine",
     add: "Add agent",
@@ -42,7 +42,7 @@ const copy = {
     title: "Вход по подпискам",
     open: "Открыть подключения по подписке",
     intro:
-      "Используй штатный вход в аккаунт агента. Подключения по API остаются в Pi. Добавление агента не выполняет вход и не проверяет тариф.",
+      "Antigravity, Kimi Code и Qwen Code находятся в общем выборе моделей рядом с Codex и Claude. Здесь можно войти в аккаунт на машине выполнения. Доступ и квота зависят от агента.",
     machine: "Машина для входа",
     choose: "Выбери подключённую машину",
     add: "Добавить агента",

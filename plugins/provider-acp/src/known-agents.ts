@@ -1,3 +1,5 @@
+import { SUBSCRIPTION_AGENT_PROFILES } from "./subscription-profiles.js";
+import { registryAgentIcon } from "./registry-icons.js";
 import type { AcpAgentDefinition } from "./agents.js";
 import { resolveCursorNativeRoots } from "./native-roots/cursor.js";
 import { resolveGrokNativeRoots } from "./native-roots/grok.js";
@@ -34,6 +36,20 @@ function ancestorRoots(entries: readonly RootEntry[]) {
 }
 
 export const KNOWN_ACP_AGENTS: readonly AcpAgentDefinition[] = [
+  ...SUBSCRIPTION_AGENT_PROFILES.map((profile): AcpAgentDefinition => ({
+    id: `acp-${profile.id}`,
+    displayName: profile.name,
+    icon: registryAgentIcon(profile.id),
+    visibility: "always",
+    signInCommand: profile.signInCommand,
+    installUrl: profile.documentationUrl,
+    launch: {
+      displayName: profile.name,
+      command: profile.command,
+      args: [...profile.args],
+      env: {},
+    },
+  })),
   {
     id: "acp-cursor",
     displayName: "Cursor",
@@ -199,8 +215,6 @@ export const KNOWN_ACP_AGENTS: readonly AcpAgentDefinition[] = [
   },
 ];
 
-export const RESERVED_ACP_PROVIDER_IDS: ReadonlySet<string> = new Set(
-  KNOWN_ACP_AGENTS.filter(
-    (agent) => (agent.visibility ?? "always") === "always",
-  ).map((agent) => agent.id),
-);
+export const RESERVED_ACP_PROVIDER_IDS: ReadonlySet<string> = new Set([
+  "acp-cursor",
+]);

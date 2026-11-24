@@ -7,55 +7,10 @@ import {
 import { z } from "zod";
 import { customAcpAgentSchema, type CustomAcpAgentSettings } from "./agents.js";
 
-const subscriptionAgentIdSchema = z.enum([
-  "antigravity-acp",
-  "kimi-code",
-  "qwen-code",
-]);
-
-const profiles = [
-  {
-    id: "antigravity-acp",
-    name: "Google Antigravity",
-    command: "agy",
-    args: ["acp"],
-    signInCommand: "agy acp --login",
-    documentationUrl: "https://antigravity.google/docs/cli/acp/",
-    requiresInstallation: true,
-  },
-  {
-    id: "kimi-code",
-    name: "Kimi Code",
-    command: "npx",
-    args: ["-y", "@moonshot-ai/kimi-code@2.7.3", "acp"],
-    signInCommand: "npx -y @moonshot-ai/kimi-code@2.7.3 login",
-    documentationUrl: "https://moonshotai.github.io/kimi-code/",
-    requiresInstallation: false,
-  },
-  {
-    id: "qwen-code",
-    name: "Qwen Code",
-    command: "npx",
-    args: [
-      "-y",
-      "@qwen-code/qwen-code@0.28.4",
-      "--acp",
-      "--experimental-skills",
-    ],
-    signInCommand: "npx -y @qwen-code/qwen-code@0.28.4",
-    documentationUrl:
-      "https://qwenlm.github.io/qwen-code-docs/en/users/configuration/auth/",
-    requiresInstallation: false,
-  },
-] satisfies {
-  id: z.infer<typeof subscriptionAgentIdSchema>;
-  name: string;
-  command: string;
-  args: string[];
-  signInCommand: string;
-  documentationUrl: string;
-  requiresInstallation: boolean;
-}[];
+import {
+  subscriptionAgentIdSchema,
+  SUBSCRIPTION_AGENT_PROFILES as profiles,
+} from "./subscription-profiles.js";
 
 const profileViewSchema = z.object({
   id: subscriptionAgentIdSchema,
@@ -107,13 +62,13 @@ export function registerSubscriptionAgents(deps: {
         signInCommand: profile.signInCommand,
         documentationUrl: profile.documentationUrl,
         requiresInstallation: profile.requiresInstallation,
-        configured: existing !== undefined,
+        configured: true,
         matchesProfile:
-          existing !== undefined &&
-          existing.command === profile.command &&
-          JSON.stringify(existing.args) === JSON.stringify(profile.args) &&
-          Object.keys(existing.env).length === 0 &&
-          existing.cwd === undefined,
+          existing === undefined ||
+          (existing.command === profile.command &&
+            JSON.stringify(existing.args) === JSON.stringify(profile.args) &&
+            Object.keys(existing.env).length === 0 &&
+            existing.cwd === undefined),
       };
     });
   }
@@ -146,7 +101,7 @@ export function registerSubscriptionAgents(deps: {
     const profile = (await list()).find((entry) => entry.id === id);
     if (profile === undefined || !profile.matchesProfile) {
       throw new Error(
-        "Add the subscription profile first. A custom launch configuration must sign in using its own command and environment.",
+        "A custom launch configuration must sign in using its own command and environment.",
       );
     }
     const host = await bb.sdk.hosts.get({ hostId });
