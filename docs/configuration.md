@@ -1865,3 +1865,55 @@ use discoverable `current` and `history` RPC on `agent-team`.
 Missing lifecycle, model identity and initial prompts are shown explicitly;
 completed delegation calls are not a running-agent count. See the owning
 [skill](../plugins/agent-team/skills/agent-team/SKILL.md) for history limits.
+
+## DeepSeek Web (experimental)
+
+DeepSeek Web connects a BB thread to a dedicated desktop browser tab at
+`https://chat.deepseek.com/`. It requires the built-in Browser Automation
+plugin, which is not installed automatically. In a source checkout, build with
+Turbo, then install both plugins:
+
+```sh
+bb plugin install builtin:browser-automation --yes
+bb plugin install ./plugins/provider-deepseek-web --yes
+```
+
+Connect manually; no API key is needed. Sign in on the website, then reconnect
+the same tab if required to resume after login. A `ready` status only describes
+the page state and does not prove authorization. Account access, quota, and the
+website's selected model name are not verified; it uses whichever model the
+website currently selects.
+
+Writes and shell commands require explicit confirmation in the thread. Review
+the complete write contents or full command before approving; commands run
+with the local user's permissions. The usual approval form lasts 10 minutes;
+timeout or cancellation does not approve the action.
+
+The CLI includes `bb deepseek-web desktops`, `connect --desktop <instance-id>`,
+`status`, `disconnect`, and `exchange --turn <uuid> --text <text>`, all under
+`bb deepseek-web`; each accepts `--thread <thread-id>`. For workspace actions,
+`bb deepseek-web execute --turn <uuid> --actions '<JSON array>'` returns an
+execution request ID immediately. Pass optional `--request <uuid>` to choose
+that ID; otherwise BB generates one. Poll with
+`bb deepseek-web execution-status --request <uuid>` and cancel with
+`bb deepseek-web execution-cancel --request <uuid>`. These also accept
+`--thread`. Execute actions with immutable arguments per request ID; cancelling
+before start creates a tombstone. At most 100 records are kept for one hour,
+with terminal records eligible for eviction. After plugin restart, an old
+request may be unknown; BB preserves the uncertain journal and refuses to
+resume or automatically re-execute it. The blocking `execute` RPC remains
+available for short calls with a 75-second limit; prefer the async job RPCs for
+writes and commands, which can wait longer for approval.
+
+The SDK RPC operations are `desktops`, `connect`, `status`, `disconnect`,
+`exchange`, `execute`, `executionStart`, `executionStatus`, and
+`executionCancel`, invoked through `sdk.plugins.callRpc` for the
+`provider-deepseek-web` plugin. The async job operations return `running`,
+`completed` with results, `failed` with an error, or `cancelled`. The native
+execute tool starts, polls, and cancels these jobs so approvals can wait longer
+than 75 seconds. Their contract is in
+[`contracts.ts`](../plugins/provider-deepseek-web/src/contracts.ts). If release
+cannot reach an old host, cleanup may need to be confirmed before release can
+finish; do not force-forget that binding. See the [DeepSeek Web
+skill](../plugins/provider-deepseek-web/skills/deepseek-web/SKILL.md) for
+connection and recovery steps.

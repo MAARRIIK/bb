@@ -553,6 +553,43 @@ describe("server session cleanup", () => {
   const hostCalls = (h: Awaited<ReturnType<typeof setup>>, method: string) =>
     h.worker.mock.calls.filter(([call]) => call.method === method);
 
+  it("cancels the host run and stops its session when the RPC caller aborts", async () => {
+    const h = await setup();
+    let finishRun = () => {};
+    let outcome = Promise.resolve("");
+    try {
+      const session = await openLocal(h);
+      h.worker.mockImplementationOnce(
+        async ({ signal }) =>
+          new Promise((_resolve, reject) => {
+            finishRun = () => reject(new Error("Browser run cancelled"));
+            signal?.addEventListener("abort", finishRun, { once: true });
+          }),
+      );
+      const controller = new AbortController();
+      outcome = h.harness
+        .callRpc(
+          "run",
+          { ...ownedBy(session.id), script: "await longRunningBrowserWork()" },
+          { signal: controller.signal },
+        )
+        .then(
+          () => "completed",
+          (error: unknown) => String(error),
+        );
+      await vi.waitFor(() => expect(hostCalls(h, "run")).toHaveLength(1));
+      controller.abort();
+      expect(hostCalls(h, "run")[0]![0].signal?.aborted).toBe(true);
+      expect(await outcome).toContain("Browser run cancelled");
+      expect((await listed(h, session.id))?.state).toBe("stopped");
+      expect(hostCalls(h, "close")).toHaveLength(1);
+    } finally {
+      finishRun();
+      await outcome;
+      await h.harness.lifecycle.dispose();
+    }
+  });
+
   it.each(["before", "after", "both"] as const)(
     "keeps a session usable when renewal persistence fails %s execution",
     async (failureAt) => {
