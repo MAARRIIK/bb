@@ -17,7 +17,10 @@ import {
   setThreadExecutionOverride,
 } from "@bb/db";
 import type { ThreadQueuedMessage } from "@bb/domain";
-import type { PluginHookName } from "@get-bb/plugin-sdk";
+import type {
+  MessageDispatchHookContext,
+  PluginHookName,
+} from "@get-bb/plugin-sdk";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   invokePluginInline,
@@ -375,6 +378,62 @@ async function drainRecoveries(
 }
 
 describe("the turn.failed announcement", () => {
+  it.each([true, false])(
+    "exposes the failed execution to admission only in error state: %s",
+    async (failed) => {
+      await withTestHarness(async (harness) => {
+        const { environment, thread, requestId } = seedFailableThread(
+          harness,
+          "host-failure-context",
+        );
+        const resetsAtMs = Date.now() + 3_600_000;
+        seedRateLimitFailure(harness, {
+          environmentId: environment.id,
+          threadId: thread.id,
+          resetsAtMs,
+        });
+        if (failed) failThread(harness, thread.id);
+        const seen: MessageDispatchHookContext[] = [];
+        installHooks({
+          "message.dispatch": [
+            {
+              pluginId: "confirmed-limits",
+              handler: (context) => {
+                seen.push(context);
+                return { action: "wait", reason: "Quota decision" };
+              },
+            },
+          ],
+        });
+        await acceptThreadSendRequest(harness.deps, {
+          thread: requireThread(harness, thread.id),
+          payload: {
+            input: textInput("Next task"),
+            model: "requested-model",
+            mode: "queue-if-active",
+          },
+        });
+        expect(seen).toHaveLength(1);
+        expect(seen[0]?.requestedExecution.model).toBe("requested-model");
+        if (failed)
+          expect(seen[0]?.experimental_lastFailure).toMatchObject({
+            threadId: thread.id,
+            requestId,
+            providerId: "codex",
+            providerSessionId: null,
+            model: "gpt-5",
+            rateLimits: { windows: [{ resetsAtMs }] },
+          });
+        else expect(seen[0]?.experimental_lastFailure).toBeNull();
+        expect(onlyQueuedRow(harness, thread.id).waitingOn).toMatchObject({
+          kind: "plugin",
+          pluginId: "confirmed-limits",
+        });
+        expect(turnRequests(harness, thread.id)).toHaveLength(1);
+      });
+    },
+  );
+
   it.each([
     {
       providerId: "claude-code",

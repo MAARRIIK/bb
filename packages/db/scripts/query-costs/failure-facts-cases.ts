@@ -6,6 +6,7 @@ import {
   type AppendStoredThreadEventArgs,
 } from "../../src/data/events.js";
 import { threads } from "../../src/schema.js";
+import { pruneRateLimitSnapshotWindow } from "../../src/data/rate-limit-pruning.js";
 import { registerCostGroup, type QueryCostCase } from "./case.js";
 
 const variants = ["thread", "current-found", "current-missing"] as const;
@@ -13,7 +14,7 @@ const variants = ["thread", "current-found", "current-missing"] as const;
 export const FAILURE_FACTS_COST_GROUP = registerCostGroup({
   name: "failure-facts",
   seed: () => undefined,
-  cases: variants.flatMap((variant) => {
+  cases: variants.flatMap((variant): QueryCostCase[] => {
     const prepare: NonNullable<QueryCostCase["prepare"]> = (db, fixture) => {
       const facts: AppendStoredThreadEventArgs[] = [
         {
@@ -67,7 +68,7 @@ export const FAILURE_FACTS_COST_GROUP = registerCostGroup({
       });
     };
     const scope = variant === "thread" ? "thread" : "current-session";
-    return [
+    const cases: QueryCostCase[] = [
       {
         name: "packages/db/src/data/events.ts#getLatestStoredRateLimitsEvent",
         variant,
@@ -90,6 +91,21 @@ export const FAILURE_FACTS_COST_GROUP = registerCostGroup({
             types: ["provider/error"],
           }),
       },
-    ] satisfies QueryCostCase[];
+    ];
+    if (variant !== "thread") {
+      cases.push({
+        name: "packages/db/src/data/rate-limit-pruning.ts#pruneRateLimitSnapshotWindow",
+        variant,
+        prepare,
+        run: (db, fixture) =>
+          pruneRateLimitSnapshotWindow(db, {
+            threadId: fixture.threadId,
+            afterSequence: 0,
+            throughSequence: Number.MAX_SAFE_INTEGER,
+            limit: 64,
+          }),
+      });
+    }
+    return cases;
   }),
 });

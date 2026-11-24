@@ -27,8 +27,18 @@ export function pruneRateLimitSnapshotWindow(
     )})
       AND ${isBeforeLatestThreadEvent(args.threadId)}
       AND (EXISTS (SELECT 1 FROM threads WHERE id = ${args.threadId} AND archived_at IS NOT NULL)
-        OR sequence < (SELECT sequence FROM events WHERE thread_id = ${args.threadId}
-          AND type = 'provider/rateLimits/updated' ORDER BY sequence DESC LIMIT 1))
+        OR (sequence < (SELECT sequence FROM events WHERE thread_id = ${args.threadId}
+          AND type = 'provider/rateLimits/updated' ORDER BY sequence DESC LIMIT 1)
+          AND sequence IS NOT (
+            SELECT current_snapshot.sequence
+            FROM events AS current_snapshot INDEXED BY events_thread_type_provider_session_sequence_idx
+            WHERE current_snapshot.thread_id = ${args.threadId}
+              AND current_snapshot.type = 'provider/rateLimits/updated'
+              AND current_snapshot.provider_session_id IS (SELECT provider_session_id FROM threads WHERE id = ${args.threadId})
+              AND (current_snapshot.provider_id IS NULL
+                OR current_snapshot.provider_id = (SELECT provider_id FROM threads WHERE id = ${args.threadId}))
+            ORDER BY current_snapshot.sequence DESC LIMIT 1
+          )))
   `).changes;
   return {
     removed,

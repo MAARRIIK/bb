@@ -7,9 +7,13 @@ import {
   createFakePluginHost,
   makeQueueEntry,
   makeTurnFailedEvent,
+  makeMessageDispatchHookContext,
   type CreateFakePluginHostOptions,
 } from "@get-bb/plugin-sdk/testing";
-import type { PluginTurnFailedEvent } from "@get-bb/plugin-sdk";
+import type {
+  MessageDispatchHookDecision,
+  PluginTurnFailedEvent,
+} from "@get-bb/plugin-sdk";
 import plugin from "./server.js";
 import {
   MAX_RETRY_ATTEMPTS,
@@ -432,29 +436,240 @@ describe("provider retry plugin", () => {
     vi.useRealTimers();
   });
 
-  it("listens for one event and answers no hook", async () => {
+  it("exposes quota admission settings and preserves the retry commands", async () => {
     const host = createHost();
     await plugin(host.bb);
 
-    expect(host.harness.registrations.settingsDescriptors).toEqual({
+    expect(host.harness.registrations.settingsDescriptors).toMatchObject({
       maximumWait: {
         type: "select",
-        label: "Maximum automatic wait",
-        description:
-          "Do not schedule a subscription-limit retry when its reset is farther away than this.",
         options: ["6 hours", "24 hours", "No limit"],
         default: "6 hours",
       },
+      holdQueuedAtLimits: { type: "boolean", default: true },
     });
     expect(host.harness.registrations.threadEventHandlers["turn.failed"]).toBe(
       1,
     );
-    expect(host.harness.registrations.hooks["message.dispatch"]).toBeNull();
     expect(
       host.harness.registrations.cli?.commands.map((command) => command.name),
     ).toEqual(["status", "explain", "cancel", "retry"]);
     await host.harness.dispose();
   });
+
+  it("holds the confirmed model, preserves other executions and releases after reset or a settings override", async () => {
+    const host = createHost();
+    await plugin(host.bb);
+    const hook = host.harness.registrations.hooks["message.dispatch"];
+    if (hook === null) throw new Error("Missing dispatch policy");
+    const context = makeMessageDispatchHookContext({
+      thread: { id: THREAD_ID, providerId: "codex", status: "error" },
+      requestedExecution: { providerId: "codex", model: "limited-model" },
+      experimental_lastFailure: {
+        ...failure(),
+        providerId: "codex",
+        providerSessionId: "ps_current",
+        model: "limited-model",
+      },
+    });
+    await host.harness.behavior.emitThreadEvent("turn.failed", failure());
+    expect(await hook(context)).toMatchObject({
+      action: "wait",
+      recheckAt: Date.now() + 60_000,
+    });
+    for (const changed of [
+      {
+        ...context,
+        requestedExecution: { ...context.requestedExecution, providerId: "pi" },
+      },
+      {
+        ...context,
+        requestedExecution: {
+          ...context.requestedExecution,
+          model: "another-model",
+        },
+      },
+      { ...context, attempt: "join-turn" as const },
+      { ...context, experimental_lastFailure: null },
+    ])
+      expect(await hook(changed)).toEqual({ action: "proceed" });
+    await host.harness.setSettings({ holdQueuedAtLimits: false });
+    expect(await hook(context)).toEqual({ action: "proceed" });
+    await host.harness.setSettings({ holdQueuedAtLimits: true });
+    vi.setSystemTime(RESET_AT_MS + RESET_BUFFER_MS + 1);
+    const before = host.harness.recheckCount;
+    expect(await hook(context)).toMatchObject({ action: "wait" });
+    await vi.waitFor(() =>
+      expect(host.harness.recheckCount).toBeGreaterThan(before),
+    );
+    expect(await hook(context)).toEqual({ action: "proceed" });
+    await host.harness.dispose();
+  });
+
+  it.each([
+    {
+      label: "allowed overage",
+      limits: rateLimits({ overageStatus: "allowed" }),
+      action: "proceed",
+    },
+    {
+      label: "warning",
+      limits: rateLimits({ status: "warning" }),
+      action: "proceed",
+    },
+    {
+      label: "credits",
+      limits: rateLimits({ kind: "credits" }),
+      action: "proceed",
+    },
+    {
+      label: "unknown reset",
+      limits: rateLimits({ windows: [] }),
+      action: "wait",
+    },
+    {
+      label: "expired reset",
+      limits: rateLimits({
+        windows: [
+          {
+            providerKey: "primary",
+            label: "Window",
+            status: "blocked",
+            resetsAtMs: NOW_MS - RESET_BUFFER_MS - 1,
+          },
+        ],
+      }),
+      action: "proceed",
+    },
+  ])(
+    "distinguishes native quota conditions: $label",
+    async ({ limits, action }) => {
+      const host = createHost();
+      await plugin(host.bb);
+      const hook = host.harness.registrations.hooks["message.dispatch"];
+      if (hook === null) throw new Error("Missing dispatch policy");
+      const event = failure({ rateLimits: limits });
+      await host.harness.behavior.emitThreadEvent("turn.failed", event);
+      const context = makeMessageDispatchHookContext({
+        requestedExecution: { providerId: "codex", model: "limited-model" },
+        experimental_lastFailure: {
+          ...event,
+          providerId: "codex",
+          providerSessionId: "ps_current",
+          model: "limited-model",
+        },
+      });
+      expect(await hook(context)).toMatchObject({ action });
+      await host.harness.dispose();
+    },
+  );
+
+  it("resolves a restored failure outside admission, coalesces slow lookups and respects a ready routed account", async () => {
+    let release = () => {};
+    const response = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const rpc = vi.fn(async () => {
+      await response;
+      return { kind: "ready" as const };
+    });
+    const host = createHost([], {
+      experimental_discoverRpc: async () => [
+        {
+          pluginId: "account-pool",
+          displayName: "Account Pooler",
+          method: retryAvailabilityMethod,
+        },
+      ],
+      callRpc: rpc,
+    });
+    await plugin(host.bb);
+    const hook = host.harness.registrations.hooks["message.dispatch"];
+    if (hook === null) throw new Error("Missing dispatch policy");
+    const context = makeMessageDispatchHookContext({
+      thread: { id: THREAD_ID, providerId: "codex", status: "error" },
+      requestedExecution: { providerId: "codex", model: "limited-model" },
+      experimental_lastFailure: {
+        ...failure(),
+        providerId: "codex",
+        providerSessionId: "ps_current",
+        model: "limited-model",
+      },
+    });
+    let returned: MessageDispatchHookDecision | null = null;
+    const pending = Promise.resolve(hook(context)).then((value) => {
+      returned = value;
+    });
+    try {
+      await vi.waitFor(() =>
+        expect(returned).toMatchObject({ action: "wait" }),
+      );
+      expect(await hook(context)).toMatchObject({ action: "wait" });
+      await vi.waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+      expect(rpc.mock.calls[0]).toMatchObject([
+        { input: { threadId: THREAD_ID, requestId: REQUEST_ID } },
+      ]);
+    } finally {
+      release();
+    }
+    await pending;
+    await vi.waitFor(() =>
+      expect(host.harness.recheckCount).toBeGreaterThan(0),
+    );
+    expect(await hook(context)).toEqual({ action: "proceed" });
+    expect(host.retries).toEqual([]);
+    await host.harness.dispose();
+  });
+
+  it.each([
+    { kind: "blocked" as const, retryAt: RESET_AT_MS },
+    { kind: "unavailable" as const, reason: "source-unavailable" as const },
+  ])(
+    "refreshes routed availability before a distant reset: $kind",
+    async (initial) => {
+      let availability: RetryAvailability = initial;
+      const host = createHost([], {
+        experimental_discoverRpc: async () => [
+          {
+            pluginId: "account-pool",
+            displayName: "Account Pooler",
+            method: retryAvailabilityMethod,
+          },
+        ],
+        callRpc: async () => availability,
+      });
+      await plugin(host.bb);
+      const hook = host.harness.registrations.hooks["message.dispatch"];
+      if (hook === null) throw new Error("Missing dispatch policy");
+      const context = makeMessageDispatchHookContext({
+        thread: { id: THREAD_ID, providerId: "codex", status: "error" },
+        requestedExecution: { providerId: "codex", model: "limited-model" },
+        experimental_lastFailure: {
+          ...failure({ rateLimits: null }),
+          providerId: "codex",
+          providerSessionId: "ps_current",
+          model: "limited-model",
+        },
+      });
+      await host.harness.behavior.emitThreadEvent(
+        "turn.failed",
+        failure({ rateLimits: null }),
+      );
+      expect(await hook(context)).toMatchObject({
+        action: "wait",
+        recheckAt: Date.now() + 60_000,
+      });
+      availability = { kind: "ready" };
+      vi.setSystemTime(Date.now() + 60_001);
+      const before = host.harness.recheckCount;
+      expect(await hook(context)).toMatchObject({ action: "wait" });
+      await vi.waitFor(() =>
+        expect(host.harness.recheckCount).toBeGreaterThan(before),
+      );
+      expect(await hook(context)).toEqual({ action: "proceed" });
+      await host.harness.dispose();
+    },
+  );
 
   it("publishes a failure's decision only once its retry is queued", async () => {
     const host = createHost();

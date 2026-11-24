@@ -29,6 +29,7 @@ import type { AppDeps } from "../../types.js";
 import { toEnvironmentResponse } from "../environments/environment-response.js";
 import { getNonDestroyedHostWithStatus } from "../lib/entity-lookup.js";
 import { pluginHookProvider } from "../plugins/plugin-hook-registry.js";
+import { buildLastFailedDispatch } from "./turn-failed.js";
 
 type DispatchHookDeps = Pick<AppDeps, "db" | "hub">;
 
@@ -395,6 +396,10 @@ function buildHookContext(
   return {
     ...droppedFromContractStillEmitted,
     ...summarizeDispatchProvenance(request),
+    experimental_lastFailure: buildLastFailedDispatch(
+      deps.db,
+      request.thread.id,
+    ),
     thread: request.threadResponse,
     attempt: request.attempt,
     project: request.project,

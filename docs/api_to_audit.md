@@ -5640,3 +5640,27 @@ precedence, bounded discovery failure, and module-ABI preservation after Node
 replacement. Settle the shared process-local instance lifecycle across SDK
 bundle versions and whether `bundledNpmCli` belongs on the public surface before
 removing the prefix.
+
+## `MessageDispatchHookContext.experimental_lastFailure`
+
+`ExperimentalDispatchFailure` extends the existing failed-turn facts with the
+provider, nullable provider session generation, and actual model of the failed
+request. Core supplies it only while the thread is in error and a failed request
+exists in its current session; otherwise the value is null. It does not contain
+prompt text. The next requested model may differ, so consumers compare the failed
+execution with `requestedExecution` rather than treating a failure as a limit on
+all models or accounts.
+
+The shared dispatch checkpoint builds this value for core UI, SDK, CLI and queued
+re-attempts through the same current-session failure reader used by `turn.failed`.
+Provider retry is the first consumer, using it to hold work after confirmed
+subscription limits without guessing from displayed percentages. Its source
+availability lookup runs outside the admission lock. Send now retains its
+existing explicit policy override.
+
+Before stabilization, verify late events, return-to-provider generations,
+nullable legacy identities, different requested models, pooled-account routing,
+restart recovery and error-state transitions. Audit whether the failure-only
+snapshot is sufficient for other admission policies before adding general
+provider usage state. Then rename the field and type project-wide and remove
+this entry. No host-daemon wire fields are added.

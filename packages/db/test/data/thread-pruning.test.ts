@@ -552,6 +552,83 @@ describe("thread pruning", () => {
     }
   });
 
+  it.each([
+    {
+      providerId: "claude-code",
+      providerSessionId: null,
+      currentSessionId: null,
+    },
+    {
+      providerId: "codex",
+      providerSessionId: "ps_old",
+      currentSessionId: "ps_current",
+    },
+    {
+      providerId: "claude-code",
+      providerSessionId: "ps_current",
+      currentSessionId: "ps_current",
+    },
+  ])(
+    "preserves current quota facts across late $providerId/$providerSessionId snapshots and restart",
+    (source) => {
+      let f = setup();
+      try {
+        f.db
+          .update(threads)
+          .set({ providerSessionId: source.currentSessionId })
+          .where(eq(threads.id, f.thread.id))
+          .run();
+        const current = {
+          providerId: "codex",
+          providerSessionId: source.currentSessionId,
+        };
+        const late = {
+          providerId: source.providerId,
+          providerSessionId: source.providerSessionId,
+          data: JSON.stringify({ rateLimits: { providerId: source.providerId } }),
+        };
+        seed(f, 1, current);
+        seed(f, 2, current);
+        seed(f, 3, late);
+        seed(f, 4, late);
+        seed(f, 5, { type: "item/agentMessage/delta" });
+        cycle(f, "rate-limits");
+        expect(sequences(f)).toEqual([2, 4, 5]);
+        expect(
+          getLatestStoredRateLimitsEvent(f.db, {
+            threadId: f.thread.id,
+            scope: "current-session",
+          })?.sequence,
+        ).toBe(2);
+        expect(
+          getLatestStoredRateLimitsEvent(f.db, {
+            threadId: f.thread.id,
+            scope: "thread",
+          })?.sequence,
+        ).toBe(4);
+        const saved = f.db.$client.serialize();
+        f.db.$client.close();
+        f = { ...f, db: createConnection(saved) };
+        seed(f, 6, current);
+        seed(f, 7, { type: "item/agentMessage/delta" });
+        cycle(f, "rate-limits");
+        expect(sequences(f)).toEqual([5, 6, 7]);
+        expect(
+          getLatestStoredRateLimitsEvent(f.db, {
+            threadId: f.thread.id,
+            scope: "current-session",
+          })?.sequence,
+        ).toBe(6);
+        archiveThread(f.db, noopNotifier, f.thread.id);
+        markThreadPruningWork(f.db, [f.thread.id]);
+        cycle(f, "rate-limits");
+        expect(sequences(f)).toEqual([5, 7]);
+      } finally {
+        f.db.$client.close();
+      }
+    },
+  );
+
   it("keeps only the latest thread snapshot across restart and late arrivals", () => {
     let f = setup();
     try {

@@ -1490,6 +1490,17 @@ that horizon:
 bb plugin config provider-retry set maximumWait "24 hours"
 ```
 
+`holdQueuedAtLimits` defaults to true. After a confirmed rate-limit failure,
+messages starting work on the same provider and exact model wait for the reported
+subscription reset. Routing sources may report another usable account or an
+earlier reset. Unknown routed availability and unknown reset times remain visible
+waits; refreshes run outside the dispatch lock and are checked again within a
+minute. Displayed usage percentages do not trigger this policy. Join-turn input
+and a different requested execution pass through. Existing Send now controls
+override this plugin policy. To disable this hold while retaining automatic
+retries, use `bb plugin config provider-retry set holdQueuedAtLimits false`.
+The setting is also available in Settings → Installed plugins → Provider retry.
+
 Disable it with `bb plugin disable provider-retry`. See the `provider-retry`
 skill.
 

@@ -197,6 +197,7 @@ export function makeMessageDispatchHookContext(
   overrides: MessageDispatchHookContextOverrides = {},
 ): MessageDispatchHookContext {
   const context: MessageDispatchHookContext = {
+    experimental_lastFailure: null,
     thread: makeThreadResponse({ status: "pending" }),
     project: {
       id: "project-1",

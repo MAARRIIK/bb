@@ -17,7 +17,10 @@ import {
   type Thread,
   type TurnRequestEventData,
 } from "@bb/domain";
-import type { PluginTurnFailedEvent } from "@get-bb/plugin-sdk";
+import type {
+  ExperimentalDispatchFailure,
+  PluginTurnFailedEvent,
+} from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { parseStoredTurnRequestEvent } from "./thread-events.js";
 
@@ -170,12 +173,51 @@ export function buildTurnFailedEvent(
   db: DbConnection,
   threadId: string,
 ): PluginTurnFailedEvent | null {
+  const record = currentFailedTurnRecord(db, threadId, false);
+  return record === null
+    ? null
+    : buildTurnFailureFacts(db, record.thread, record.failed);
+}
+
+function currentFailedTurnRecord(
+  db: DbConnection,
+  threadId: string,
+  requireError: boolean,
+) {
   const thread = getThread(db, threadId);
-  if (!thread || thread.deletedAt !== null || thread.archivedAt !== null) {
+  if (
+    !thread ||
+    thread.deletedAt !== null ||
+    thread.archivedAt !== null ||
+    (requireError && thread.status !== "error")
+  ) {
     return null;
   }
   const failed = loadFailedTurn(db, threadId);
   if (failed === null) return null;
+  return { thread, failed };
+}
+
+export function buildLastFailedDispatch(
+  db: DbConnection,
+  threadId: string,
+): ExperimentalDispatchFailure | null {
+  const record = currentFailedTurnRecord(db, threadId, true);
+  if (record === null) return null;
+  return {
+    ...buildTurnFailureFacts(db, record.thread, record.failed),
+    providerId: record.thread.providerId,
+    providerSessionId: record.thread.providerSessionId,
+    model: record.failed.request.execution.model,
+  };
+}
+
+function buildTurnFailureFacts(
+  db: DbConnection,
+  thread: Thread,
+  failed: FailedTurnRecord,
+): PluginTurnFailedEvent {
+  const threadId = thread.id;
   // The provider's own account of the failure, when the failure happened
   // inside a provider turn at all: it carries both the turn id and the
   // structured classification, so one row answers two fields.

@@ -175,6 +175,8 @@ Each bundled plugin documents its commands and behavior in its own skill.
   skill.
 - Provider retry (builtin): queues an automatic retry after provider
   overloads, server or connection errors, and subscription-window limits.
+  By default it also holds new work on the same model after a confirmed
+  subscription limit; `holdQueuedAtLimits` disables that hold independently.
   `bb provider-retry status|explain|retry|cancel`; see the `provider-retry`
   skill.
 - Thread list (builtin): owns the sidebar's layout preferences, synced to
