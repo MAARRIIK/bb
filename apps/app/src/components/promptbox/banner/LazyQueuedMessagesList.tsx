@@ -4,6 +4,7 @@ import { cn } from "@bb/shared-ui/lib/utils";
 import { formatQueuedMessagePreview } from "@bb/client-core";
 import { queuedMessageFallbackTitle } from "@/lib/queued-message-wait";
 import { useSecondTick } from "@/hooks/useSecondTick";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import {
   PROMPT_STACK_CARD_HEADER_BUTTON_CLASS,
   PromptStackCard,
@@ -78,9 +79,10 @@ function QueuedMessagesCardFrame({
   height: number;
   queuedMessageCount: number;
 }) {
+  const { t } = useInterfaceTranslation();
   return (
     <PromptStackCard
-      ariaLabel="Queued messages"
+      ariaLabel={t("Queued messages")}
       style={{ height }}
       className={cn(
         "relative z-10 flex min-h-0 flex-col overflow-hidden rounded-xl bg-surface-raised-solid shadow-lift",
@@ -95,7 +97,7 @@ function QueuedMessagesCardFrame({
             expanded && "border-b border-border/35",
           )}
         >
-          <span className="font-normal">Queue</span>
+          <span className="font-normal">{t("Message queue")}</span>
           <QueuedMessagesCountPill arrivals={0} count={queuedMessageCount} />
         </div>
       </header>
@@ -178,6 +180,7 @@ export function QueuedMessagesPendingCard({
 }: {
   queuedMessageCount: number;
 }) {
+  const { t } = useInterfaceTranslation();
   useEffect(() => {
     void LazyQueuedMessagesList.preload();
   }, []);
@@ -188,7 +191,7 @@ export function QueuedMessagesPendingCard({
       height={QUEUED_MESSAGES_COLLAPSED_HEIGHT}
       queuedMessageCount={queuedMessageCount}
     >
-      <span role="status" aria-label="Loading queued messages" />
+      <span role="status" aria-label={t("Loading queued messages")} />
     </QueuedMessagesCardFrame>
   );
 }

@@ -858,10 +858,10 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
     isQueuedMessageSendNowAllowed(queuedMessage);
   const sendAriaLabel =
     sendAction === "steer-when-ready"
-      ? `Steer queued message ${index + 1} when ready`
-      : `Send queued message ${index + 1} now`;
+      ? t("Steer queued message {number} when ready", { number: index + 1 })
+      : t("Send queued message {number} now", { number: index + 1 });
   const sendLabel =
-    sendAction === "steer-when-ready" ? "Steer when ready" : "Send now";
+    sendAction === "steer-when-ready" ? t("Steer when ready") : t("Send now");
   const {
     attributes,
     isDragging,
@@ -903,7 +903,9 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
             !dragDisabled && "cursor-grab active:cursor-grabbing",
           )}
           disabled={dragDisabled}
-          aria-label={`Reorder queued message ${index + 1}`}
+          aria-label={t("Reorder queued message {number}", {
+            number: index + 1,
+          })}
           {...attributes}
           {...listeners}
         >
@@ -941,8 +943,8 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
                 role="img"
                 aria-label={
                   attachmentCount === 1
-                    ? "1 attachment"
-                    : `${attachmentCount} attachments`
+                    ? t("1 attachment")
+                    : t("{count} attachments", { count: attachmentCount })
                 }
               >
                 <Icon name="FileAttachment" className="size-3.5" aria-hidden />
@@ -986,9 +988,9 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
                     "inline-flex min-w-0 items-center gap-1",
                     (isProcessing || hasWaitLine) && "max-w-[40%] shrink-0",
                   )}
-                  title={`From ${senderLabel}`}
+                  title={t("From {sender}", { sender: senderLabel })}
                 >
-                  <span className="shrink-0">From</span>
+                  <span className="shrink-0">{t("From")}</span>
                   {queuedMessage.initiator === "agent" &&
                   queuedMessage.senderThreadId !== null ? (
                     <span className="flex min-w-0 [&>.prompt-mention-pill]:text-2xs">
@@ -1081,13 +1083,15 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
                             queuedMessageIndex: index,
                           })
                         }
-                        aria-label={`Edit queued message ${index + 1}`}
+                        aria-label={t("Edit queued message {number}", {
+                          number: index + 1,
+                        })}
                       >
                         <Icon name="Edit" className="size-4" aria-hidden />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent className="max-md:hidden">
-                      Edit
+                      {t("Edit")}
                     </TooltipContent>
                   </Tooltip>
                 ) : null}
@@ -1105,13 +1109,16 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
                         )}
                         disabled={actionDisabled}
                         onClick={() => onChangeSendTime(queuedMessage.id)}
-                        aria-label={`Change when queued message ${index + 1} sends`}
+                        aria-label={t(
+                          "Change when queued message {number} sends",
+                          { number: index + 1 },
+                        )}
                       >
                         <Icon name="Calendar" className="size-4" aria-hidden />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent className="max-md:hidden">
-                      Change send time
+                      {t("Change send time")}
                     </TooltipContent>
                   </Tooltip>
                 ) : null}
@@ -1127,13 +1134,15 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
                       )}
                       disabled={actionDisabled}
                       onClick={() => onDelete(queuedMessage.id)}
-                      aria-label={`Delete queued message ${index + 1}`}
+                      aria-label={t("Delete queued message {number}", {
+                        number: index + 1,
+                      })}
                     >
                       <Icon name="Trash2" className="size-4" aria-hidden />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent className="max-md:hidden">
-                    Delete
+                    {t("Delete")}
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -1152,7 +1161,9 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
                 mobileActionsExpanded && "hidden",
               )}
               disabled={actionDisabled}
-              aria-label={`Queued message ${index + 1} actions`}
+              aria-label={t("Queued message {number} actions", {
+                number: index + 1,
+              })}
               aria-expanded={mobileActionsExpanded}
               onClick={(event) => {
                 focusActionsOnExpandRef.current = event.detail === 0;
@@ -1169,6 +1180,7 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
 });
 
 function SortableGroupBoundaryHandle({ disabled }: { disabled: boolean }) {
+  const { t } = useInterfaceTranslation();
   const {
     active,
     attributes,
@@ -1210,7 +1222,7 @@ function SortableGroupBoundaryHandle({ disabled }: { disabled: boolean }) {
                       "pointer-events-auto cursor-grabbing border-border bg-background text-foreground opacity-100 shadow-sm",
                   )}
                   disabled={disabled}
-                  aria-label="Messages above send together"
+                  aria-label={t("Messages above send together")}
                   {...attributes}
                   {...listeners}
                 >
@@ -1222,7 +1234,7 @@ function SortableGroupBoundaryHandle({ disabled }: { disabled: boolean }) {
                 </button>
               </TooltipTrigger>
               <TooltipContent className="max-md:hidden">
-                Messages above send together
+                {t("Messages above send together")}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -1267,6 +1279,7 @@ function QueuedMessageInlineEditorSlot({
 }: {
   editor: QueuedMessageInlineEditor;
 }) {
+  const { t } = useInterfaceTranslation();
   const [typeaheadLayout, setTypeaheadLayout] =
     useState<QueuedEditorTypeaheadLayout>({ height: 0, isOpen: false });
   const typeaheadReservation = typeaheadLayout.isOpen
@@ -1279,8 +1292,10 @@ function QueuedMessageInlineEditorSlot({
     >
       <OverflowFade placement="above" tone="surface-raised" className="z-10" />
       <InlineMessageEditorFrame
-        cancelLabel="Stop editing queued message"
-        label={`Editing queued message ${editor.queuedMessageIndex + 1}`}
+        cancelLabel={t("Stop editing queued message")}
+        label={t("Editing queued message {number}", {
+          number: editor.queuedMessageIndex + 1,
+        })}
         onCancel={editor.onDismiss}
       >
         <QueuedEditorTypeaheadLayoutContext.Provider value={setTypeaheadLayout}>
@@ -1317,13 +1332,14 @@ export function QueuedMessagesList({
   onExpandedChange,
   threadStatus,
 }: QueuedMessagesListProps) {
+  const { t } = useInterfaceTranslation();
   const senderThreadMetadataById = useSenderThreadMetadataById();
   const processingLabel =
     processingAction === "edit"
-      ? "Editing…"
+      ? t("Editing…")
       : processingAction === "delete"
-        ? "Deleting…"
-        : "Sending…";
+        ? t("Deleting…")
+        : t("Sending…");
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 4 },
@@ -1747,7 +1763,7 @@ export function QueuedMessagesList({
   return (
     <PromptStackCard
       rootRef={surfaceRef}
-      ariaLabel="Queued messages"
+      ariaLabel={t("Queued messages")}
       style={{ height: surfaceHeight }}
       className={cn(
         "relative z-10 flex min-h-0 flex-col overflow-hidden bg-surface-raised-solid shadow-lift",
@@ -1761,7 +1777,7 @@ export function QueuedMessagesList({
         <button
           ref={triggerRef}
           type="button"
-          aria-label="Toggle queued messages"
+          aria-label={t("Toggle queued messages")}
           aria-expanded={isExpanded}
           aria-controls={listId}
           onClick={onTriggerClick}
@@ -1771,13 +1787,13 @@ export function QueuedMessagesList({
             isExpanded && "border-b border-border/35",
           )}
         >
-          <span className="font-normal">Queue</span>
+          <span className="font-normal">{t("Message queue")}</span>
           {isExpanded || systemNoticeCount === 0 ? null : (
             <span
               data-queued-messages-system-count=""
               className="shrink-0 text-2xs text-subtle-foreground"
             >
-              · {systemNoticeCount} from bb
+              · {t("{count} from bb", { count: systemNoticeCount })}
             </span>
           )}
           {isExpanded ? null : (
@@ -1846,7 +1862,7 @@ export function QueuedMessagesList({
               attachedToComposer && !inlineEditor && "-mb-3 min-h-7.5 pb-3",
             )}
             controlsId={listId}
-            label="Collapse queued messages"
+            label={t("Collapse queued messages")}
             onCollapse={onCollapseClick}
           />
         </div>

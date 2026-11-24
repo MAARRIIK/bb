@@ -19,6 +19,7 @@ import {
 } from "@bb/test-helpers/domain-fixtures";
 import type { Active, DroppableContainer } from "@dnd-kit/core";
 import { focusWithKeyboard } from "@/test/keyboard-focus";
+import { InterfaceLanguageProvider } from "@/lib/interface-language";
 import {
   QueuedMessagesList as QueuedMessagesListComponent,
   clampQueuedMessageDragTransform,
@@ -221,6 +222,64 @@ afterEach(() => {
 });
 
 describe("QueuedMessagesList", () => {
+  it("keeps the expanded queue and task identities when the interface language changes", () => {
+    const onSend = vi.fn();
+    const onDelete = vi.fn();
+    const queuedMessages = [
+      makeQueuedMessage("q_first", "Keep index.ts and BB_SOURCE unchanged"),
+      makeQueuedMessage("q_second", "Second task"),
+    ];
+    const view = (language: "en" | "ru") => (
+      <InterfaceLanguageProvider preference={language}>
+        <QueuedMessagesList
+          queuedMessages={queuedMessages}
+          sendDisabled={false}
+          actionDisabled={false}
+          processingMessageId={null}
+          processingAction={null}
+          onSend={onSend}
+          onReorder={noop}
+          onSetGroupBoundary={noop}
+          onEdit={noop}
+          onChangeSendTime={noopAsync}
+          onDelete={onDelete}
+        />
+      </InterfaceLanguageProvider>
+    );
+    const rendered = render(view("en"));
+    expandQueue();
+    rendered.rerender(view("ru"));
+    expect(
+      screen
+        .getByRole("button", { name: "Развернуть очередь" })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+    expect(
+      screen.getByRole("region", { name: "Сообщения в очереди" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Очередь")).toBeTruthy();
+    expect(
+      screen.getByText("Keep index.ts and BB_SOURCE unchanged"),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Отправить сообщение 2 из очереди сейчас",
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Удалить сообщение 1 из очереди" }),
+    );
+    expect(onSend.mock.calls).toEqual([["q_second"]]);
+    expect(onDelete.mock.calls).toEqual([["q_first"]]);
+    rendered.rerender(view("en"));
+    expect(
+      screen.getByRole("button", { name: "Collapse queued messages" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Keep index.ts and BB_SOURCE unchanged"),
+    ).toBeTruthy();
+  });
+
   it.each([
     { kind: "host-offline", hostName: "M4" },
     { kind: "provisioning" },
@@ -398,7 +457,7 @@ describe("QueuedMessagesList", () => {
     );
     const toggle = getByRole("button", { name: "Toggle queued messages" });
 
-    expect(getByText("Queue")).not.toBeNull();
+    expect(getByText("Message queue")).not.toBeNull();
     expect(header?.getAttribute("data-queued-messages-mode")).toBe("collapsed");
     expect(surface?.style.height).toBe("44px");
     expect(toggle.getAttribute("aria-expanded")).toBe("false");

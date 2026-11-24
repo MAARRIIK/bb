@@ -96,8 +96,9 @@ General. Machine-related keys (`machineServerUrl`, `defaultMachineAccess`,
   the first supported device language, with English as fallback. Set Russian with
   `bb settings general interfaceLanguage ru`. The current translation covers
   settings navigation, general/appearance controls and descriptions, their pickers,
-  CLI installation dialogs and microphone preferences; untranslated text falls
-  back to English. Agent replies and code keep their original language.
+  CLI installation dialogs, microphone preferences, model switching and queue
+  controls; untranslated text falls back to English. Agent replies and code keep
+  their original language.
 
 - `showDiagnosticEvents` (default false) shows provider environment resolution
   and unhandled provider events in the timeline. Warnings, errors, and model
