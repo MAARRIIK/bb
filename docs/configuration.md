@@ -1852,3 +1852,16 @@ update message. Web browsers control their own handoff and may show a second
 prompt; BB cannot reliably detect missing apps in a browser. Executable web
 schemes, local-file launch schemes, and reserved editor-action schemes remain
 blocked.
+
+## Native agent team
+
+The optional `agent-team` plugin adds **Агенты** to navigation. Choose a
+conversation to inspect its latest root turn's unique native subagents, running
+count and recorded history. `bb agent-team show <thread-id> --json` and
+`bb agent-team history <thread-id> <agent-id> --before-seq <cursor> --json`
+share the UI's reader; omit the history cursor for the latest page. SDK callers
+use discoverable `current` and `history` RPC on `agent-team`.
+
+Missing lifecycle, model identity and initial prompts are shown explicitly;
+completed delegation calls are not a running-agent count. See the owning
+[skill](../plugins/agent-team/skills/agent-team/SKILL.md) for history limits.
