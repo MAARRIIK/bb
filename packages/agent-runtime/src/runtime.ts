@@ -2152,7 +2152,10 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
             providerThreadId: state.target.session.providerThreadId,
             scope: { kind: "thread" },
           },
-          state.target.session,
+          {
+            providerId: state.target.session.providerId,
+            providerSessionId: state.target.session.providerSessionId,
+          },
         );
         for (const event of events) {
           if (event.type === "thread/identity") continue;

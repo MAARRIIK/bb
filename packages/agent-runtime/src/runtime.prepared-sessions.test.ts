@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProviderSessionSource, ThreadEvent } from "@bb/domain";
+import { providerSessionSourceSchema } from "@bb/domain";
 import {
   createScriptedEchoLaunch,
   createScriptedEchoRequestRecord,
@@ -23,13 +24,17 @@ afterEach(() => {
 
 function fixture() {
   const events: ThreadEvent[] = [];
+  const emissions: { event: ThreadEvent; source: ProviderSessionSource }[] = [];
   const calls: { threadId: string; source: ProviderSessionSource }[] = [];
   const record = createScriptedEchoRequestRecord();
   const runtime = createScriptedEchoRuntime({
     runtime: {
       workspacePath,
       env: record.env,
-      onEvent: (event) => events.push(event),
+      onEvent: (event, source) => {
+        events.push(event);
+        emissions.push({ event, source });
+      },
       onToolCall: async (request, _signal, source) => {
         calls.push({ threadId: request.threadId, source });
         return {
@@ -80,6 +85,7 @@ function fixture() {
   return {
     runtime,
     events,
+    emissions,
     calls,
     record,
     original,
@@ -155,6 +161,18 @@ describe("prepared provider sessions", () => {
         }),
       ]);
       await runtime.finalizeProviderSession(command);
+      const identities = ctx.emissions.filter(
+        ({ event, source }) =>
+          event.type === "thread/identity" &&
+          event.providerThreadId === target.providerThreadId &&
+          source.providerId === target.providerId &&
+          source.providerSessionId === target.providerSessionId,
+      );
+      expect(identities).toHaveLength(1);
+      expect(providerSessionSourceSchema.parse(identities[0]?.source)).toEqual({
+        providerId: target.providerId,
+        providerSessionId: target.providerSessionId,
+      });
       await runtime.discardPreparedProviderSession(command);
       await runtime.adoptProviderSession(command);
       await expect(
