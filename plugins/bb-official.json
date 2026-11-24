@@ -7,6 +7,21 @@
     "category": "code-and-reviews",
     "screenshots": []
   },
+  "agent-icons": {
+    "category": "themes-and-appearance",
+    "screenshots": [],
+    "authorName": "Alex Ponomar (ponomr)"
+  },
+  "agent-team": {
+    "category": "agents-and-providers",
+    "screenshots": [],
+    "authorName": "MAARRIIK"
+  },
+  "agent-traces": {
+    "category": "agents-and-providers",
+    "screenshots": [],
+    "authorName": "Nicolas Charpentier"
+  },
   "ask-user-question": {
     "category": "thread-content",
     "screenshots": []
@@ -26,97 +41,18 @@
     "category": "cloud-and-remote",
     "screenshots": []
   },
-  "connect": {
-    "category": "cloud-and-remote",
-    "screenshots": []
-  },
-  "tailscale": {
-    "category": "cloud-and-remote",
-    "screenshots": []
-  },
-  "custom-instructions": {
+  "bb-guide": {
     "category": "memory-and-context",
     "screenshots": []
   },
-  "plugin-api-tester": {
-    "category": "plugin-development",
-    "screenshots": []
-  },
-  "inline-vis": {
-    "category": "thread-content",
-    "screenshots": []
-  },
-  "monaco-editor": {
-    "category": "file-viewers-and-editors",
-    "screenshots": []
-  },
-  "pdf-preview": {
-    "category": "file-viewers-and-editors",
-    "screenshots": []
-  },
-  "provider-codex": {
+  "browser-automation": {
     "category": "agents-and-providers",
     "screenshots": []
   },
-  "provider-claude-code": {
-    "category": "agents-and-providers",
-    "screenshots": []
-  },
-  "provider-pi": {
-    "category": "agents-and-providers",
-    "screenshots": []
-  },
-  "provider-acp": {
-    "category": "agents-and-providers",
-    "screenshots": []
-  },
-  "keep-awake": {
-    "category": "utilities",
-    "screenshots": []
-  },
-  "github-star": {
-    "category": "utilities",
-    "screenshots": []
-  },
-  "server-switcher": {
-    "category": "cloud-and-remote",
-    "screenshots": []
-  },
-  "plugin-api-docs": {
-    "category": "plugin-development",
-    "screenshots": [
-      "https://getbb.app/marketplace/v2/screenshots/plugin-api-docs/plugin-guide-map.png",
-      "https://getbb.app/marketplace/v2/screenshots/plugin-api-docs/plugin-guide-surfaces.png",
-      "https://getbb.app/marketplace/v2/screenshots/plugin-api-docs/plugin-guide-reference.png"
-    ]
-  },
-  "provider-retry": {
-    "category": "agents-and-providers",
-    "screenshots": []
-  },
-  "provider-usage": {
-    "category": "agents-and-providers",
-    "screenshots": []
-  },
-  "secrets": {
-    "category": "security",
-    "screenshots": []
-  },
-  "scheduled-send": {
-    "category": "tasks-and-workflows",
-    "screenshots": []
-  },
-  "drafts": {
-    "category": "tasks-and-workflows",
-    "screenshots": []
-  },
-  "navigation": {
-    "category": "thread-management",
-    "screenshots": []
-  },
-  "thread-list": {
-    "category": "thread-management",
-    "screenshots": []
+  "codex-theme": {
+    "category": "themes-and-appearance",
+    "screenshots": [],
+    "authorName": "Steve Frost and contributors"
   },
   "composer": {
     "category": "thread-management",
@@ -126,24 +62,12 @@
     "category": "tasks-and-workflows",
     "screenshots": []
   },
-  "side-chat": {
-    "category": "thread-content",
+  "connect": {
+    "category": "cloud-and-remote",
     "screenshots": []
   },
-  "workflows": {
-    "category": "tasks-and-workflows",
-    "screenshots": []
-  },
-  "github": {
-    "category": "code-and-reviews",
-    "screenshots": []
-  },
-  "git": {
-    "category": "code-and-reviews",
-    "screenshots": []
-  },
-  "github-pr-status": {
-    "category": "code-and-reviews",
+  "custom-instructions": {
+    "category": "memory-and-context",
     "screenshots": []
   },
   "docs": {
@@ -157,8 +81,146 @@
       "https://getbb.app/marketplace/v2/screenshots/docs/docs-21ddb6757-vault-desktop.png"
     ]
   },
+  "drafts": {
+    "category": "tasks-and-workflows",
+    "screenshots": []
+  },
+  "environment-git-worktree": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "environment-modal-sandbox": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "environment-personal-workspace": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "environment-project-checkout": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "git": {
+    "category": "code-and-reviews",
+    "screenshots": []
+  },
+  "github": {
+    "category": "code-and-reviews",
+    "screenshots": []
+  },
+  "github-pr-status": {
+    "category": "code-and-reviews",
+    "screenshots": []
+  },
+  "github-star": {
+    "category": "utilities",
+    "screenshots": []
+  },
+  "inline-vis": {
+    "category": "thread-content",
+    "screenshots": []
+  },
+  "keep-awake": {
+    "category": "utilities",
+    "screenshots": []
+  },
+  "lavender": {
+    "category": "themes-and-appearance",
+    "screenshots": [],
+    "authorName": "Mateo Cerquetella"
+  },
+  "mcp": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
   "memory": {
     "category": "memory-and-context",
+    "screenshots": []
+  },
+  "monaco-editor": {
+    "category": "file-viewers-and-editors",
+    "screenshots": []
+  },
+  "navigation": {
+    "category": "thread-management",
+    "screenshots": []
+  },
+  "pdf-preview": {
+    "category": "file-viewers-and-editors",
+    "screenshots": []
+  },
+  "plugin-api-docs": {
+    "category": "plugin-development",
+    "screenshots": [
+      "https://getbb.app/marketplace/v2/screenshots/plugin-api-docs/plugin-guide-map.png",
+      "https://getbb.app/marketplace/v2/screenshots/plugin-api-docs/plugin-guide-surfaces.png",
+      "https://getbb.app/marketplace/v2/screenshots/plugin-api-docs/plugin-guide-reference.png"
+    ]
+  },
+  "plugin-api-tester": {
+    "category": "plugin-development",
+    "screenshots": []
+  },
+  "prompt-library": {
+    "category": "memory-and-context",
+    "screenshots": []
+  },
+  "provider-acp": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "provider-claude-code": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "provider-codex": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "provider-deepseek-web": {
+    "category": "agents-and-providers",
+    "screenshots": [],
+    "authorName": "MAARRIIK"
+  },
+  "provider-pi": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "provider-retry": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "provider-usage": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "push-notifications": {
+    "category": "notifications",
+    "screenshots": []
+  },
+  "scheduled-send": {
+    "category": "tasks-and-workflows",
+    "screenshots": []
+  },
+  "secrets": {
+    "category": "security",
+    "screenshots": []
+  },
+  "server-switcher": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "side-chat": {
+    "category": "thread-content",
+    "screenshots": []
+  },
+  "storage-retention": {
+    "category": "tasks-and-workflows",
+    "screenshots": []
+  },
+  "tailscale": {
+    "category": "cloud-and-remote",
     "screenshots": []
   },
   "tasks": {
@@ -169,43 +231,11 @@
     "category": "themes-and-appearance",
     "screenshots": []
   },
-  "push-notifications": {
-    "category": "notifications",
+  "thread-list": {
+    "category": "thread-management",
     "screenshots": []
   },
-  "browser-automation": {
-    "category": "agents-and-providers",
-    "screenshots": []
-  },
-  "environment-project-checkout": {
-    "category": "cloud-and-remote",
-    "screenshots": []
-  },
-  "environment-git-worktree": {
-    "category": "cloud-and-remote",
-    "screenshots": []
-  },
-  "environment-personal-workspace": {
-    "category": "cloud-and-remote",
-    "screenshots": []
-  },
-  "bb-guide": {
-    "category": "memory-and-context",
-    "screenshots": []
-  },
-  "environment-modal-sandbox": {
-    "category": "cloud-and-remote",
-    "screenshots": []
-  },
-  "prompt-library": {
-    "category": "memory-and-context",
-    "screenshots": []
-  },
-  "mcp": {
-    "category": "cloud-and-remote",
-    "screenshots": []
-  },
-  "storage-retention": {
+  "workflows": {
     "category": "tasks-and-workflows",
     "screenshots": []
   }

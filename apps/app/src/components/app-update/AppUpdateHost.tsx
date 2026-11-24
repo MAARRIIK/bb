@@ -176,12 +176,12 @@ export function AppUpdateRestartingOverlay({
               id={titleId}
               className="text-base leading-tight font-semibold tracking-tight text-foreground"
             >
-              Updating bb to {targetRevision}
+              Updating AI to {targetRevision}
             </h2>
             <p id={descriptionId} className="text-sm text-muted-foreground">
               {overdue
-                ? "bb hasn't come back yet. A source rebuild can take a few minutes; if it doesn't return, check the terminal running bb."
-                : "bb is restarting into the new version. This page reconnects on its own when it is back."}
+                ? "AI hasn't come back yet. A source rebuild can take a few minutes; if it doesn't return, check the terminal running AI."
+                : "AI is restarting into the new version. This page reconnects on its own when it is back."}
             </p>
           </div>
           {overdue ? (
@@ -236,7 +236,7 @@ export function AppUpdateResultDialog({
               <DialogTitle>{presentation.title}</DialogTitle>
               <DialogDescription>
                 {presentation.description ??
-                  "bb kept running the version it had before."}
+                  "AI kept running the version it had before."}
               </DialogDescription>
             </DialogHeader>
             {log === "" ? null : (

@@ -481,12 +481,12 @@ describe("PluginDetail official catalog lifecycle", () => {
 
     expect(screen.queryByRole("alert")).toBeNull();
     const compatibilityStatus = screen
-      .getByText("Update bb to install this plugin")
+      .getByText("Update AI to install this plugin")
       .closest("div[class*='bg-surface-recessed']");
     expect(compatibilityStatus).not.toBeNull();
     if (compatibilityStatus === null) return;
     expect(compatibilityStatus.textContent).toContain(
-      "Update bb to install this plugin",
+      "Update AI to install this plugin",
     );
     expect(compatibilityStatus.textContent).toContain(
       "Requires bb 0.20 or newer.",
@@ -526,7 +526,7 @@ describe("PluginDetail official catalog lifecycle", () => {
     expect(
       screen.queryByRole("button", { name: /Copy plugin path/u }),
     ).toBeNull();
-    expect(screen.getByText("Updates with bb")).toBeTruthy();
+    expect(screen.getByText("Updates with AI")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Check now" })).toBeNull();
 
     expect(container.querySelector('[data-icon="Github"]')).not.toBeNull();
@@ -602,7 +602,7 @@ describe("PluginDetail official catalog lifecycle", () => {
 
     expect(screen.getByText("Installed", { selector: "dt" })).toBeTruthy();
     expect(screen.getByText("Install date unavailable")).toBeTruthy();
-    expect(screen.queryByText("Updates with bb")).toBeNull();
+    expect(screen.queryByText("Updates with AI")).toBeNull();
   });
 
   it("loads the install date for a local plugin", async () => {
@@ -745,7 +745,7 @@ describe("PluginDetail official catalog lifecycle", () => {
     fireEvent.pointerMove(uninstall);
     expect(
       await screen.findAllByText(
-        "Included with BB; disable this plugin instead.",
+        "Included with AI; disable this plugin instead.",
       ),
     ).not.toHaveLength(0);
   });
@@ -1886,13 +1886,13 @@ describe("plugin removal confirmation", () => {
       screen.getByRole("button", { name: "GitHub actions" }),
     );
     fireEvent.click(
-      await screen.findByRole("menuitem", { name: "Remove from bb" }),
+      await screen.findByRole("menuitem", { name: "Remove from AI" }),
     );
 
     expect(
       await screen.findByRole("heading", { name: "Remove plugin from bb?" }),
     ).toBeTruthy();
-    const description = screen.getByText(/Remove "github" from bb/);
+    const description = screen.getByText(/Remove "github" from AI/);
     expect(description.textContent).toContain(
       "delete its settings, secrets, stored files, and schedules",
     );

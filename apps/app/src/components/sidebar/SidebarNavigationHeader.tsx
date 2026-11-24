@@ -126,7 +126,7 @@ function PluginNavigationHeader({
             description:
               fallbackHeader === null
                 ? `${slot.title} (${pluginId}) stopped working.`
-                : `${slot.title} (${pluginId}) stopped working, so bb drew the ${fallbackHeader} header instead.`,
+                : `${slot.title} (${pluginId}) stopped working, so AI drew the ${fallbackHeader} header instead.`,
           });
         }}
       />

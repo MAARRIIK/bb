@@ -35,6 +35,16 @@ export function accountPoolDefaultEnabled(
 const REPO_PLUGINS_DIRECTORY_NAME = "plugins";
 
 export const BUILTIN_PLUGINS = [
+  { name: "agent-team", pluginId: "agent-team", defaultEnabled: true },
+  { name: "agent-traces", pluginId: "agent-traces", defaultEnabled: true },
+  { name: "agent-icons", pluginId: "agent-icons", defaultEnabled: true },
+  { name: "lavender", pluginId: "lavender", defaultEnabled: true },
+  { name: "codex-theme", pluginId: "codex-theme", defaultEnabled: true },
+  {
+    name: "provider-deepseek-web",
+    pluginId: "provider-deepseek-web",
+    defaultEnabled: true,
+  },
   {
     name: "storage-retention",
     pluginId: "bb--storage-retention",
@@ -223,7 +233,7 @@ export const BUILTIN_PLUGINS = [
   {
     name: "workflows",
     pluginId: "workflows",
-    defaultEnabled: false,
+    defaultEnabled: true,
   },
   {
     name: "composer",
@@ -254,7 +264,7 @@ export const OFFICIAL_PLUGINS = [
   {
     name: "browser-automation",
     pluginId: "browser-automation",
-    defaultEnabled: false,
+    defaultEnabled: true,
   },
   {
     name: "github",
@@ -288,7 +298,7 @@ export const OFFICIAL_PLUGINS = [
   },
 ].map((plugin): BundledPluginDefinition => ({
   ...plugin,
-  autoInstall: false,
+  autoInstall: plugin.name === "memory" || plugin.name === "browser-automation",
 }));
 
 export const BUNDLED_PLUGINS: readonly BundledPluginDefinition[] = [

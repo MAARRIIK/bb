@@ -41,7 +41,6 @@ import {
   type AgentSignInView,
   type OnboardingStepId,
 } from "./onboarding-model";
-import bbLogoUrl from "../../../../../assets/bb-logo.svg";
 
 const ONBOARDING_LIST_CLASS =
   "divide-y divide-border-hairline rounded-lg border border-border";
@@ -102,12 +101,7 @@ export function OnboardingLayout({
             : "pl-4",
         )}
       >
-        <img
-          src={bbLogoUrl}
-          alt="bb"
-          draggable={false}
-          className="h-5 w-6 shrink-0 select-none object-contain dark:invert"
-        />
+        <span className="shrink-0 select-none font-semibold">AI</span>
         <nav
           aria-label="Setup steps"
           className="col-start-2 row-start-1 flex min-w-0 items-center justify-center gap-1"
@@ -542,7 +536,7 @@ export function AgentStep({
         </ul>
       )}
       <p className="text-xs text-muted-foreground">
-        Don't see your agent? bb picks up other ACP agents once you have them
+        Don't see your agent? AI picks up other ACP agents once you have them
         installed.
       </p>
     </div>
@@ -637,7 +631,7 @@ export function ProjectsStep({
         <p className="text-sm text-muted-foreground">
           {status.kind === "error"
             ? status.message
-            : "bb didn't find a git repo you've worked in over the last 30 days."}
+            : "AI didn't find a git repo you've worked in over the last 30 days."}
         </p>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={onRetry}>
@@ -990,7 +984,7 @@ export function DevicesStep({
   return (
     <div className="flex flex-col gap-3">
       {connectSection === null ? null : (
-        <SetupOptionGroup label="Where you use bb" labelHidden={!showMachines}>
+        <SetupOptionGroup label="Where you use AI" labelHidden={!showMachines}>
           {connectSection}
         </SetupOptionGroup>
       )}
@@ -999,7 +993,7 @@ export function DevicesStep({
           <SetupOptionRow
             icon="Laptop"
             title="Add another machine"
-            description={`${hostName === null ? "This computer" : `This computer, ${hostName},`} is your bb server. Add laptops or cloud machines that connect to it and run agents. Manage machines anytime in Settings > Machines.`}
+            description={`${hostName === null ? "This computer" : `This computer, ${hostName},`} is your AI server. Add laptops or cloud machines that connect to it and run agents. Manage machines anytime in Settings > Machines.`}
             actionStaysInline={open}
             action={
               open ? (

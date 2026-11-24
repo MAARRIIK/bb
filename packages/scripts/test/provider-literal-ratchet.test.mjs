@@ -120,6 +120,41 @@ describe("scanTree (pure)", () => {
     expect(scanTree(dir).total).toBe(0);
   });
 
+  it("excludes nested test helpers and query-cost cases without excluding neighboring source", () => {
+    write(
+      "apps/cli/src/__tests__/helpers/provider-switch-review.ts",
+      'const ids = ["codex", "claude-code"] as const;\n',
+    );
+    write(
+      "apps/cli/src/provider-switch-review.ts",
+      'const id = "codex";\n',
+    );
+    write(
+      "packages/db/scripts/query-costs/events-cases.ts",
+      'const provider = "codex";\n',
+    );
+    write(
+      "packages/db/scripts/query-costs/failure-facts-cases.ts",
+      'const provider = "claude-code";\n',
+    );
+    write(
+      "packages/db/scripts/query-costs/queued-task-runs-cases.ts",
+      'const provider = "claude-code";\n',
+    );
+    write(
+      "packages/db/scripts/query-costs/queued-thread-messages-cases.ts",
+      'const provider = "acp-cursor";\n',
+    );
+    write(
+      "packages/db/src/provider-switch-review.ts",
+      'const provider = "acp-cursor";\n',
+    );
+    expect(scanTree(dir).files).toEqual({
+      "apps/cli/src/provider-switch-review.ts": 1,
+      "packages/db/src/provider-switch-review.ts": 1,
+    });
+  });
+
   // The published ACP bridge kit is a provider implementation that lives
   // under packages/ so the plugin SDK can re-export it; it gets the same
   // carve-out a provider plugin does. Its neighbours do not.

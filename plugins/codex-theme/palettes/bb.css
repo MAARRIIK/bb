@@ -1,0 +1,13 @@
+:root {
+  --popover-border: var(--border);
+  --codex-placeholder: var(--muted-foreground);
+}
+:root {
+  --codex-tool-row: var(--muted-foreground);
+}
+:is([data-promptbox], [data-follow-up-composer] [data-promptbox]) {
+  background-color: var(--secondary) !important;
+}
+:root:not(.dark) [data-promptbox] {
+  background-color: var(--popover) !important;
+}

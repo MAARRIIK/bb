@@ -37,7 +37,7 @@ export function describeAppUpdateResult(
     case "updated":
       return {
         description: null,
-        title: `Updated bb to ${target}`,
+        title: `Updated AI to ${target}`,
         tone: "success",
       };
     case "failed":
@@ -130,6 +130,6 @@ export function runningThreadsWarning(
 ): string {
   const running = `${String(count)} thread${count === 1 ? " is" : "s are"} running.`;
   return threadsResume
-    ? `${running} Updating restarts bb, and ${count === 1 ? "it resumes" : "they resume"} after the update.`
-    : `${running} Updating restarts bb and interrupts ${count === 1 ? "it" : "them"}.`;
+    ? `${running} Updating restarts AI, and ${count === 1 ? "it resumes" : "they resume"} after the update.`
+    : `${running} Updating restarts AI and interrupts ${count === 1 ? "it" : "them"}.`;
 }

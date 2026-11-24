@@ -28,6 +28,10 @@ Context variables set automatically inside a thread environment:
 Outside a thread the CLI targets http://127.0.0.1:38886; set BB_SERVER_URL (and
 BB_HOST_DAEMON_PORT) only for a deliberate non-default target.
 
+For the personal AI desktop, use `BB_SERVER_URL=http://127.0.0.1:39886` and
+`BB_HOST_DAEMON_PORT=39887` outside an AI thread. Its default data directory is
+`~/.ai-ide`; nightly uses ports `39986`/`39987` and `~/.ai-ide-nightly`.
+
 Run `bb status` to see your current context (resolved project and thread IDs).
 It exits non-zero when the bb server does not answer (`server_unreachable`) or
 does not know the context project or thread (`context_not_found`), after

@@ -199,7 +199,7 @@ export function ReleaseNotesPanel({
   return (
     <section
       id={id}
-      aria-label={`bb ${version} changelog`}
+      aria-label={`AI ${version} changelog`}
       data-updates-domain="release-notes"
       className="bg-sidebar px-4 py-3 text-xs leading-relaxed text-muted-foreground"
     >
@@ -216,7 +216,7 @@ export function ReleaseNotesPanel({
         </div>
       ) : releaseMeta === undefined ? (
         <h3 className="mb-2 text-xs font-medium text-foreground">
-          What&apos;s new in bb {notesVersion}
+          What&apos;s new in AI {notesVersion}
         </h3>
       ) : (
         <div className="mb-2">
@@ -224,7 +224,7 @@ export function ReleaseNotesPanel({
             {releaseMeta.headline}
           </h3>
           <p className="text-2xs">
-            bb {notesVersion} · {releaseMeta.date}
+            AI {notesVersion} · {releaseMeta.date}
           </p>
         </div>
       )}
@@ -234,7 +234,7 @@ export function ReleaseNotesPanel({
             ? "Loading the changelog…"
             : changelogQuery.isError
               ? "Couldn't load the changelog."
-              : `bb ${version} has no changelog in the app.`}
+              : `AI ${version} has no changelog in the app.`}
         </p>
       ) : null}
       {sourceUpdate !== null || entry !== null ? (

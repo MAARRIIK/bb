@@ -48,6 +48,7 @@ const screenshotSchema = z.string().superRefine((value, ctx) => {
 
 const catalogBlockSchema = z
   .object({
+    authorName: z.string().min(1).default("BB"),
     category: pluginCatalogCategoryIdSchema.refine(
       (category) => categoryIds.has(category),
       "must be a built-in category id",
@@ -292,7 +293,7 @@ export async function generateBbOfficialMarketplace(args: {
         description: manifest.bb.description,
         icon: marketplaceIcon(plugin.name, declaredIcon),
         tags: [],
-        author: { name: "BB" },
+        author: { name: catalog.authorName },
         source: { bundled: { plugin: plugin.name } },
         category: catalog.category,
         screenshots: catalog.screenshots,
@@ -309,13 +310,14 @@ export async function generateBbOfficialMarketplace(args: {
   const document = {
     schemaVersion: 2,
     name: BUNDLED_MARKETPLACE_NAME,
-    displayName: "BB Official",
-    description: "Plugins that ship with bb.",
+    displayName: "AI Bundled",
+    description:
+      "Plugins included with AI; original authors and licenses are retained.",
     categories: PLUGIN_CATALOG_CATEGORIES,
     collections: [
       {
         id: "bb-official",
-        displayName: "BB Official",
+        displayName: "AI Bundled",
         pluginIds: bbOfficialShelfOrder(
           entries.map((entry) => ({
             id: entry.id,

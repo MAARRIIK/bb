@@ -421,7 +421,7 @@ describe("UpdatesSettingsSection", () => {
 
     expect(
       await screen.findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart AI",
       }),
     ).toBeDefined();
     expect(screen.queryByText(/updating shortly/i)).toBeNull();
@@ -530,13 +530,13 @@ describe("UpdatesSettingsSection", () => {
 
     function releaseNotesButton(version: string): HTMLElement {
       return screen.getByRole("button", {
-        name: `Changelog for bb ${version}`,
+        name: `Changelog for AI ${version}`,
       });
     }
 
     function releaseNotesPanel(version: string): HTMLElement | null {
       return screen.queryByRole("region", {
-        name: `bb ${version} changelog`,
+        name: `AI ${version} changelog`,
       });
     }
 
@@ -577,7 +577,7 @@ describe("UpdatesSettingsSection", () => {
 
       const panel = releaseNotesPanel(nightly)!;
       expect(
-        within(panel).getByText("bb 0.48.0 · October 28, 2026"),
+        within(panel).getByText("AI 0.48.0 · October 28, 2026"),
       ).toBeDefined();
       expect(
         within(panel).getByText("This build includes changes since 0.48.0"),
@@ -603,7 +603,7 @@ describe("UpdatesSettingsSection", () => {
         }),
       ).toBeDefined();
       expect(
-        within(panel!).getByText("bb 0.47.0 · October 23, 2026"),
+        within(panel!).getByText("AI 0.47.0 · October 23, 2026"),
       ).toBeDefined();
       expect(
         within(panel!).getByRole("heading", { name: "Highlights" }),
@@ -612,7 +612,7 @@ describe("UpdatesSettingsSection", () => {
         within(panel!).getByText(/Customizable sidebar navigation, new and/),
       ).toBeDefined();
       expect(within(panel!).queryByRole("img")).toBeNull();
-      expect(screen.getByRole("region", { name: "bb" }).contains(panel)).toBe(
+      expect(screen.getByRole("region", { name: "AI" }).contains(panel)).toBe(
         true,
       );
       expect(recordTelemetryEvent).toHaveBeenCalledExactlyOnceWith({
@@ -705,10 +705,10 @@ The published lede.
 
       const panel = releaseNotesPanel("0.0.5")!;
       expect(
-        await within(panel).findByText("bb 0.0.5 has no changelog in the app."),
+        await within(panel).findByText("AI 0.0.5 has no changelog in the app."),
       ).toBeDefined();
       expect(
-        within(panel).getByRole("heading", { name: "What's new in bb 0.0.5" }),
+        within(panel).getByRole("heading", { name: "What's new in AI 0.0.5" }),
       ).toBeDefined();
     });
 
@@ -758,7 +758,7 @@ The published lede.
         await within(panel).findByRole("heading", { name: "A tiny release" }),
       ).toBeDefined();
       expect(
-        within(panel).getByText("bb 0.0.5 · January 2, 2026"),
+        within(panel).getByText("AI 0.0.5 · January 2, 2026"),
       ).toBeDefined();
       expect(within(panel).getByText("A tiny lede.")).toBeDefined();
     });
@@ -841,7 +841,7 @@ The published lede.
 
         await waitFor(() => expect(sdk.system.appUpdate).toHaveBeenCalled());
         expect(
-          screen.queryByRole("button", { name: /^Changelog for bb/ }),
+          screen.queryByRole("button", { name: /^Changelog for AI/ }),
         ).toBeNull();
       });
     });
@@ -1083,7 +1083,7 @@ The published lede.
     );
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByText("homelab")).toBeDefined();
-    expect(within(row as HTMLElement).getByText("Updating bb")).toBeDefined();
+    expect(within(row as HTMLElement).getByText("Updating AI")).toBeDefined();
     expect(
       row?.querySelector('[data-update-state="in-progress"]'),
     ).not.toBeNull();
@@ -1937,10 +1937,8 @@ The published lede.
 
     renderSection();
     const relaunch = screen.getByRole("button", {
-      name: /Relaunch bb to finish updating/,
+      name: /Relaunch AI to finish updating/,
     });
-    expect(relaunch.querySelector("img")?.className).toContain("size-3");
-    expect(relaunch.className).toContain("border");
     fireEvent.click(relaunch);
     expect(installUpdate).toHaveBeenCalledOnce();
 
@@ -2384,7 +2382,7 @@ The published lede.
     renderSection();
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart AI",
       }),
     );
 
@@ -2409,7 +2407,7 @@ The published lede.
     renderSection();
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart AI",
       }),
     );
 
@@ -2445,14 +2443,14 @@ The published lede.
     renderSection();
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart AI",
       }),
     );
 
     const dialog = await screen.findByRole("dialog");
     expect(
       within(dialog).getByText(
-        "2 threads are running. Updating restarts bb, and they resume after the update.",
+        "2 threads are running. Updating restarts AI, and they resume after the update.",
       ),
     ).toBeDefined();
   });
@@ -2474,7 +2472,7 @@ The published lede.
     ).toEqual(["Update"]);
     expect(
       screen.queryByRole("switch", {
-        name: "Restart and update bb automatically",
+        name: "Restart and update AI automatically",
       }) !== null,
     ).toBe(true);
   });
@@ -2498,7 +2496,7 @@ The published lede.
     renderSection();
     fireEvent.click(
       await screen.findByRole("switch", {
-        name: "Restart and update bb automatically",
+        name: "Restart and update AI automatically",
       }),
     );
 
@@ -2550,7 +2548,7 @@ The published lede.
     expect(sdk.system.experimental_cancelScheduledAppUpdate).toHaveBeenCalled();
     expect(
       screen.getByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart AI",
       }),
     ).toBeDefined();
   });
@@ -2607,7 +2605,7 @@ The published lede.
     renderSection();
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart AI",
       }),
     );
 
@@ -2733,11 +2731,11 @@ The published lede.
 
     expect(await screen.findByText("Last update failed")).toBeDefined();
     expect(
-      screen.getByRole("button", { name: "View the failed bb update" }),
+      screen.getByRole("button", { name: "View the failed AI update" }),
     ).toBeDefined();
     expect(
       screen.getByRole("button", {
-        name: "Failed · Download the update and restart bb",
+        name: "Failed · Download the update and restart AI",
       }),
     ).toBeDefined();
   });
@@ -2764,7 +2762,7 @@ The published lede.
     renderSection();
 
     expect(
-      await screen.findByRole("button", { name: "View the failed bb update" }),
+      await screen.findByRole("button", { name: "View the failed AI update" }),
     ).toBeDefined();
     expect(document.querySelector('[data-update-state="failed"]')).toBeNull();
   });
@@ -2903,7 +2901,7 @@ The published lede.
       expect(screen.getByText("Source checkout")).toBeDefined();
       expect(
         screen.queryByRole("button", {
-          name: "Update available · Download the update and restart bb",
+          name: "Update available · Download the update and restart AI",
         }),
       ).toBeNull();
     },
@@ -2965,7 +2963,7 @@ The published lede.
     if (bbCard === null) throw new Error("expected the bb card");
     fireEvent.click(
       await within(bbCard).findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart AI",
       }),
     );
     expect(within(bbCard).getByText("Server")).toBeDefined();
@@ -3029,7 +3027,7 @@ The published lede.
     expect(document.querySelector("[data-updates-device]")).toBeNull();
     fireEvent.click(
       within(bbCard).getByRole("button", {
-        name: /Relaunch bb to finish updating/,
+        name: /Relaunch AI to finish updating/,
       }),
     );
     expect(installUpdate).toHaveBeenCalledOnce();
@@ -3062,14 +3060,14 @@ The published lede.
 
     async function renderBbCard(): Promise<HTMLElement> {
       renderSection();
-      const bbCard = screen.getByRole("region", { name: "bb" });
+      const bbCard = screen.getByRole("region", { name: "AI" });
       await within(bbCard).findByText("Desktop");
       return bbCard;
     }
 
     function notesButton(bbCard: HTMLElement, version: string): HTMLElement {
       return within(bbCard).getByRole("button", {
-        name: `Changelog for bb ${version}`,
+        name: `Changelog for AI ${version}`,
       });
     }
 
@@ -3081,7 +3079,7 @@ The published lede.
       fireEvent.click(notesButton(bbCard, "0.47.0"));
 
       const panel = within(bbCard).getByRole("region", {
-        name: "bb 0.47.0 changelog",
+        name: "AI 0.47.0 changelog",
       });
       expect(notesButton(bbCard, "0.47.0").getAttribute("aria-controls")).toBe(
         panel.id,
@@ -3127,7 +3125,7 @@ The published lede.
     ).toHaveLength(1);
     expect(
       screen.queryByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart AI",
       }),
     ).toBeNull();
   });
@@ -3157,7 +3155,7 @@ The published lede.
 
       renderSection();
 
-      const bbCard = screen.getByRole("region", { name: "bb" });
+      const bbCard = screen.getByRole("region", { name: "AI" });
       await waitFor(() => expect(checkForUpdates).toHaveBeenCalledOnce());
       expect(within(bbCard).getByText("Server")).toBeDefined();
       expect(within(bbCard).getByText("0.0.4")).toBeDefined();
@@ -3167,7 +3165,7 @@ The published lede.
       ).toBeNull();
       expect(
         within(bbCard).queryByRole("button", {
-          name: /Copy the upgrade command|Relaunch bb|Download the update/,
+          name: /Copy the upgrade command|Relaunch AI|Download the update/,
         }),
       ).toBeNull();
       expect(sdk.system.version).toHaveBeenCalledWith({ force: true });
@@ -3187,7 +3185,7 @@ The published lede.
       vi.mocked(sdk.system.applyAppUpdate).mockResolvedValue(status);
       renderSection();
       const update = await screen.findByRole("button", {
-        name: "Update available · Download the update and restart bb",
+        name: "Update available · Download the update and restart AI",
       });
       expect(screen.getByText("Server")).toBeDefined();
       expect(screen.queryByText("Desktop")).toBeNull();

@@ -50,7 +50,7 @@ export function ApplicationUrlDialogView() {
               setRememberedConfirmation(checked === true ? confirmation : null)
             }
           />
-          Always allow {confirmation?.target.scheme} links for this BB site on
+          Always allow {confirmation?.target.scheme} links for this AI site on
           this device
         </label>
         <DialogFooter>

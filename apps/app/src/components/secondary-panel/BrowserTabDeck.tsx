@@ -282,10 +282,10 @@ export function BrowserTabDeck({
 const BROWSER_TAB_ELSEWHERE_COPY = {
   "desktop-required": {
     title: "Browser tabs need the desktop app",
-    body: "This tab is open in the bb desktop app.",
+    body: "This tab is open in the AI desktop app.",
   },
   "other-window": {
-    title: "This tab is open in another bb window",
+    title: "This tab is open in another AI window",
     body: "Switch to that window to keep browsing.",
   },
   "other-computer": {

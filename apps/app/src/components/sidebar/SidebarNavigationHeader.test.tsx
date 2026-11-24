@@ -161,7 +161,7 @@ describe("SidebarNavigationHeader", () => {
     expect(getNotifications()).toEqual([
       expect.objectContaining({
         description:
-          "Garden icons (garden) stopped working, so bb drew the Rail header instead.",
+          "Garden icons (garden) stopped working, so AI drew the Rail header instead.",
       }),
     ]);
   });

@@ -65,7 +65,6 @@ import {
 } from "@/components/app-update/app-update-presentation";
 import { SplitButton } from "@/components/ui/split-button";
 import { appToast } from "@/components/ui/app-toast";
-import { BbLogo } from "@/components/ui/bb-logo";
 import {
   SettingsSection,
   SettingsWithControl,
@@ -491,7 +490,7 @@ function ReleaseNotesToggleButton({
       type="button"
       aria-expanded={expanded}
       aria-controls={expanded ? panelId : undefined}
-      aria-label={`Changelog for bb ${version}`}
+      aria-label={`Changelog for AI ${version}`}
       className="inline-flex w-fit shrink-0 cursor-pointer items-center gap-0.5 rounded-sm text-2xs text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none aria-expanded:text-foreground"
       onClick={onToggle}
     >
@@ -545,7 +544,7 @@ export function BbAppUpdateRows({
     <UpdatesRow
       leading={
         <span data-bb-update-role="app" aria-hidden>
-          <BbLogo className="size-4 -translate-y-px" />
+          <span className="text-xs font-semibold">AI</span>
         </span>
       }
       actions={<RowActions>{indicator}</RowActions>}
@@ -593,9 +592,9 @@ export function BbAppUpdateRows({
         name,
         <RowStateControl
           state="restart-required"
-          buttonLeading={<BbLogo className="size-3" />}
+          buttonLeading={<span className="text-xs font-semibold">AI</span>}
           buttonLabel="Relaunch"
-          actionLabel="Relaunch bb to finish updating"
+          actionLabel="Relaunch AI to finish updating"
           onClick={() => onRelaunchDesktop?.()}
         />,
       );
@@ -781,7 +780,7 @@ function ScheduledUpdateSplitButton({
       primaryAction={{ label: "Update now", onSelect: onUpdateNow }}
       primaryTooltip="Restart into the update without waiting for threads"
       triggerLabel="More update options"
-      mobileTitle="Update bb"
+      mobileTitle="Update AI"
       secondaryActions={[
         {
           id: "skip-version",
@@ -893,7 +892,7 @@ function InAppUpdateRow({
           failure === null ? undefined : (RETRY_ACTION_ICON as IconName)
         }
         actionTooltip={failure === null ? undefined : "Retry"}
-        actionLabel="Download the update and restart bb"
+        actionLabel="Download the update and restart AI"
         loading={applyPending}
         onClick={onApply}
       />
@@ -904,7 +903,7 @@ function InAppUpdateRow({
       updateButton,
       <FailureIndicator
         reason="Last update failed"
-        openLabel="View the failed bb update"
+        openLabel="View the failed AI update"
         openTooltip="View details"
         onOpen={onShowResult === null ? undefined : () => onShowResult(failure)}
       />,
@@ -1313,7 +1312,7 @@ function MachineRowNote({
   if (daemon === "updating") {
     return (
       <>
-        <RowStateCaption state="in-progress">Updating bb</RowStateCaption>
+        <RowStateCaption state="in-progress">Updating AI</RowStateCaption>
         <RowStateControl live state="in-progress" />
       </>
     );
@@ -1567,7 +1566,7 @@ export function UpdatePreferencesSection({
         {autoAppUpdate === null ? null : (
           <SettingsWithControl
             label={autoAppUpdate.label}
-            description="Checks every hour and restarts bb into a new version once no thread has run for 15 minutes."
+            description="Checks every hour and restarts AI into a new version once no thread has run for 15 minutes."
           >
             <Switch
               checked={autoAppUpdate.checked}
@@ -1578,7 +1577,7 @@ export function UpdatePreferencesSection({
         )}
         <SettingsWithControl
           label={SHOW_PROVIDER_CLI_UPDATES_LABEL}
-          description="Turn this off if your agent CLIs are updated outside bb. This page still lists their updates."
+          description="Turn this off if your agent CLIs are updated outside AI. This page still lists their updates."
         >
           <Switch
             checked={showProviderCliUpdates}
@@ -1593,7 +1592,7 @@ export function UpdatePreferencesSection({
 
 export function BbUpdatesCard({ children }: { children: ReactNode }) {
   return (
-    <section aria-label="bb" data-updates-domain="bb">
+    <section aria-label="AI" data-updates-domain="bb">
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="divide-y divide-border">{children}</div>
       </div>
@@ -1862,7 +1861,7 @@ function blockedPluginReason(
 ): string {
   const version = item.version;
   return item.reasons.length === 0
-    ? `${version} isn’t compatible with this bb`
+    ? `${version} isn’t compatible with this AI`
     : `${version}: ${item.reasons.join("; ")}`;
 }
 
@@ -1927,7 +1926,7 @@ function PluginUpdateRow({
               reason={
                 failure.detail.length > 0
                   ? failure.detail
-                  : `bb couldn’t activate ${failure.label} and restored ${plugin.version}.`
+                  : `AI couldn’t activate ${failure.label} and restored ${plugin.version}.`
               }
             />
             <RowStateControl
@@ -2366,7 +2365,7 @@ export function UpdatesSettingsSection() {
             ? {
                 label: serverRunsSeparately
                   ? "Restart and update the server automatically"
-                  : "Restart and update bb automatically",
+                  : "Restart and update AI automatically",
                 checked: setAutoAppUpdate.isPending
                   ? (setAutoAppUpdate.variables ?? appUpdate.autoUpdate)
                   : appUpdate.autoUpdate,

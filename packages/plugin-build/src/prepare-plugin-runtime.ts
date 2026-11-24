@@ -3,6 +3,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   realpath,
   rm,
   symlink,
@@ -10,30 +11,30 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { isPluginOwnedIconPath, pluginPackageJsonSchema } from "@bb/domain";
+import {
+  isCodeThemeFilePath,
+  isPluginOwnedIconPath,
+  pluginPackageJsonSchema,
+  type PluginPackageJson,
+} from "@bb/domain";
+import { isPathWithinDirectory } from "@bb/process-utils";
 import { buildPluginApp } from "./build-plugin-app.js";
 import { buildPluginServer } from "./build-plugin-server.js";
 import { buildPluginHost } from "./build-plugin-host.js";
 import { pathExists } from "./plugin-sdk-install.js";
+import {
+  resolveManifestAssetFile,
+  resolveManifestPath,
+} from "./plugin-manifest.js";
 import type { PluginBuildToolchain } from "./toolchain.js";
 
 const RUNTIME_DIRS = ["dist", "skills"] as const;
 
-async function copyIfExists(from: string, to: string): Promise<void> {
-  if (await pathExists(from)) {
-    await cp(from, to, { recursive: true });
-  }
-}
-
 async function writeRuntimePackageJson(args: {
-  sourceRoot: string;
+  packageJson: PluginPackageJson;
   targetDir: string;
 }): Promise<void> {
-  const raw = await readFile(
-    path.join(args.sourceRoot, "package.json"),
-    "utf8",
-  );
-  const packageJson = pluginPackageJsonSchema.parse(JSON.parse(raw));
+  const packageJson = args.packageJson;
   await writeFile(
     path.join(args.targetDir, "package.json"),
     `${JSON.stringify(
@@ -64,25 +65,49 @@ export async function copyPluginRuntime(args: {
   sourceRoot: string;
   targetDir: string;
 }): Promise<void> {
-  const targetDir = args.targetDir;
+  const sourceRoot = path.resolve(args.sourceRoot);
+  const targetDir = path.resolve(args.targetDir);
+  const packageJson = pluginPackageJsonSchema.parse(
+    JSON.parse(await readFile(path.join(sourceRoot, "package.json"), "utf8")),
+  );
+  const realSourceRoot = await realpath(sourceRoot);
   await rm(targetDir, { recursive: true, force: true });
   await mkdir(targetDir, { recursive: true });
 
-  await writeRuntimePackageJson({
-    sourceRoot: args.sourceRoot,
-    targetDir,
-  });
-  for (const dirName of RUNTIME_DIRS) {
-    await copyIfExists(
-      path.join(args.sourceRoot, dirName),
-      path.join(targetDir, dirName),
-    );
+  async function copyEntry(entry: string, label: string): Promise<void> {
+    const sourcePath = resolveManifestPath(sourceRoot, entry, label);
+    const targetPath = resolveManifestPath(targetDir, entry, label);
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await cp(sourcePath, targetPath, {
+      recursive: true,
+      dereference: true,
+      filter: async (candidate) => {
+        if (!isPathWithinDirectory(realSourceRoot, await realpath(candidate))) {
+          throw new Error(
+            `manifest ${label} escapes the plugin directory through a symlink`,
+          );
+        }
+        return true;
+      },
+    });
   }
-  const packageJson = pluginPackageJsonSchema.parse(
-    JSON.parse(
-      await readFile(path.join(args.sourceRoot, "package.json"), "utf8"),
-    ),
-  );
+
+  await writeRuntimePackageJson({ packageJson, targetDir });
+  for (const entry of [...RUNTIME_DIRS, "icon-sets/licenses"]) {
+    if (await pathExists(path.join(sourceRoot, entry))) {
+      await copyEntry(entry, entry);
+    }
+  }
+  for (const entry of await readdir(sourceRoot)) {
+    if (
+      /^(?:licen[cs]es?|notices?|copying|copyright)(?:[.-].*)?$/iu.test(
+        entry,
+      ) ||
+      entry === "SOURCE.md"
+    ) {
+      await copyEntry(entry, entry);
+    }
+  }
   const logo = packageJson.bb.branding.logo;
   const compactIcon = isPluginOwnedIconPath(packageJson.bb.branding.icon ?? "")
     ? packageJson.bb.branding.icon
@@ -97,19 +122,27 @@ export async function copyPluginRuntime(args: {
     ...declaredIcons,
   ]) {
     if (asset === undefined) continue;
-    const sourcePath = path.resolve(args.sourceRoot, asset);
-    const targetPath = path.resolve(targetDir, asset);
-    if (
-      (sourcePath !== args.sourceRoot &&
-        !sourcePath.startsWith(args.sourceRoot + path.sep)) ||
-      (targetPath !== targetDir && !targetPath.startsWith(targetDir + path.sep))
-    ) {
-      throw new Error(
-        `manifest branding asset escapes plugin directory: ${asset}`,
+    await resolveManifestAssetFile(
+      sourceRoot,
+      resolveManifestPath(sourceRoot, asset, "branding asset"),
+      "branding asset",
+    );
+    await copyEntry(asset, "branding asset");
+  }
+  for (const theme of packageJson.bb.themes ?? []) {
+    const assets = [
+      theme.css,
+      ...Object.values(theme.codeTheme ?? {}).filter(isCodeThemeFilePath),
+    ];
+    for (const asset of assets) {
+      const label = `bb.themes.${theme.id}`;
+      await resolveManifestAssetFile(
+        sourceRoot,
+        resolveManifestPath(sourceRoot, asset, label),
+        label,
       );
+      await copyEntry(asset, label);
     }
-    await mkdir(path.dirname(targetPath), { recursive: true });
-    await cp(sourcePath, targetPath);
   }
 }
 

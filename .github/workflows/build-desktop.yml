@@ -35,6 +35,7 @@ concurrency:
 
 jobs:
   macos:
+    if: github.repository == 'get-bb/bb'
     name: macOS arm64 desktop artifacts
     runs-on: blacksmith-6vcpu-macos-15
     timeout-minutes: 45
@@ -174,6 +175,7 @@ jobs:
           if-no-files-found: error
 
   linux:
+    if: github.repository == 'get-bb/bb'
     name: Linux x64 desktop artifacts
     # Pinned rather than ubuntu-latest so the glibc the AppImage links against
     # changes only when we choose it: the build machine's glibc sets the
@@ -268,6 +270,7 @@ jobs:
           if-no-files-found: error
 
   windows:
+    if: github.repository == 'get-bb/bb'
     name: Windows x64 desktop artifacts
     runs-on: blacksmith-4vcpu-windows-2025
     timeout-minutes: 45
@@ -371,6 +374,7 @@ jobs:
           if-no-files-found: error
 
   publish:
+    if: github.repository == 'get-bb/bb'
     name: Publish desktop release
     needs:
       - macos

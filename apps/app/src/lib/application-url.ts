@@ -85,7 +85,7 @@ async function dispatchApplicationUrl(url: string): Promise<void> {
   const desktop = getBbDesktopInfo();
   if (desktop !== null) {
     if (!desktop.openApplicationUrl)
-      throw new Error("Update the BB desktop app to open application links.");
+      throw new Error("Update the AI desktop app to open application links.");
     await desktop.openApplicationUrl(url);
     return;
   }

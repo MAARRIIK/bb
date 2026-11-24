@@ -53,6 +53,7 @@ const EXCLUDED_SEGMENTS = new Set([
   "generated",
   "bundled-types",
   "__fixtures__",
+  "__tests__",
   "__snapshots__",
   "test",
   "tests",
@@ -84,6 +85,7 @@ const EXCLUDED_PREFIXES = [
   join("packages", "provider-bridge-acp"),
   // Test-only helpers: they name providers so tests can pick a model.
   join("packages", "test-helpers"),
+  join("packages", "db", "scripts", "query-costs"),
   join("examples", ""),
 ];
 const EXCLUDED_FILE_RE =

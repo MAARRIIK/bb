@@ -30,21 +30,25 @@ export function resolveDesktopBuildPlatform(nodePlatform) {
   );
 }
 
-export function createDesktopReleaseConfig(channel) {
+export function createDesktopReleaseConfig(
+  channel,
+  architecture = process.arch,
+) {
   if (channel === "nightly") {
     return {
-      appId: "dev.bb.desktop.nightly",
-      applicationName: "bb Nightly",
-      artifactName: "bb-nightly-${version}-${arch}.${ext}",
+      appId: "dev.maarriik.ai.nightly",
+      applicationName: "AI Nightly",
+      artifactName: "ai-ide-nightly-${version}-${arch}.${ext}",
       iconFileName: "icon-nightly.png",
-      // The Linux binary name must differ from stable so both channels can be
-      // installed at once without one shadowing the other on PATH.
-      linuxExecutableName: "bb-nightly",
+      linuxExecutableName: "ai-ide-nightly",
       macIconPath: "assets/icon-nightly.icns",
       releaseTag: "desktop-nightly",
-      windowsInstallName: "bb-nightly",
+      windowsInstallName: "ai-ide-nightly",
       updateMetadataFileNames: {
-        linux: "nightly-linux.yml",
+        linux:
+          architecture === "arm64"
+            ? "nightly-linux-arm64.yml"
+            : "nightly-linux.yml",
         macos: "nightly-mac.yml",
         windows: "nightly.yml",
       },
@@ -52,16 +56,19 @@ export function createDesktopReleaseConfig(channel) {
   }
 
   return {
-    appId: "dev.bb.desktop",
-    applicationName: "bb",
+    appId: "dev.maarriik.ai",
+    applicationName: "AI",
     artifactName: "${productName}-${version}-${arch}.${ext}",
     iconFileName: "icon.png",
-    linuxExecutableName: "bb",
+    linuxExecutableName: "ai-ide",
     macIconPath: "assets/icon.icns",
     releaseTag: "desktop-latest",
-    windowsInstallName: "bb",
+    windowsInstallName: "ai-ide",
     updateMetadataFileNames: {
-      linux: "latest-linux.yml",
+      linux:
+        architecture === "arm64"
+          ? "latest-linux-arm64.yml"
+          : "latest-linux.yml",
       macos: "latest-mac.yml",
       windows: "latest.yml",
     },
@@ -69,5 +76,5 @@ export function createDesktopReleaseConfig(channel) {
 }
 
 export function createDesktopUpdateReleaseBaseUrl(releaseTag) {
-  return `https://github.com/get-bb/bb/releases/download/${releaseTag}/`;
+  return `https://github.com/MAARRIIK/bb/releases/download/${releaseTag}/`;
 }

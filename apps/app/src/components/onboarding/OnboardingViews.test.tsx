@@ -100,7 +100,7 @@ describe("AgentStep failures and sign-in", () => {
     expect(onCancelSignIn).toHaveBeenCalledExactlyOnceWith("claude-code");
     expect(
       screen.getByText(
-        "Don't see your agent? bb picks up other ACP agents once you have them installed.",
+        "Don't see your agent? AI picks up other ACP agents once you have them installed.",
       ),
     ).toBeTruthy();
   });
@@ -657,7 +657,7 @@ describe("DevicesStep", () => {
     );
     expect(screen.queryByText("Where agents run")).toBeNull();
     expect(screen.queryByText("Add another machine")).toBeNull();
-    expect(screen.getByText("Where you use bb").className).toContain("sr-only");
+    expect(screen.getByText("Where you use AI").className).toContain("sr-only");
 
     rerender(
       <TooltipProvider>
@@ -665,7 +665,7 @@ describe("DevicesStep", () => {
       </TooltipProvider>,
     );
     screen.getByText("Where agents run");
-    expect(screen.getByText("Where you use bb").className).not.toContain(
+    expect(screen.getByText("Where you use AI").className).not.toContain(
       "sr-only",
     );
     expect(
@@ -693,7 +693,7 @@ describe("DevicesStep", () => {
       </TooltipProvider>,
     );
 
-    expect(screen.queryByText("Where you use bb")).toBeNull();
+    expect(screen.queryByText("Where you use AI")).toBeNull();
     expect(screen.queryByText(/turned off on this server/u)).toBeNull();
     expect(screen.queryByText("Add another machine")).toBeNull();
     expect(screen.queryByText("Get the mobile app")).toBeNull();

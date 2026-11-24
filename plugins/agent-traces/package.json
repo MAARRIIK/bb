@@ -1,0 +1,85 @@
+{
+  "name": "bb-plugin-agent-traces",
+  "version": "1.0.0",
+  "private": true,
+  "description": "See where an agent's time goes: a waterfall of every turn's commands, tool calls, and subagents.",
+  "keywords": [
+    "bb-plugin",
+    "performance",
+    "subagents",
+    "trace",
+    "waterfall"
+  ],
+  "homepage": "https://github.com/charpeni/bb-plugins/tree/main/plugins/agent-traces#readme",
+  "bugs": {
+    "url": "https://github.com/charpeni/bb-plugins/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/charpeni/bb-plugins.git",
+    "directory": "plugins/agent-traces"
+  },
+  "files": [
+    "dist",
+    "server.ts",
+    "store.ts",
+    "trace.ts",
+    "breakdown.ts",
+    "insights.ts",
+    "otlp.ts",
+    "snapshot.ts",
+    "report.ts",
+    "palette.ts",
+    "view.ts",
+    "util.ts",
+    "routes.ts",
+    "app.tsx",
+    "thread-trace.tsx",
+    "traces.tsx",
+    "overview.tsx",
+    "waterfall.tsx",
+    "commands.tsx",
+    "compare.tsx",
+    "ui.tsx",
+    "assets",
+    "skills",
+    "README.md"
+  ],
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsrs --noEmit",
+    "prepare:bundled": "bb-plugin-build prepare-bundled"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@bb/plugin-build": "workspace:*",
+    "@get-bb/plugin-sdk": "workspace:*",
+    "@types/node": "^22.20.5",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
+  },
+  "engines": {
+    "bb": ">=0.47",
+    "bbPluginSdk": ">=0.6.79"
+  },
+  "bb": {
+    "name": "Agent Traces",
+    "description": "See where an agent's time goes: a waterfall of every turn's commands, tool calls, and subagents.",
+    "branding": {
+      "icon": "./assets/agent-traces.svg",
+      "experimental_icons": {
+        "waterfall": "./assets/agent-traces.svg"
+      }
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "skills": [
+      "skills"
+    ]
+  }
+}

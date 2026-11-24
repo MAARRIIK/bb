@@ -319,7 +319,7 @@ describe("BrowserTabDeck native browser first-show ordering", () => {
       ],
     });
     render(renderTargetDeck(savedTab({ instanceId: "elsewhere" })));
-    await screen.findByText("This tab is open in another bb window");
+    await screen.findByText("This tab is open in another AI window");
     expect(attachments).toEqual([]);
   });
 
@@ -338,7 +338,7 @@ describe("BrowserTabDeck native browser first-show ordering", () => {
       });
       const tab = savedTab({ instanceId: "elsewhere" });
       const view = render(renderTargetDeck(tab));
-      await screen.findByText("This tab is open in another bb window");
+      await screen.findByText("This tab is open in another AI window");
       expect(attachments).toEqual([]);
       list.mockResolvedValue({
         instances: [{ ...desktopTarget, label: "Current" }],
@@ -375,7 +375,7 @@ describe("BrowserTabDeck native browser first-show ordering", () => {
     });
     expect(attachments[0]?.existingOnly).toBeUndefined();
     expect(
-      screen.queryByText("This tab is open in another bb window"),
+      screen.queryByText("This tab is open in another AI window"),
     ).toBeNull();
   });
 

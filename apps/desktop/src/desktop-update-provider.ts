@@ -6,8 +6,8 @@ import {
 type DesktopReleaseChannel = "latest" | "nightly";
 
 interface DesktopReleaseInfo {
-  appId: "dev.bb.desktop" | "dev.bb.desktop.nightly";
-  applicationName: "bb" | "bb Nightly";
+  appId: "dev.maarriik.ai" | "dev.maarriik.ai.nightly";
+  applicationName: "AI" | "AI Nightly";
   channel: DesktopReleaseChannel;
   iconFileName: "icon.png" | "icon-nightly.png";
   releaseTag: "desktop-latest" | "desktop-nightly";
@@ -21,12 +21,12 @@ export function createDesktopReleaseInfo(
   const releaseTag = nightly ? "desktop-nightly" : "desktop-latest";
 
   return {
-    appId: nightly ? "dev.bb.desktop.nightly" : "dev.bb.desktop",
-    applicationName: nightly ? "bb Nightly" : "bb",
+    appId: nightly ? "dev.maarriik.ai.nightly" : "dev.maarriik.ai",
+    applicationName: nightly ? "AI Nightly" : "AI",
     channel,
     iconFileName: nightly ? "icon-nightly.png" : "icon.png",
     releaseTag,
-    updateReleaseBaseUrl: `https://github.com/get-bb/bb/releases/download/${releaseTag}/`,
+    updateReleaseBaseUrl: `https://github.com/MAARRIIK/bb/releases/download/${releaseTag}/`,
   };
 }
 

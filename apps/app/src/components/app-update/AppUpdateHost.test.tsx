@@ -105,7 +105,7 @@ describe("AppUpdateHost", () => {
     renderHost();
 
     await waitFor(() => {
-      expect(appToast.success).toHaveBeenCalledWith("Updated bb to 1.1.0");
+      expect(appToast.success).toHaveBeenCalledWith("Updated AI to 1.1.0");
     });
     await waitFor(() => {
       expect(sdk.system.acknowledgeAppUpdate).toHaveBeenCalledWith({
@@ -170,7 +170,7 @@ describe("AppUpdateHost", () => {
 
     renderHost();
 
-    expect(await screen.findByText("Updating bb to 1.2.0")).toBeDefined();
+    expect(await screen.findByText("Updating AI to 1.2.0")).toBeDefined();
     expect(
       document.querySelector("[data-app-update-overlay]")?.getAttribute("role"),
     ).toBe("dialog");
@@ -205,8 +205,8 @@ describe("AppUpdateHost", () => {
 
     renderHost();
 
-    expect(await screen.findByText("Updating bb to 9f4ee4d")).toBeDefined();
-    expect(screen.queryByText("Updating bb to 0.45.0")).toBeNull();
+    expect(await screen.findByText("Updating AI to 9f4ee4d")).toBeDefined();
+    expect(screen.queryByText("Updating AI to 0.45.0")).toBeNull();
   });
 
   it("reloads the page once the server comes back on a new revision", async () => {

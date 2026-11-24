@@ -311,8 +311,8 @@ const russian = new Map<string, string>(
     "No prefix": "Без префикса",
     "This prefix cannot start a valid git branch name.":
       "Префикс должен образовывать допустимое имя ветки Git.",
-    "bb puts this in front of every branch it creates for a worktree, such as {branch}. Leave it empty for no prefix.":
-      "bb добавляет префикс к именам веток рабочих копий, например {branch}. Оставьте поле пустым, чтобы не использовать префикс.",
+    "AI puts this in front of every branch it creates for a worktree, such as {branch}. Leave it empty for no prefix.":
+      "AI добавляет префикс к именам веток рабочих копий, например {branch}. Оставьте поле пустым, чтобы не использовать префикс.",
     "Palettes change bb's colors, including syntax colors in diffs and file previews. Choose a built-in palette or create one from a prompt.":
       "Палитры меняют цвета bb, включая подсветку кода в изменениях и просмотре файлов. Выберите встроенную палитру или создайте свою по описанию.",
     "Tint browser tabs to tell instances apart.":
@@ -333,8 +333,8 @@ const russian = new Map<string, string>(
       "Выберите оформление кнопки нового диалога, плагинов, навыков и страниц плагинов в боковой панели.",
     "Which plugin draws your threads in the sidebar.":
       "Плагин, который отображает список диалогов в боковой панели.",
-    "Choose automatic activation, BB's viewer, or a specific plugin on this device.":
-      "Автоматический выбор, встроенный просмотрщик BB или определённый плагин на этом устройстве.",
+    "Choose automatic activation, AI's viewer, or a specific plugin on this device.":
+      "Автоматический выбор, встроенный просмотрщик AI или определённый плагин на этом устройстве.",
     "Syntax highlighting and gutters from the bb code theme.":
       "Подсветка синтаксиса и поля редактора из темы кода bb.",
     "Applies to file diffs in threads, the diff panel, and plugin views.":
@@ -346,7 +346,7 @@ const russian = new Map<string, string>(
       "Поле запроса в диалогах, на экране нового диалога и при редактировании сообщений.",
     Automatic: "Автоматически",
     "built-in": "встроенный",
-    "bb (built-in)": "bb (встроенный)",
+    "AI (built-in)": "AI (встроенный)",
     "Chooses {title} ({source}).": "Выбирает {title} ({source}).",
     "{title} (built-in)": "{title} (встроенный)",
     "From the {plugin} plugin.": "Из плагина {plugin}.",

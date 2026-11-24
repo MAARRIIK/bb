@@ -96,13 +96,13 @@ describe("bb-official marketplace generator", () => {
     );
 
     expect(catalog.name).toBe(BUNDLED_MARKETPLACE_NAME);
-    expect(catalog.displayName).toBe("BB Official");
+    expect(catalog.displayName).toBe("AI Bundled");
     expect(catalog.categories).toEqual(PLUGIN_CATALOG_CATEGORIES);
     expect(catalog.plugins).toHaveLength(BUNDLED_PLUGINS.length);
     expect(catalog.collections).toEqual([
       {
         id: "bb-official",
-        displayName: "BB Official",
+        displayName: "AI Bundled",
         pluginIds: bbOfficialShelfOrder(
           catalog.plugins.map((entry) => {
             const plugin = BUNDLED_PLUGINS.find(
@@ -132,7 +132,7 @@ describe("bb-official marketplace generator", () => {
       );
       expect(entry?.id).toBe(plugin.pluginId);
       expect(entry?.screenshots).toEqual(fields[plugin.name]?.screenshots);
-      expect(entry?.author).toEqual({ name: "BB" });
+      expect(entry?.author).toEqual({ name: fields[plugin.name]?.authorName });
     }
   });
 

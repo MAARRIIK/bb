@@ -18,7 +18,6 @@ import { PluginIcon } from "@/components/plugin/PluginIcon";
 import { useProviderCliInstallRunner } from "@/components/provider-cli/provider-cli-install";
 import { resolveReleaseUpdateVersion } from "@/components/settings/release-notes-model";
 import { ProviderIconMark } from "@/components/settings/ProviderIconMark";
-import { BbLogo } from "@/components/ui/bb-logo";
 import { SIDEBAR_FOOTER_ACTION_CLASS } from "@bb/shared-ui/sidebar-row-classes";
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar.js";
 import { useAppUpdateStatus } from "@/hooks/queries/app-update-queries";
@@ -417,11 +416,11 @@ function SidebarBbUpdateSection({
   onRestart: () => void;
 }) {
   return (
-    <section aria-label="bb update">
+    <section aria-label="AI update">
       <div className="flex items-center gap-1.5 max-md:pointer-coarse:gap-2">
-        <BbLogo className={UPDATE_CARD_ICON_CLASS} />
+        <span aria-hidden="true" className="text-xs font-semibold">AI</span>
         <span className="text-sm font-medium max-md:pointer-coarse:text-base">
-          {bb.version === null ? "bb update" : `bb ${bb.version}`}
+          {bb.version === null ? "AI update" : `AI ${bb.version}`}
         </span>
         {bb.currentVersion === null || bb.version === null ? null : (
           <span className="truncate font-mono text-muted-foreground">
@@ -442,7 +441,7 @@ function SidebarBbUpdateSection({
             ? "Restarting into the update…"
             : bb.installsWhenIdle
               ? "Installs itself when you're idle"
-              : "Installs when bb restarts"}
+              : "Installs when AI restarts"}
         </span>
       </div>
       {!bb.canRestart || bb.restarting ? null : (
@@ -454,8 +453,8 @@ function SidebarBbUpdateSection({
           onClick={onRestart}
         >
           {bb.version === null
-            ? "Restart bb now"
-            : `Restart into bb ${bb.version} now`}
+            ? "Restart AI now"
+            : `Restart into AI ${bb.version} now`}
         </Button>
       )}
     </section>

@@ -1,0 +1,180 @@
+name: Build AI Desktop
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_channel:
+        description: AI release channel
+        type: choice
+        options: [latest, nightly]
+        default: latest
+      version:
+        description: Version override; empty uses the committed version
+        type: string
+        default: ""
+      publish:
+        description: Publish installers and update feeds to MAARRIIK/bb releases
+        type: boolean
+        default: false
+
+env:
+  BB_DESKTOP_RELEASE_CHANNEL: ${{ inputs.release_channel }}
+  CSC_IDENTITY_AUTO_DISCOVERY: "false"
+  NODE_VERSION: "22.x"
+  PNPM_VERSION: "9.15.0"
+  REQUESTED_VERSION: ${{ inputs.version }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-desktop-${{ inputs.release_channel }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'MAARRIIK/bb'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: macos
+            architecture: arm64
+          - os: ubuntu-22.04
+            platform: linux
+            architecture: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Verify architecture
+        env:
+          EXPECTED_ARCH: ${{ matrix.architecture }}
+        run: test "$(node -p process.arch)" = "$EXPECTED_ARCH"
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Apply version override
+        run: |
+          if [[ -n "$REQUESTED_VERSION" ]]; then
+            node scripts/bump-version.mjs "$REQUESTED_VERSION"
+          fi
+          version="$(node -p "require('./apps/desktop/package.json').version")"
+          if [[ "$BB_DESKTOP_RELEASE_CHANNEL" == latest && "$version" == *-* ]]; then
+            echo "::error::Use the nightly channel for prerelease versions."
+            exit 1
+          fi
+      - name: Typecheck and test desktop
+        run: pnpm exec turbo run typecheck test --filter=@bb/desktop --filter=bb-app --output-logs=new-only
+      - name: Build desktop
+        run: pnpm exec turbo run build --filter=@bb/desktop --output-logs=new-only
+      - name: Package unsigned or signed macOS installers
+        if: matrix.platform == 'macos'
+        env:
+          CSC_LINK: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          CSC_NAME: ${{ secrets.MACOS_CERTIFICATE_NAME }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm exec turbo run desktop:build --filter=@bb/desktop --output-logs=new-only
+      - name: Package Debian and AppImage installers
+        if: matrix.platform == 'linux'
+        run: pnpm exec turbo run desktop:build:linux --filter=@bb/desktop --output-logs=new-only
+      - name: Smoke test macOS package
+        if: matrix.platform == 'macos'
+        run: pnpm exec turbo run smoke:packaged --filter=@bb/desktop --output-logs=new-only
+      - name: Smoke test Linux package
+        if: matrix.platform == 'linux'
+        run: xvfb-run -a pnpm exec turbo run smoke:packaged --filter=@bb/desktop --output-logs=new-only
+      - name: Verify Debian installation
+        if: matrix.platform == 'linux'
+        run: |
+          executable=ai-ide
+          if [[ "$BB_DESKTOP_RELEASE_CHANNEL" == nightly ]]; then
+            executable=ai-ide-nightly
+          fi
+          debs=(apps/desktop/release/*.deb)
+          test "${#debs[@]}" = 1
+          test "$(dpkg-deb --field "${debs[0]}" Package)" = "$executable"
+          test "$(dpkg-deb --field "${debs[0]}" Architecture)" = amd64
+          sudo apt-get update
+          sudo apt-get install -y "./${debs[0]}"
+          test -x "/usr/bin/$executable"
+          ELECTRON_RUN_AS_NODE=1 "$executable" -p 'process.arch' | grep -x x64
+      - name: Generate update feed
+        run: pnpm --dir apps/desktop run desktop:version-feed
+      - name: Upload installers and update metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: AI-${{ inputs.release_channel }}-${{ matrix.platform }}-${{ matrix.architecture }}
+          if-no-files-found: error
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/*-mac.yml
+            apps/desktop/release/*-linux.yml
+            apps/desktop/release/desktop-version*.json
+
+  publish:
+    if: github.repository == 'MAARRIIK/bb' && inputs.publish
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_REPO: MAARRIIK/bb
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: AI-${{ inputs.release_channel }}-*
+          merge-multiple: true
+          path: release
+      - name: Publish versioned release and channel update feed
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./release/desktop-version.json').version")"
+          linux_version="$(node -p "require('./release/desktop-version-linux.json').version")"
+          test "$version" = "$linux_version"
+          tag="desktop-v${version}"
+          moving_tag=desktop-latest
+          release_flags=(--latest=false)
+          if [[ "$BB_DESKTOP_RELEASE_CHANNEL" == nightly ]]; then
+            moving_tag=desktop-nightly
+            release_flags+=(--prerelease)
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::Release $tag exists; choose a new version."
+            exit 1
+          fi
+          gh release create "$tag" release/* --target "$GITHUB_SHA" \
+            --title "AI $version" \
+            --notes $'AI desktop installers and update metadata.\n\n> AGENT GENERATED' \
+            "${release_flags[@]}"
+          git tag -f "$moving_tag" "$GITHUB_SHA"
+          git push --force origin "refs/tags/$moving_tag"
+          if gh release view "$moving_tag" >/dev/null 2>&1; then
+            gh release view "$moving_tag" --json assets --jq '.assets[].name' | while IFS= read -r asset; do
+              gh release delete-asset "$moving_tag" "$asset" --yes
+            done
+            gh release upload "$moving_tag" release/*
+          else
+            gh release create "$moving_tag" release/* --target "$GITHUB_SHA" \
+              --title "AI $BB_DESKTOP_RELEASE_CHANNEL" \
+              --notes $'AI desktop update channel.\n\n> AGENT GENERATED' \
+              "${release_flags[@]}"
+          fi

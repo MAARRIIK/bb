@@ -67,13 +67,20 @@ const macConfigSchema = z
 const linuxConfigSchema = z
   .object({
     category: z.literal("Development"),
-    executableName: z.enum(["bb", "bb-nightly"]),
+    executableName: z.enum(["ai-ide", "ai-ide-nightly"]),
+    syncDesktopName: z.literal(true),
     icon: z.string().min(1),
     target: z.tuple([
       z
         .object({
-          arch: z.tuple([z.literal("x64")]),
+          arch: z.array(z.enum(["x64", "arm64"])).min(1),
           target: z.literal("AppImage"),
+        })
+        .passthrough(),
+      z
+        .object({
+          arch: z.array(z.enum(["x64", "arm64"])).min(1),
+          target: z.literal("deb"),
         })
         .passthrough(),
     ]),
@@ -103,6 +110,12 @@ const electronBuilderConfigSchema = z
       })
       .passthrough(),
     files: z.array(electronBuilderFilePatternSchema),
+    extraMetadata: z
+      .object({
+        name: z.string().min(1),
+        desktopName: z.string().min(1),
+      })
+      .passthrough(),
     linux: linuxConfigSchema,
     mac: macConfigSchema,
     npmRebuild: z.literal(false),
@@ -170,6 +183,7 @@ type CreateScriptEnvironment = (
 ) => NodeJS.ProcessEnv;
 type RunConfigScript = (
   overrides: EnvironmentOverrides,
+  args?: string[],
 ) => Promise<ScriptRunResult>;
 type ReadResolvedConfig = (
   overrides: EnvironmentOverrides,
@@ -197,10 +211,10 @@ const createScriptEnvironment: CreateScriptEnvironment = (overrides) => {
   return env;
 };
 
-const runConfigScript: RunConfigScript = async (overrides) => {
+const runConfigScript: RunConfigScript = async (overrides, args = []) => {
   const child = spawn(
     process.execPath,
-    ["scripts/run-electron-builder.mjs", "--print-config"],
+    ["scripts/run-electron-builder.mjs", "--print-config", ...args],
     {
       cwd: desktopPackageRoot,
       env: createScriptEnvironment(overrides),
@@ -523,18 +537,59 @@ describe("electron-builder signing config", () => {
     ]);
   });
 
-  it("packages a Linux AppImage for x64", async () => {
+  it("packages Linux AppImage and Debian installers for x64", async () => {
     const config = await readStaticConfig();
 
     expect(config.linux).toMatchObject({
       category: "Development",
-      executableName: "bb",
-      target: [{ arch: ["x64"], target: "AppImage" }],
+      executableName: "ai-ide",
+      target: [
+        { arch: ["x64"], target: "AppImage" },
+        { arch: ["x64"], target: "deb" },
+      ],
+    });
+    expect(config).toMatchObject({
+      appId: "dev.maarriik.ai",
+      productName: "AI",
+      deb: { packageName: "ai-ide" },
+      extraMetadata: { name: "ai-ide", desktopName: "dev.maarriik.ai.desktop" },
     });
     expect(config.toolsets.appimage).toBe("1.0.3");
     await expect(
       access(resolve(desktopPackageRoot, config.linux.icon)),
     ).resolves.toBeUndefined();
+  });
+
+  it.each(["x64", "arm64"])(
+    "uses the explicit Linux %s architecture for both installers",
+    async (arch) => {
+      const result = await runConfigScript({}, ["--linux", `--${arch}`]);
+      expect(result.exitCode).toBe(0);
+      const config = electronBuilderConfigSchema.parse(
+        JSON.parse(result.stdout),
+      );
+      expect(config.linux.target).toEqual([
+        { target: "AppImage", arch: [arch] },
+        { target: "deb", arch: [arch] },
+      ]);
+      expect(config).toMatchObject({
+        deb: { packageName: "ai-ide" },
+        extraMetadata: {
+          name: "ai-ide",
+          desktopName: "dev.maarriik.ai.desktop",
+        },
+      });
+    },
+  );
+
+  it("uses the native Linux architecture when no override is supplied", async () => {
+    const result = await runConfigScript({}, ["--linux"]);
+    expect(result.exitCode).toBe(0);
+    const config = electronBuilderConfigSchema.parse(JSON.parse(result.stdout));
+    expect(config.linux.target.map((target) => target.arch)).toEqual([
+      [process.arch],
+      [process.arch],
+    ]);
   });
 
   it("grants audio input to the signed app and helper processes", async () => {
@@ -579,7 +634,7 @@ describe("electron-builder signing config", () => {
 
     expect(config.publish[0]).toMatchObject(DESKTOP_AUTO_UPDATE_FEED_CONFIG);
     expect(DESKTOP_AUTO_UPDATE_FEED_CONFIG.url).toBe(
-      "https://github.com/get-bb/bb/releases/download/desktop-latest/",
+      "https://github.com/MAARRIIK/bb/releases/download/desktop-latest/",
     );
   });
 
@@ -589,11 +644,17 @@ describe("electron-builder signing config", () => {
     });
     const nightlyRelease = createDesktopReleaseInfo("nightly");
 
-    expect(config.appId).toBe("dev.bb.desktop.nightly");
-    expect(config.productName).toBe("bb Nightly");
-    expect(config.artifactName).toBe("bb-nightly-${version}-${arch}.${ext}");
+    expect(config.appId).toBe("dev.maarriik.ai.nightly");
+    expect(config.productName).toBe("AI Nightly");
+    expect(config.extraMetadata.desktopName).toBe(
+      "dev.maarriik.ai.nightly.desktop",
+    );
+    expect(config.artifactName).toBe(
+      "ai-ide-nightly-${version}-${arch}.${ext}",
+    );
     expect(config.linux.icon).toBe("assets/icon-nightly.png");
-    expect(config.linux.executableName).toBe("bb-nightly");
+    expect(config.linux.executableName).toBe("ai-ide-nightly");
+    expect(config).toMatchObject({ deb: { packageName: "ai-ide-nightly" } });
     expect(config.mac.icon).toBe("assets/icon-nightly.icns");
     await expect(
       access(resolve(desktopPackageRoot, config.mac.icon)),
