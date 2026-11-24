@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     silent: "passed-only",
     name: "bb-plugin-provider-acp",
-    include: ["*.test.ts", "*.test.tsx", "src/**/*.test.ts"],
+    include: ["*.test.ts", "*.test.tsx", "src/**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**"],
   },
 });

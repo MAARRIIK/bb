@@ -819,6 +819,18 @@ section or with `bb acp registry`, `bb acp add <agent-id>`, and
 `bb acp remove <agent-id>`. An added agent is a `customAgents` entry running
 the registry's `npx` or `uvx` package on the thread's host.
 
+The Subscriptions page offers profiles for Antigravity, Kimi Code, and cloud
+Qwen Code; the ACP settings page links to it. `bb acp subscriptions list --json`, `bb acp subscriptions add <id>`,
+and `bb acp subscriptions login <id> --machine <host-id>` share the UI's path.
+Profile ids are `antigravity-acp`, `kimi-code`, and `qwen-code`. Add appends to
+`customAgents` without replacing an existing entry. Antigravity uses installed
+`agy`; Kimi and Qwen use pinned official npm packages through npx. Sign-in opens
+a native-agent command in a BB terminal on the explicitly chosen connected
+machine. Credentials stay in that agent's native storage. A returned terminal
+id confirms terminal creation or reuse, not account authentication or plan access.
+Modified launch settings require their own sign-in procedure. See the owning
+[ACP skill](../plugins/provider-acp/skills/acp-provider/SKILL.md).
+
 ## Custom Models
 
 Register extra picker models with top-level `customModels` in

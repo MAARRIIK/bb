@@ -1,9 +1,11 @@
+import type { CustomAcpAgentSettings } from "./agents.js";
 import {
   PluginCliError,
   cliCommand,
   defineCli,
   defineRpcContract,
   type BbPluginApi,
+  type PluginCliSpec,
 } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import {
@@ -88,9 +90,9 @@ interface LoadedRegistry {
 }
 
 interface AcpRegistryServiceDeps {
+  subscriptionCommands: PluginCliSpec["commands"];
   bb: Pick<BbPluginApi, "storage" | "rpc" | "cli" | "log">;
-  readCustomAgents(): Promise<string>;
-  writeCustomAgents(value: string): Promise<void>;
+  customAgents: CustomAcpAgentSettings;
   reservedProviderIds: ReadonlySet<string>;
 }
 
@@ -187,7 +189,7 @@ export function registerAcpRegistry(deps: AcpRegistryServiceDeps): void {
       error: loaded.error,
       agents: describeRegistryAgents({
         agents: loaded.agents,
-        settingValue: await deps.readCustomAgents(),
+        settingValue: await deps.customAgents.read(),
         reservedProviderIds: deps.reservedProviderIds,
       }),
     };
@@ -206,16 +208,14 @@ export function registerAcpRegistry(deps: AcpRegistryServiceDeps): void {
     if (deps.reservedProviderIds.has(`acp-${id}`)) {
       throw new Error(`${agent.name} is already built into bb.`);
     }
-    await deps.writeCustomAgents(
-      settingWithRegistryAgent(await deps.readCustomAgents(), agent),
+    await deps.customAgents.update((value) =>
+      settingWithRegistryAgent(value, agent),
     );
     return view(false);
   }
 
   async function removeAgent(id: string): Promise<AcpRegistryView> {
-    await deps.writeCustomAgents(
-      settingWithoutAgent(await deps.readCustomAgents(), id),
-    );
+    await deps.customAgents.update((value) => settingWithoutAgent(value, id));
     return view(false);
   }
 
@@ -252,6 +252,7 @@ export function registerAcpRegistry(deps: AcpRegistryServiceDeps): void {
       description:
         "Lists the agents in the Agent Client Protocol registry and adds them to bb as providers. Added agents run through npx or uvx on the machine that hosts the thread.",
       commands: {
+        ...deps.subscriptionCommands,
         registry: cliCommand({
           summary: "List the registry's agents and whether each is added to bb",
           options: {
