@@ -1,6 +1,7 @@
 import {
   claimNextQueuedThreadMessageGroup,
   createQueuedThreadMessage,
+  getQueuedThreadMessage,
   listQueuedThreadMessages,
   setQueuedThreadMessageFailureReason,
   setQueuedThreadMessageGroupBoundary,
@@ -127,6 +128,78 @@ async function stopThread(harness: TestAppHarness, threadId: string) {
 }
 
 describe("the requested queue drain", () => {
+  it("keeps a scheduled request with its original provider after the chat changes provider", async () => {
+    await withTestHarness(async (harness) => {
+      const { thread } = seedRunnableThread(harness, {
+        hostId: "host-queue-provider-owner",
+        status: "idle",
+      });
+      const sendAt = Date.now() + 60_000;
+      const response = await acceptThreadSendRequest(harness.deps, {
+        thread,
+        payload: {
+          input: textInput("Original provider only"),
+          mode: "auto",
+          sendAt,
+        },
+      });
+      if (response.delivery !== "queued")
+        throw new Error("expected a queued request");
+      const requestsBefore = turnRequests(harness, thread.id).length;
+      harness.db.$client
+        .prepare("UPDATE threads SET provider_id = 'claude-code' WHERE id = ?")
+        .run(thread.id);
+
+      await runTimeWake(harness, sendAt + 1);
+
+      expect(turnRequests(harness, thread.id)).toHaveLength(requestsBefore);
+      expect(
+        getQueuedThreadMessage(harness.db, response.queuedMessage.id),
+      ).toMatchObject({
+        providerId: "codex",
+        failureReason:
+          "This message is assigned to codex. Switch this chat back to codex before sending it.",
+      });
+      const held = getQueuedThreadMessage(
+        harness.db,
+        response.queuedMessage.id,
+      );
+      if (held === null)
+        throw new Error("expected the original queued request");
+      const edited = await harness.app.request(
+        `/api/v1/threads/${thread.id}/queued-messages/${held.id}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            expectedUpdatedAt: held.updatedAt,
+            model: "another-model",
+          }),
+        },
+      );
+      expect(edited.status).toBe(409);
+      expect(getQueuedThreadMessage(harness.db, held.id)?.model).toBe(
+        held.model,
+      );
+      harness.db.$client
+        .prepare("UPDATE threads SET provider_id = 'codex' WHERE id = ?")
+        .run(thread.id);
+      const retried = await harness.app.request(
+        `/api/v1/threads/${thread.id}/queued-messages/${response.queuedMessage.id}/send`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ mode: "auto" }),
+        },
+      );
+      expect(retried.status).toBe(200);
+      expect(turnRequests(harness, thread.id)).toHaveLength(requestsBefore + 1);
+      expect(
+        getQueuedThreadMessage(harness.db, response.queuedMessage.id),
+      ).toBeNull();
+    });
+  });
+
   it.each([
     { finish: "save", sentText: "SAVED EDIT" },
     { finish: "cancel", sentText: "ORIGINAL" },
@@ -211,6 +284,8 @@ describe("the requested queue drain", () => {
         status: "idle",
       });
       createQueuedThreadMessage(harness.db, harness.deps.hub, {
+        providerSessionId: null,
+        providerId: null,
         threadId: thread.id,
         content: textInput(
           "Child was interrupted because its host connection was lost.",
@@ -286,6 +361,8 @@ describe("the requested queue drain", () => {
         senderThreadId: "thr_sender",
       });
       const system = createQueuedThreadMessage(harness.db, harness.deps.hub, {
+        providerSessionId: null,
+        providerId: null,
         threadId: thread.id,
         content: textInput("System notice"),
         model: "gpt-5",
@@ -308,16 +385,19 @@ describe("the requested queue drain", () => {
           expect.arrayContaining([
             expect.objectContaining({
               id: user.id,
+              providerId: "codex",
               initiator: "user",
               senderThreadId: null,
             }),
             expect.objectContaining({
               id: agent.id,
+              providerId: "codex",
               initiator: "agent",
               senderThreadId: "thr_sender",
             }),
             expect.objectContaining({
               id: system.id,
+              providerId: null,
               initiator: "system",
               senderThreadId: null,
             }),

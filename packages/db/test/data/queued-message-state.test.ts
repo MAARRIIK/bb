@@ -26,6 +26,8 @@ function setup() {
   });
   const queue = (waitingOn: QueuedMessageWaitingOn | null, sendAt: number | null) =>
     createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: [{ type: "text", text: "hello", mentions: [] }],
       model: "gpt-5",

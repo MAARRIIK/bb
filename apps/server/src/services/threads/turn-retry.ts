@@ -20,6 +20,8 @@ import { ApiError } from "../../errors.js";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { emitPluginMessageQueued } from "../plugins/plugin-thread-events.js";
 import { attemptDispatch } from "./dispatch-attempt.js";
+import { withThreadSendGuard } from "./thread-session-guard.js";
+import { requireProviderTransitionSettled } from "./provider-transition-guard.js";
 import { toThreadQueuedMessage } from "./thread-queued-messages.js";
 import {
   loadFailedTurn,
@@ -278,12 +280,24 @@ export async function retryTurnAfterRestart(
   });
 }
 
+type DispatchRetryArgs = RetryFailedTurnArgs & {
+  continuation: string;
+  failed: FailedTurnRecord;
+};
+
 async function dispatchRetry(
   deps: TurnRetryDeps,
-  args: RetryFailedTurnArgs & {
-    continuation: string;
-    failed: FailedTurnRecord;
-  },
+  args: DispatchRetryArgs,
+): Promise<RetryTurnResponse> {
+  return withThreadSendGuard(args.thread.id, () => {
+    requireProviderTransitionSettled(deps.db, args.thread.id);
+    return dispatchRetryForCurrentSession(deps, args);
+  });
+}
+
+async function dispatchRetryForCurrentSession(
+  deps: TurnRetryDeps,
+  args: DispatchRetryArgs,
 ): Promise<RetryTurnResponse> {
   const { continuation, failed, request, thread } = args;
   const chain = retryChain(failed.request);

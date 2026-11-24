@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createDeferredPromise } from "@bb/test-helpers";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -31,6 +32,7 @@ import { readThreadProvisionContext } from "../../src/services/threads/thread-st
 import { buildTurnFailedEvent } from "../../src/services/threads/turn-failed.js";
 import { retryFailedTurn } from "../../src/services/threads/turn-retry.js";
 import { attemptDispatch } from "../../src/services/threads/dispatch-attempt.js";
+import { withThreadContextChangeGuard } from "../../src/services/threads/thread-session-guard.js";
 import {
   seedEnvironment,
   seedEvent,
@@ -479,6 +481,78 @@ describe("the turn.failed announcement", () => {
 });
 
 describe("retrying a failed turn", () => {
+  it("keeps the session stable while a retry waits for plugin policy", async () => {
+    await withTestHarness(async (harness) => {
+      const { thread, requestId } = seedFailableThread(
+        harness,
+        "host-retry-policy-generation",
+      );
+      failThread(harness, thread.id);
+      const entered = createDeferredPromise<void>();
+      const release = createDeferredPromise<void>();
+      installHooks({
+        "message.dispatch": [
+          {
+            pluginId: "hold-retry",
+            handler: async () => {
+              entered.resolve();
+              await release.promise;
+              return { action: "proceed" };
+            },
+          },
+        ],
+      });
+      const retry = retryFailedTurn(harness.deps, {
+        thread: requireThread(harness, thread.id),
+        request: {
+          turnRequestId: requestId,
+          sendAt: Date.now() + 60_000,
+          reason: "Retry",
+        },
+      });
+      try {
+        await entered.promise;
+        await expect(
+          withThreadContextChangeGuard(thread.id, async () => undefined),
+        ).rejects.toMatchObject({ status: 409 });
+      } finally {
+        release.resolve();
+        await retry;
+      }
+      expect(queuedRows(harness, thread.id)).toHaveLength(1);
+    });
+  });
+
+  it("does not retry an old failure as the first request of another native session", async () => {
+    await withTestHarness(async (harness) => {
+      const { thread, requestId } = seedFailableThread(
+        harness,
+        "host-retry-new-generation",
+      );
+      failThread(harness, thread.id);
+      harness.db.$client
+        .prepare(
+          "UPDATE threads SET provider_session_id = 'replacement-generation' WHERE id = ?",
+        )
+        .run(thread.id);
+
+      await expect(
+        retryFailedTurn(harness.deps, {
+          thread: requireThread(harness, thread.id),
+          request: {
+            turnRequestId: requestId,
+            sendAt: Date.now() + 60_000,
+            reason: "Retry",
+          },
+        }),
+      ).rejects.toMatchObject({
+        status: 409,
+        body: { code: "no_failed_turn" },
+      });
+      expect(queuedRows(harness, thread.id)).toHaveLength(0);
+    });
+  });
+
   it("queues a by-reference row on the clock and re-submits the original turn", async () => {
     await withTestHarness(async (harness) => {
       const sendAt = Date.now() + 60_000;
@@ -1029,6 +1103,55 @@ async function sendNewMessage(
 }
 
 describe("a queued retry", () => {
+  it.each(["inline", "retry"] as const)(
+    "checks native session ownership for %s input",
+    async (kind) => {
+      await withTestHarness(async (harness) => {
+        const { thread, environment } = seedFailableThread(
+          harness,
+          `host-queued-generation-${kind}`,
+        );
+        const sendAt = Date.now() + 60_000;
+        if (kind === "retry") {
+          await failAndRetry(harness, {
+            threadId: thread.id,
+            environmentId: environment.id,
+            accepted: true,
+            sendAt,
+          });
+        } else {
+          await acceptThreadSendRequest(harness.deps, {
+            thread,
+            payload: { input: textInput("A new task"), mode: "auto", sendAt },
+          });
+          failThread(harness, thread.id);
+        }
+        const requestsBefore = turnRequests(harness, thread.id).length;
+        harness.db.$client
+          .prepare(
+            "UPDATE threads SET provider_session_id = 'replacement-generation' WHERE id = ?",
+          )
+          .run(thread.id);
+
+        await runQueuedMessageDispatch(harness.deps, {
+          kind: "time-reached",
+          now: sendAt + 1,
+        });
+
+        expect(turnRequests(harness, thread.id)).toHaveLength(
+          requestsBefore + (kind === "inline" ? 1 : 0),
+        );
+        if (kind === "retry") {
+          expect(onlyQueuedRow(harness, thread.id).failureReason).toBe(
+            "This retry belongs to an earlier agent session. Cancel it and send a new request to continue in this session.",
+          );
+        } else {
+          expect(queuedRows(harness, thread.id)).toHaveLength(0);
+        }
+      });
+    },
+  );
+
   it("is kept as Not sent when a newer message overtakes input the provider never accepted", async () => {
     await withTestHarness(async (harness) => {
       const { requestId, thread } = seedFailableThread(

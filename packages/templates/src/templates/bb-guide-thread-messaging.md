@@ -130,6 +130,19 @@ Queued messages:
   SDK: `threads.queue.list` (all threads) and
   `threads.queuedMessages.list|send|update|delete` (one thread).
 
+  New ordinary messages keep the provider that accepted them, as well as their
+  model and execution options. SDK and JSON rows expose `providerId`; null means
+  a legacy row whose provider was never recorded, or a core system notice that
+  follows the chat's current provider. After switching the chat's provider, an
+  assigned message stays queued with a failure instead of running on the other
+  agent. Switch back before using `queue send` or changing its execution options.
+  Text, timing, and deletion remain available. Grouped rows must have matching
+  provider assignments and source generations. A saved retry also requires its
+  original native session; after a new session starts, cancel that retry and
+  send a new request. Ordinary new tasks may run in a later session of their
+  assigned provider. Failure recovery reads requests from the current session.
+  Queueing does not yet schedule an automatic provider switch.
+
   A queued message is one that could not dispatch yet. It is not in the
   timeline or `thread log` until it dispatches; thread list rows carry
   `queuedWork: none|waiting|failed`. Every one carries a typed reason in its

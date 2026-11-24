@@ -82,6 +82,92 @@ it("keeps the constructed session for a turn whose options carry no envVars", as
   ).toEqual([]);
 }, 30_000);
 
+it.each(["none", "accepted", "uncertain"] as const)(
+  "reconfigures an empty session without discarding possibly dispatched input: %s",
+  async (priorInput) => {
+    writeFileSync(
+      scriptPath,
+      JSON.stringify({
+        requestLogPath,
+        resumeError: {
+          code: -32603,
+          message: "no rollout found for thread id empty-session",
+        },
+        ...(priorInput === "uncertain"
+          ? {
+              turnStartError: {
+                code: -32603,
+                message: "Transport failed after dispatch",
+              },
+            }
+          : {}),
+      }),
+    );
+    harness.sendRequest(1, "thread/start", {
+      threadId: THREAD_ID,
+      cwd: workspaceDir,
+      instructionMode: "append",
+      options: { ...FULL_ACCESS_SESSION_OPTIONS, reasoningLevel: "low" },
+    });
+    const started = await harness.waitForResponse(1);
+    const { providerThreadId } = z
+      .object({ providerThreadId: z.string() })
+      .parse(started.result);
+    if (priorInput !== "none") {
+      harness.sendRequest(2, "turn/start", {
+        threadId: THREAD_ID,
+        providerThreadId,
+        clientRequestId: "creq_emptysig22",
+        input: [{ type: "text", text: "/respond-completed", mentions: [] }],
+        options: { ...FULL_ACCESS_SESSION_OPTIONS, reasoningLevel: "low" },
+      });
+      const prior = await harness.waitForResponse(2);
+      if (priorInput === "uncertain")
+        expect(prior.error?.message).toBe("Transport failed after dispatch");
+      else expect(prior.error).toBeUndefined();
+    }
+    harness.sendRequest(3, "turn/start", {
+      threadId: THREAD_ID,
+      providerThreadId,
+      clientRequestId: "creq_emptysig23",
+      input: [{ type: "text", text: "Do the queued task", mentions: [] }],
+      options: { ...FULL_ACCESS_SESSION_OPTIONS, reasoningLevel: "medium" },
+    });
+    const turn = await harness.waitForResponse(3);
+    const requests = recordedRequests();
+    if (priorInput === "none") {
+      expect(turn.error).toBeUndefined();
+      expect(requests.filter((r) => r.method === "thread/start")).toHaveLength(
+        2,
+      );
+      expect(requests.filter((r) => r.method === "thread/resume")).toHaveLength(
+        0,
+      );
+      const replaced = harness.messages.find(
+        (message) => message.method === "session/replaced",
+      );
+      expect(replaced?.params).toMatchObject({
+        threadId: THREAD_ID,
+        contextLost: false,
+      });
+      expect(
+        z.object({ providerThreadId: z.string() }).parse(replaced?.params)
+          .providerThreadId,
+      ).not.toBe(providerThreadId);
+    } else {
+      expect(turn.error?.message).toContain("no rollout found");
+      expect(requests.filter((r) => r.method === "thread/start")).toHaveLength(
+        1,
+      );
+      expect(requests.filter((r) => r.method === "thread/resume")).toHaveLength(
+        1,
+      );
+    }
+    expect(requests.filter((r) => r.method === "turn/start")).toHaveLength(1);
+  },
+  30_000,
+);
+
 it("rebuilds the session only when a turn changes or removes an env var", async () => {
   const original = { BB_TEST_SECRET: "original", BB_TEST_REMOVED: "gone" };
   harness.sendRequest(1, "thread/start", {

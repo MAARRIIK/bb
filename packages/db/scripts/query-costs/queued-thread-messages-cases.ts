@@ -77,6 +77,8 @@ function enqueue(
   overrides: QueueRowOverrides = {},
 ): QueuedThreadMessageRow {
   return createQueuedThreadMessage(db, noopNotifier, {
+    providerSessionId: null,
+    providerId: "codex",
     ...EXECUTION,
     threadId,
     content: [
@@ -277,6 +279,8 @@ export const QUEUED_THREAD_MESSAGES_COST_CASES: readonly QueryCostCase[] = [
     run: (db, fixture) =>
       db.transaction((tx) =>
         createQueuedThreadMessageInTransaction(tx, {
+          providerSessionId: null,
+          providerId: "codex",
           ...EXECUTION,
           threadId: fixture.threadId,
           content: [

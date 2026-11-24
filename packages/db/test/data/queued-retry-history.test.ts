@@ -64,6 +64,8 @@ it("supersedes an unaccepted retry without repeatedly walking long request histo
       }
     })();
     const retry = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: [],
       model: "gpt-5",
@@ -195,6 +197,8 @@ it.each([
         }),
       );
       const retry = createQueuedThreadMessage(db, noopNotifier, {
+        providerSessionId: null,
+        providerId: thread.providerId,
         threadId: thread.id,
         content: [],
         model: "gpt-5",

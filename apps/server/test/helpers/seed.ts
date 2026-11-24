@@ -6,6 +6,7 @@ import {
   createQueuedThreadMessage,
   deriveStoredEventItemFields,
   getLatestThreadSequence,
+  getThread,
   hasStoredTurnStarted,
   insertEvents,
   createProject,
@@ -277,7 +278,12 @@ export function seedQueuedMessage(
     sendAt?: number | null;
   },
 ) {
+  const thread = getThread(deps.db, args.threadId);
+  if (thread === null)
+    throw new Error("expected a thread for the queued message");
   return createQueuedThreadMessage(deps.db, deps.hub, {
+    providerSessionId: thread.providerSessionId,
+    providerId: thread.providerId,
     threadId: args.threadId,
     content: args.content,
     model: args.model ?? "gpt-5",

@@ -16,6 +16,7 @@ import { clearThreadContext } from "../../../src/services/threads/thread-context
 import { applyThreadExecutionOverride } from "../../../src/services/threads/thread-execution-override.js";
 import { applyThreadSessionOptionPatch } from "../../../src/services/threads/thread-session-options.js";
 import { getLastExecutionOptions } from "../../../src/services/threads/thread-events.js";
+import { createQueuedMessageForThread } from "../../../src/services/threads/queued-messages.js";
 
 function fixture(harness: TestAppHarness) {
   const {
@@ -37,7 +38,7 @@ function fixture(harness: TestAppHarness) {
 }
 
 describe("durable provider transition admission", () => {
-  it.each(["send", "clear", "model", "session-options"] as const)(
+  it.each(["send", "clear", "model", "session-options", "queue"] as const)(
     "blocks %s from the persisted intent without an in-memory transition lease",
     async (action) => {
       await withTestHarness(async (harness) => {
@@ -46,6 +47,13 @@ describe("durable provider transition admission", () => {
           threadId: thread.id,
         });
         const run = async () => {
+          if (action === "queue")
+            return createQueuedMessageForThread(harness.deps, {
+              thread,
+              payload: {
+                input: [{ type: "text", text: "Continue", mentions: [] }],
+              },
+            });
           if (action === "send")
             return sendThreadMessage(harness.deps, {
               thread,

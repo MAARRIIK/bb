@@ -2,6 +2,7 @@ import {
   moveQueuedThreadMessageToFrontInTransaction,
   clearQueuedThreadMessageWaitingOn,
   createQueuedThreadMessageInTransaction,
+  getThread,
   requeueClaimedQueuedThreadMessages,
   type ClaimedQueuedThreadMessageRow,
   type DbConnection,
@@ -11,6 +12,7 @@ import {
 } from "@bb/db";
 import type {
   PromptInput,
+  ProviderSessionSource,
   QueuedMessageDeliveryMode,
   QueuedMessagePayload,
   QueuedMessageSystemNotice,
@@ -28,6 +30,7 @@ import {
 } from "../plugins/plugin-thread-events.js";
 import { toThreadQueuedMessage } from "./thread-queued-messages.js";
 import { assertThreadHostAcceptsWork } from "./thread-host-admission.js";
+import { requireCurrentProviderSession } from "../../internal/provider-session.js";
 
 type QueueWaitDeps = { db: DbQueryConnection; hub: DbNotifier };
 
@@ -65,6 +68,7 @@ export interface SettleQueueRowArgs {
 /** The message a queued row will carry, as the queueing site supplies it. */
 export interface QueuedDispatchMessage {
   input: PromptInput[];
+  providerSource: ProviderSessionSource;
   execution: ResolvedThreadExecutionOptions;
   senderThreadId: string | null;
   /**
@@ -126,6 +130,12 @@ export function recordQueuedMessageWait(
     row = deps.db.transaction(
       (tx) => {
         assertThreadHostAcceptsWork(tx, args.thread);
+        if (args.message.systemNotice === null) {
+          const current = getThread(tx, args.thread.id);
+          if (current === null)
+            throw new ApiError(404, "thread_not_found", "Thread not found");
+          requireCurrentProviderSession(current, args.message.providerSource);
+        }
         const created = createQueuedThreadMessageInTransaction(tx, {
           threadId: args.thread.id,
           content: args.message.input,
@@ -133,6 +143,14 @@ export function recordQueuedMessageWait(
           origin: args.message.origin,
           originPluginId: args.message.originPluginId,
           requestedBy: args.message.requestedBy,
+          providerId:
+            args.message.systemNotice === null
+              ? args.message.providerSource.providerId
+              : null,
+          providerSessionId:
+            args.message.systemNotice === null
+              ? args.message.providerSource.providerSessionId
+              : null,
           model: args.message.execution.model,
           reasoningLevel: args.message.execution.reasoningLevel,
           permissionMode: args.message.execution.permissionMode,

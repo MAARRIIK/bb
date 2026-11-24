@@ -194,6 +194,8 @@ describe("context clear dispatch races", () => {
         });
         if (source !== "new notice") {
           createQueuedThreadMessage(harness.db, harness.hub, {
+            providerSessionId: null,
+            providerId: null,
             threadId: thread.id,
             content: textInput("Follow-up after clear"),
             senderThreadId: null,

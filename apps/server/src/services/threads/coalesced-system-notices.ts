@@ -80,6 +80,8 @@ export function postCoalescedSystemNotice<State>(
         row: createQueuedThreadMessageInTransaction(tx, {
           threadId: args.threadId,
           content: next.input,
+          providerId: null,
+          providerSessionId: null,
           senderThreadId: null,
           model: args.execution.model,
           reasoningLevel: args.execution.reasoningLevel,

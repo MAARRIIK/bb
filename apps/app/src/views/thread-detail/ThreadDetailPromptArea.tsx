@@ -595,6 +595,9 @@ export function ThreadDetailPromptArea({
     },
   });
   const inlineDraftSession = queuedMessageDraftSession;
+  const inlineProviderId =
+    inlineEditingQueuedMessage?.providerId ?? thread.providerId;
+  const inlineExecutionReadOnly = inlineProviderId !== thread.providerId;
   const inlineDraftSessionRef = useLatestRef(inlineDraftSession);
   const promptHistoryEnabled = usePromptHistoryEnabled();
   const { data: promptHistoryEntries = [] } = useThreadPromptHistory(
@@ -1088,6 +1091,21 @@ export function ThreadDetailPromptArea({
       (provider) => provider.id === thread.providerId,
     )?.composerActions,
     threadProviderCommands: providerCommands,
+    resolveMentionLink,
+  });
+  const {
+    typeaheadConfig: queuedTypeaheadConfig,
+    promptActions: queuedPromptActions,
+  } = useComposerTypeahead({
+    projectId: thread.projectId,
+    mentionsProjectId: projectId,
+    providerId: inlineProviderId,
+    environmentId: thread.environmentId,
+    currentThreadId: thread.id,
+    selectedProviderComposerActions: providers.find(
+      (provider) => provider.id === inlineProviderId,
+    )?.composerActions,
+    threadProviderCommands: inlineExecutionReadOnly ? null : providerCommands,
     resolveMentionLink,
   });
   const runtimeDisplayStatus = thread.runtime.displayStatus;
@@ -1803,6 +1821,10 @@ export function ThreadDetailPromptArea({
     if (!inlineEditingQueuedMessage) return null;
     return {
       ...compactExecutionConfig,
+      provider: {
+        ...compactExecutionConfig.provider,
+        selectedId: inlineProviderId,
+      },
       model: {
         ...compactExecutionConfig.model,
         active: { model: inlineEditingQueuedMessage.model },
@@ -1848,6 +1870,7 @@ export function ThreadDetailPromptArea({
   }, [
     compactExecutionConfig,
     inlineEditingQueuedMessage,
+    inlineProviderId,
     resolveReasoningForModel,
     updateInlineQueuedMessage,
   ]);
@@ -1962,7 +1985,7 @@ export function ThreadDetailPromptArea({
     () =>
       inlineEditingQueuedMessage
         ? readExecutionSelection({
-            selectedProviderId: thread.providerId,
+            selectedProviderId: inlineProviderId,
             selectedThreadModel: inlineEditingQueuedMessage.model,
             reasoningLevel: inlineEditingQueuedMessage.reasoningLevel,
             serviceTier: inlineEditingQueuedMessage.serviceTier,
@@ -1970,7 +1993,7 @@ export function ThreadDetailPromptArea({
             permissionMode: inlineEditingQueuedMessage.permissionMode,
           })
         : NO_INLINE_EDITOR_SELECTION,
-    [inlineEditingQueuedMessage, supportsServiceTier, thread.providerId],
+    [inlineEditingQueuedMessage, supportsServiceTier, inlineProviderId],
   );
   const queuedMessageComposerSelection = useComposerHostSelection(
     `queued-message:${thread.id}:${inlineEditQueuedMessageId}:${inlineEditSessionId}`,
@@ -2055,7 +2078,7 @@ export function ThreadDetailPromptArea({
         draft: queuedMessagePluginComposerHost,
         editFocusNonce,
         execution: inlineExecutionConfig,
-        executionReadOnly: false,
+        executionReadOnly: inlineExecutionReadOnly,
         focusSessionKey: editSessionId,
         historyResetKey: `${thread.id}:${editSessionId}`,
         isSubmitting: isUpdateQueuedMessagePending,
@@ -2064,15 +2087,15 @@ export function ThreadDetailPromptArea({
             queuedMessagePluginComposerHost,
           ).restoreDraft(draft),
         permission: inlinePermissionConfig,
-        permissionReadOnly: isPermissionSnapshot,
+        permissionReadOnly: isPermissionSnapshot || inlineExecutionReadOnly,
         pluginComposerHost: queuedMessagePluginComposerHost,
-        promptActions: inlinePromptActions,
+        promptActions: queuedPromptActions,
         promptPlaceholder,
         submit: handleInlineComposerSubmit,
         submitMode: { kind: "ready" },
         textEffects: queuedComposerTextEffects,
         threadRuntimeDisplayStatus: runtimeDisplayStatus,
-        typeahead: inlineTypeaheadConfig,
+        typeahead: queuedTypeaheadConfig,
         collapseResetKey: `queued-message:${queuedMessageId}`,
       }),
     };
@@ -2088,20 +2111,21 @@ export function ThreadDetailPromptArea({
     inlineComposerDraftInput.length,
     inlineEditingQueuedMessage,
     inlineExecutionConfig,
+    inlineExecutionReadOnly,
     inlinePermissionConfig,
     isAttachingInlineFiles,
     isPermissionSnapshot,
     inlinePendingUploads,
     isUpdateQueuedMessagePending,
     projectId,
-    inlinePromptActions,
+    queuedPromptActions,
     promptPlaceholder,
     queuedComposerTextEffects,
     queuedMessagePluginComposerHost,
     updateActiveComposerAttachments,
     runtimeDisplayStatus,
     thread.id,
-    inlineTypeaheadConfig,
+    queuedTypeaheadConfig,
   ]);
   usePublishPluginComposerHost(
     queuedMessageEditor

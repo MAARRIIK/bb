@@ -540,6 +540,10 @@ async function handleRequest(message) {
       return;
     }
     case "thread/resume": {
+      if (script?.resumeError) {
+        respondError(id, script.resumeError.code, script.resumeError.message);
+        return;
+      }
       if (script?.resumeProviderMissing) {
         respondError(id, -32600, "Pool no longer configured", {
           type: "modelProviderNotConfigured",
@@ -628,6 +632,14 @@ async function handleRequest(message) {
       return;
     }
     case "turn/start": {
+      if (script?.turnStartError) {
+        respondError(
+          id,
+          script.turnStartError.code,
+          script.turnStartError.message,
+        );
+        return;
+      }
       if (firstInputText(params.input) === ZERO_WORK_PROMPT_TEXT) {
         respond(id, {});
         return;

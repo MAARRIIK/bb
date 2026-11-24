@@ -62,7 +62,7 @@ export function loadFailedTurn(
   db: DbConnection,
   threadId: string,
 ): FailedTurnRecord | null {
-  const row = getLastStoredTurnRequestEvent(db, threadId);
+  const row = getLastStoredTurnRequestEvent(db, threadId, "current-session");
   if (row === null) return null;
   try {
     return {

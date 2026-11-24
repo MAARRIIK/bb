@@ -537,6 +537,8 @@ describe("thread runtime display", () => {
     ]) {
       for (let index = 0; index < count; index += 1) {
         createQueuedThreadMessage(db, noopNotifier, {
+          providerSessionId: null,
+          providerId: null,
           threadId: thread.id,
           content: [{ type: "text", text: `queued ${index}`, mentions: [] }],
           model: "gpt-5",

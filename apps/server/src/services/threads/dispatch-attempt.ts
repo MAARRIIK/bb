@@ -91,6 +91,12 @@ import {
   toThreadResponseFromThread,
 } from "./thread-runtime-display.js";
 import { toThreadQueuedMessage } from "./thread-queued-messages.js";
+import {
+  requireQueuedMessageProvider,
+  requireQueuedMessageProviderSession,
+} from "./queued-message-provider.js";
+import { requireThreadProviderSessionSource } from "./thread-provider-session-source.js";
+import { requireCurrentProviderSession } from "../../internal/provider-session.js";
 import { isPreStartThreadStatus } from "./thread-status.js";
 import { queueInputForStartingTurn } from "./thread-turn-starting.js";
 import {
@@ -373,6 +379,11 @@ async function runDispatchAttempt(
   if (args.source.kind === "operation") {
     return runOperationDispatch(deps, args, args.source);
   }
+  const providerSource = requireThreadProviderSessionSource(deps.db, thread.id);
+  requireQueuedMessageProvider(providerSource.providerId, [thread]);
+  if (args.source.kind === "drain") {
+    requireQueuedMessageProviderSession(providerSource, args.source.claimed);
+  }
   // A stopping thread is writable HERE and nowhere upstream: the checkpoint
   // below turns it into a core wait, which is a truthful "not yet" the row can
   // recover from, rather than the 409 that used to make a stop a dead end for
@@ -455,6 +466,10 @@ async function runDispatchAttempt(
     payload,
     args.executionDefaults ?? { threadId: thread.id },
   );
+  requireCurrentProviderSession(
+    requireThreadProviderSessionSource(deps.db, thread.id),
+    providerSource,
+  );
   if (payload.compactFirst) {
     const { compactFirst, ...request } = payload;
     await compactThreadContext(deps, thread);
@@ -464,6 +479,7 @@ async function runDispatchAttempt(
   const resolvedPayload = resolveExecutionIntoPayload(payload, execution);
   const queuedMessage: QueuedDispatchMessage = {
     input: payload.input,
+    providerSource,
     execution,
     senderThreadId,
     origin: args.origin,
@@ -850,6 +866,10 @@ function consumeClaimedRows(
   respectManualStopPause: boolean,
 ): SendThreadMessageTransactionPreflight {
   return ({ tx }) => {
+    const thread = getThread(tx, threadId);
+    if (thread === null)
+      throw new ApiError(404, "thread_not_found", "Thread not found");
+    requireQueuedMessageProviderSession(thread, claimed);
     if (respectManualStopPause && isThreadQueueAutoSendPaused(tx, threadId)) {
       throw createQueuedMessageAutoSendPausedError();
     }

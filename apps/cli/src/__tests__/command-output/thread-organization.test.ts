@@ -23,6 +23,7 @@ function queuedMessage(
     senderThreadId: null,
     threadId: "thread-1",
     content: [{ type: "text", text: "Follow up", mentions: [] }],
+    providerId: "codex",
     model: "gpt-5",
     reasoningLevel: "medium",
     permissionMode: "auto",
@@ -411,32 +412,29 @@ describe("bb thread organization commands", () => {
       sendAt: Date.parse("2026-10-30T12:00:00Z") + 2 * 3_600_000,
     },
     { flags: ["--clear-send-at"], sendAt: null },
-  ])(
-    "changes only the send time with $flags",
-    async ({ flags, sendAt }) => {
-      vi.useFakeTimers({ now: Date.parse("2026-10-30T12:00:00Z") });
-      try {
-        const list = vi.fn(async () => [{ id: "queued-1", updatedAt: 42 }]);
-        const update = vi.fn(async () => ({ id: "queued-1", sendAt }));
-        stubServerApi({
-          "v1.threads.:id.queued-messages.$get": list,
-          "v1.threads.:id.queued-messages.:queuedMessageId.$patch": update,
-        });
+  ])("changes only the send time with $flags", async ({ flags, sendAt }) => {
+    vi.useFakeTimers({ now: Date.parse("2026-10-30T12:00:00Z") });
+    try {
+      const list = vi.fn(async () => [{ id: "queued-1", updatedAt: 42 }]);
+      const update = vi.fn(async () => ({ id: "queued-1", sendAt }));
+      stubServerApi({
+        "v1.threads.:id.queued-messages.$get": list,
+        "v1.threads.:id.queued-messages.:queuedMessageId.$patch": update,
+      });
 
-        await runCommand(
-          ["thread", "queue", "update", "thread-1", "queued-1", ...flags],
-          register,
-        );
+      await runCommand(
+        ["thread", "queue", "update", "thread-1", "queued-1", ...flags],
+        register,
+      );
 
-        expect(update).toHaveBeenCalledWith({
-          param: { id: "thread-1", queuedMessageId: "queued-1" },
-          json: { expectedUpdatedAt: 42, sendAt },
-        });
-      } finally {
-        vi.useRealTimers();
-      }
-    },
-  );
+      expect(update).toHaveBeenCalledWith({
+        param: { id: "thread-1", queuedMessageId: "queued-1" },
+        json: { expectedUpdatedAt: 42, sendAt },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it("changes only the execution options, mapping workspace-write to accept-edits", async () => {
     const list = vi.fn(async () => [{ id: "queued-1", updatedAt: 42 }]);

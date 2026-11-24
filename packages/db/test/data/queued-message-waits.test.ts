@@ -58,6 +58,8 @@ function queue(
   text = "hello",
 ) {
   return createQueuedThreadMessage(db, noopNotifier, {
+    providerSessionId: null,
+    providerId: "codex",
     threadId,
     content: textInput(text),
     model: "gpt-5",

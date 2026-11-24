@@ -8,6 +8,7 @@ import {
   eq,
   exists,
   gte,
+  getTableColumns,
   inArray,
   isNotNull,
   isNull,
@@ -69,6 +70,8 @@ import { liveThread } from "./threads.js";
 
 export interface CreateQueuedThreadMessageInput {
   threadId: string;
+  providerId: string | null;
+  providerSessionId: string | null;
   content: PromptInput[];
   senderThreadId?: string | null;
   /**
@@ -540,6 +543,8 @@ function queuedMessageGroupingEnvelopeMatches(
 ): boolean {
   return (
     firstQueuedMessage !== null &&
+    queuedMessage.providerId === firstQueuedMessage.providerId &&
+    queuedMessage.providerSessionId === firstQueuedMessage.providerSessionId &&
     queuedMessage.senderThreadId === firstQueuedMessage.senderThreadId &&
     queuedMessage.model === firstQueuedMessage.model &&
     queuedMessage.reasoningLevel === firstQueuedMessage.reasoningLevel &&
@@ -865,6 +870,8 @@ export function createQueuedThreadMessageInTransaction(
       originPluginId: input.originPluginId ?? null,
       requestedByInitiator: input.requestedBy?.initiator ?? null,
       requestedByThreadId: input.requestedBy?.senderThreadId ?? null,
+      providerId: input.providerId,
+      providerSessionId: input.providerSessionId,
       model: input.model,
       reasoningLevel: input.reasoningLevel,
       permissionMode: input.permissionMode,
@@ -2682,12 +2689,20 @@ export function getFirstUnclaimedQueuedRetry(
 ): QueuedThreadMessageRow | null {
   return (
     db
-      .select()
+      .select(getTableColumns(queuedThreadMessages))
       .from(queuedThreadMessages)
+      .innerJoin(threads, eq(threads.id, queuedThreadMessages.threadId))
       .where(
         and(
           eq(queuedThreadMessages.threadId, threadId),
           eq(queuedThreadMessages.payloadKind, "retry"),
+          or(
+            isNull(queuedThreadMessages.providerId),
+            and(
+              eq(queuedThreadMessages.providerId, threads.providerId),
+              sql`${queuedThreadMessages.providerSessionId} IS ${threads.providerSessionId}`,
+            ),
+          ),
           ne(queuedThreadMessages.state, "claimed"),
           notSupersededQueuedThreadMessage(),
         ),

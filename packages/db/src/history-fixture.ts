@@ -948,6 +948,8 @@ export function buildHistoryFixture(
     systemNotice: null,
   };
   const retry = createQueuedThreadMessage(db, noopNotifier, {
+    providerSessionId: null,
+    providerId: thread.providerId,
     ...execution,
     threadId: thread.id,
     content: requestInput(historyTurns + 1),
@@ -960,6 +962,8 @@ export function buildHistoryFixture(
     },
   });
   const queued = createQueuedThreadMessage(db, noopNotifier, {
+    providerSessionId: null,
+    providerId: thread.providerId,
     ...execution,
     threadId: thread.id,
     content: [{ type: "text", text: "Then update the docs.", mentions: [] }],

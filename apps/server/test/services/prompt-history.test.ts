@@ -388,6 +388,8 @@ describe("prompt history service", () => {
       input: textInput("Add regression coverage"),
     });
     createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("Add regression coverage"),
       model: "gpt-5",
