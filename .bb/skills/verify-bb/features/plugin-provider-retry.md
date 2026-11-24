@@ -25,7 +25,7 @@ SKILL.md. Inspect nested `--help` before selecting flags and IDs.
 | Subscription reset | Trigger a supported limit error with a known reset timestamp. | Retry is scheduled from that reset within the maximum-wait policy, not an arbitrary guessed delay. |
 | Send now and cancel | Inspect retry status, manually retry now, then cancel another scheduled attempt. | Exactly one intended follow-up is dispatched; canceled retries never fire. |
 | Permanent failures | Exercise unsupported/auth/credit/spend failures from existing provider error fixtures. | Non-retryable errors do not silently generate repeated paid attempts. |
-| Maximum wait and recovery | Change supported maximum-wait settings, then restart the test runtime with a pending retry. | Eligibility and persisted retry state follow configuration; success clears stale retry bookkeeping. |
+| Maximum wait and recovery | Change maximum-wait and confirmed-limit pause settings through UI and CLI. Queue the same model after a controlled subscription failure, restart with that queue pending, then use Send now or a settings override. | The reason for waiting survives restart, a late snapshot from another session cannot erase the current limit, and the override dispatches once. Other model assignments remain eligible; success clears stale retry bookkeeping. |
 
 ## Evidence and cleanup
 

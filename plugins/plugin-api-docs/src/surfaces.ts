@@ -1325,17 +1325,21 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
         bullets: [
           "Let a message go, queue it with a reason, or refuse it",
           "See the thread, project, machine, and prompt before the turn runs",
-          "Hold messages until a condition clears, such as a concurrency limit",
+          "Hold messages for concurrency or confirmed limits on the failed provider and model",
           "Leave people a Send now override",
+        ],
+        reference: [
+          "experimental_lastFailure is null unless the thread is in error with a current-session request. Its failure facts, provider, nullable generation and model belong to that failed request; compare them with requestedExecution before applying a quota policy. It contains no prompt text. The next requested model may differ. Collect routed-account availability outside the admission lock, then request a recheck.",
         ],
         apiSymbols: [
           "PluginHooks",
           "PluginHookSignatures",
           "MessageDispatchHookContext",
+          "ExperimentalDispatchFailure",
           "PluginDispatchEnvironmentIntent",
           "MessageDispatchHookDecision",
         ],
-        firstParty: ["Concurrency limit", "Drafts"],
+        firstParty: ["Concurrency limit", "Drafts", "Provider retry"],
         experimental: true,
       },
       {

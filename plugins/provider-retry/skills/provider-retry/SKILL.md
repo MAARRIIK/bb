@@ -6,8 +6,9 @@ description: "Diagnose automatic retries of BB turns after provider overloads, s
 # Provider retry
 
 The plugin is enabled on fresh installations. It reacts only to failed Codex
-and Claude Code turns and never blocks a send; prior output or tool activity
-does not prevent a retry. It queues a retry of the failed turn, which core
+and Claude Code turns; prior output or tool activity does not prevent a retry.
+It also holds new work after a confirmed subscription limit as described below.
+It queues a retry of the failed turn, which core
 runs by continuing accepted input or re-sending input the provider never
 accepted, for one of three failures:
 
@@ -44,6 +45,28 @@ card with its reason and time, and survives restart. A thread keeps one
 pending retry for accepted input: when another accepted turn fails while a
 retry waits, the waiting retry moves to the new time instead of a second
 "Please continue." row. Input the provider never accepted keeps its own row.
+
+`holdQueuedAtLimits` defaults to true. While a thread remains in error after a
+confirmed rate-limit failure, starting work on the same provider and exact model
+waits for the reported subscription reset. It uses current-session failure facts,
+not a usage percentage, an unrelated machine's login, or a model-family guess.
+An allowed overage, warning, credit/spend limit or already passed reset does not
+create a native subscription hold. Joining a running turn and choosing another
+model/provider are separate executions and pass through this policy.
+
+Account Pooler availability for the failed request overrides that native snapshot:
+a ready routed account can proceed, a known reset waits, and unavailable routing
+or an unknown reset remains a visible wait. Collection runs outside the global
+dispatch lock, coalesces in-flight reads, and is checked again within a minute.
+After restart, a dispatch can rebuild this check from persisted failure facts
+without replaying the failed request. Waiting does not choose another model.
+
+Send now explicitly overrides the plugin hold; task dependencies and core
+readiness checks still apply. Use the existing queue controls or
+`bb thread queue` commands to inspect, edit or send a particular row. To disable
+quota holds while retaining automatic retries, set
+`bb plugin config provider-retry set holdQueuedAtLimits false`; the same option
+is available in the plugin's settings. A settings change rechecks waiting rows.
 
 ```sh
 bb provider-retry status [thread-id] [--json]

@@ -297,6 +297,12 @@ export interface PluginTurnFailedEvent {
   originPluginId: string | null;
 }
 
+export interface ExperimentalDispatchFailure extends PluginTurnFailedEvent {
+  providerId: string;
+  providerSessionId: string | null;
+  model: string;
+}
+
 /**
  * Lifecycle events a plugin can observe with `bb.events.on`.
  *
@@ -690,6 +696,8 @@ export type PluginDispatchAttemptKind = "start-turn" | "join-turn";
  * dispatch: passes re-run on every drain, on restart, and on retry.
  */
 export interface MessageDispatchHookContext {
+  /** Current-session failure facts while the thread is in error, or null. Model and source belong to the failed request; they are not inferred from the next request. */
+  experimental_lastFailure: ExperimentalDispatchFailure | null;
   /**
    * The target thread. Never null: thread creation is unhooked — it is a cheap
    * row — so by the time the first message is decided about, the thread exists
