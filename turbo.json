@@ -161,6 +161,12 @@
       ],
       "outputs": ["dist/**"]
     },
+    "bb-plugin-agent-team#build": {
+      "dependsOn": ["topo", "@bb/cli#build"]
+    },
+    "bb-plugin-provider-deepseek-web#build": {
+      "dependsOn": ["topo", "@bb/cli#build"]
+    },
     "@bb/sdk#test": {
       "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": ["//#ensure-native-modules", "topo"],

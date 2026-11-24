@@ -462,8 +462,9 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
   function handlers(
     signal: AbortSignal,
   ): PluginRpcHandlers<typeof rpcContract> {
+    const activeSignal = AbortSignal.any([signal, lifecycle.signal]);
     return {
-      open: (input) => open(input, signal),
+      open: (input) => open(input, activeSignal),
       async list({ threadId }) {
         const records = await Promise.all(
           (
@@ -479,11 +480,11 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
         );
         return records;
       },
-      run: (input) => run(input, signal),
+      run: (input) => run(input, activeSignal),
       pages: (input) =>
         run(
           { ...input, script: "await browser.listPages()", timeoutMs: 30_000 },
-          signal,
+          activeSignal,
         ),
       screenshot: (input) =>
         run(
@@ -492,16 +493,26 @@ export default async function browserAutomationPlugin(bb: BbPluginApi) {
             script: `const page = await browser.getPage(${JSON.stringify(input.page)}); await page.shot({ type: "jpeg", maxEdge: 960, quality: 70 }); undefined`,
             timeoutMs: 30_000,
           },
-          signal,
+          activeSignal,
         ),
-      preview: (input) => preview(input, signal),
+      preview: (input) => preview(input, activeSignal),
       stop: async (input) =>
         finish(await owned(input.threadId, input.sessionId), "stopped"),
       close: async (input) =>
         finish(await owned(input.threadId, input.sessionId), "closed"),
     };
   }
-  bb.rpc.register(rpcContract, handlers(lifecycle.signal));
+  bb.rpc.register(rpcContract, {
+    open: (input, ctx) => handlers(ctx.experimental_signal).open(input),
+    list: (input, ctx) => handlers(ctx.experimental_signal).list(input),
+    run: (input, ctx) => handlers(ctx.experimental_signal).run(input),
+    pages: (input, ctx) => handlers(ctx.experimental_signal).pages(input),
+    screenshot: (input, ctx) =>
+      handlers(ctx.experimental_signal).screenshot(input),
+    preview: (input, ctx) => handlers(ctx.experimental_signal).preview(input),
+    stop: (input, ctx) => handlers(ctx.experimental_signal).stop(input),
+    close: (input, ctx) => handlers(ctx.experimental_signal).close(input),
+  });
   function dispatch(
     method: BrowserCliMethod,
     input: unknown,
