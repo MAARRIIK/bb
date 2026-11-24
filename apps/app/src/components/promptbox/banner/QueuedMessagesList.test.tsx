@@ -225,8 +225,14 @@ describe("QueuedMessagesList", () => {
   it("keeps the expanded queue and task identities when the interface language changes", () => {
     const onSend = vi.fn();
     const onDelete = vi.fn();
-    const queuedMessages = [
-      makeQueuedMessage("q_first", "Keep index.ts and BB_SOURCE unchanged"),
+    const queuedMessages: ThreadQueuedMessage[] = [
+      {
+        ...makeQueuedMessage(
+          "q_first",
+          "Keep index.ts and BB_SOURCE unchanged",
+        ),
+        waitingOn: { kind: "host-offline", hostName: "M4/{time}/$&" },
+      },
       makeQueuedMessage("q_second", "Second task"),
     ];
     const view = (language: "en" | "ru") => (
@@ -258,6 +264,7 @@ describe("QueuedMessagesList", () => {
       screen.getByRole("region", { name: "Сообщения в очереди" }),
     ).toBeTruthy();
     expect(screen.getByText("Очередь")).toBeTruthy();
+    expect(screen.getByText("Ожидание готовности M4/{time}/$&")).toBeTruthy();
     expect(
       screen.getByText("Keep index.ts and BB_SOURCE unchanged"),
     ).toBeTruthy();
@@ -272,6 +279,9 @@ describe("QueuedMessagesList", () => {
     expect(onSend.mock.calls).toEqual([["q_second"]]);
     expect(onDelete.mock.calls).toEqual([["q_first"]]);
     rendered.rerender(view("en"));
+    expect(
+      screen.getByText("Waiting for M4/{time}/$& to be ready"),
+    ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Collapse queued messages" }),
     ).toBeTruthy();

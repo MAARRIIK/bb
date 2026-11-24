@@ -114,6 +114,7 @@ function isAttachedToComposer({
 }
 
 function QueuedMessagesListLoading(props: QueuedMessagesListProps) {
+  const { language } = useInterfaceTranslation();
   const windowHeight = useWindowHeight();
   const now = useSecondTick();
   return (
@@ -136,7 +137,7 @@ function QueuedMessagesListLoading(props: QueuedMessagesListProps) {
             >
               <span className="truncate">
                 {message.payload.kind === "retry"
-                  ? queuedMessageFallbackTitle({ ...message, now })
+                  ? queuedMessageFallbackTitle({ ...message, now, language })
                   : formatQueuedMessagePreview(message.content)}
               </span>
             </div>
