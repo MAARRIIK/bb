@@ -63,6 +63,7 @@ interface QueueListOptions extends JsonOptions {
 }
 
 interface QueueCreateOptions extends JsonOptions {
+  dependsOn?: string[];
   provider?: string;
   providerSwitchPolicy?: string;
   permissionMode?: string;
@@ -75,6 +76,8 @@ interface QueueCreateOptions extends JsonOptions {
 }
 
 interface QueueUpdateOptions extends JsonOptions {
+  dependsOn?: string[];
+  clearDependencies?: boolean;
   provider?: string;
   providerSwitchPolicy?: string;
   clearSendAt?: boolean;
@@ -139,6 +142,7 @@ function printQueueTable(rows: ThreadQueuedMessagesResult): void {
     row.providerId ?? "—",
     truncateCell(row.model, MAX_QUEUE_TEXT_WIDTH),
     row.providerSwitchPolicy,
+    row.dependsOnQueuedMessageIds.join(", ") || "—",
     truncateCell(
       row.payload.kind === "retry" &&
         row.payload.reason === RESTART_RESUME_RETRY_REASON
@@ -164,12 +168,13 @@ function printQueueTable(rows: ThreadQueuedMessagesResult): void {
         "Provider",
         "Model",
         "Switch policy",
+        "Dependencies",
         "Message",
         "State",
         "Waiting on",
         "Send at",
       ],
-      colWidths: columnWidths(table, [2, 6, 6, 8, 5, 13, 7, 5, 10, 7]),
+      colWidths: columnWidths(table, [2, 6, 6, 8, 5, 13, 12, 7, 5, 10, 7]),
     },
     table,
   );
@@ -382,6 +387,12 @@ export function registerOrganizationCommands(
     .command("create <threadId> [message]")
     .description("Create a queued message with text and attachments")
     .option(
+      "--depends-on <messageId>",
+      "Wait for this task in the same thread to succeed (repeatable, up to 16)",
+      collectOption,
+      [],
+    )
+    .option(
       "--provider <id>",
       "Assign this task to a provider without switching the chat",
     )
@@ -439,6 +450,9 @@ export function registerOrganizationCommands(
           });
           const result = await sdk.threads.queuedMessages.create({
             threadId,
+            ...((opts.dependsOn?.length ?? 0) > 0
+              ? { dependsOnQueuedMessageIds: opts.dependsOn }
+              : {}),
             input,
             ...(opts.provider ? { providerId: opts.provider } : {}),
             ...(opts.providerSwitchPolicy === undefined
@@ -466,6 +480,13 @@ export function registerOrganizationCommands(
     .description(
       "Update a queued message's text, send time, or execution options in place",
     )
+    .option(
+      "--depends-on <messageId>",
+      "Wait for this task in the same thread to succeed (repeatable, up to 16)",
+      collectOption,
+      [],
+    )
+    .option("--clear-dependencies", "Remove all task dependencies")
     .option(
       "--provider <id>",
       "Assign this task to a provider without switching the chat",
@@ -522,6 +543,15 @@ export function registerOrganizationCommands(
               "Provide only one of --send-at or --clear-send-at.",
             );
           }
+          if (opts.clearDependencies && (opts.dependsOn?.length ?? 0) > 0)
+            throw new Error(
+              "Provide only one of --depends-on or --clear-dependencies.",
+            );
+          const dependsOnQueuedMessageIds = opts.clearDependencies
+            ? []
+            : (opts.dependsOn?.length ?? 0) > 0
+              ? opts.dependsOn
+              : undefined;
           const sendAt =
             opts.sendAt !== undefined
               ? parseSendAt(opts.sendAt)
@@ -553,7 +583,10 @@ export function registerOrganizationCommands(
           const attachesFiles =
             (opts.file?.length ?? 0) > 0 || (opts.image?.length ?? 0) > 0;
           const message =
-            (sendAt === undefined && !changesExecution) || attachesFiles
+            (sendAt === undefined &&
+              !changesExecution &&
+              dependsOnQueuedMessageIds === undefined) ||
+            attachesFiles
               ? await requireTextInput(textInput)
               : await resolveTextInput(textInput);
           const sdk = createCliBbSdk(getUrl());
@@ -583,6 +616,9 @@ export function registerOrganizationCommands(
             threadId,
             queuedMessageId: messageId,
             expectedUpdatedAt: existing.updatedAt,
+            ...(dependsOnQueuedMessageIds === undefined
+              ? {}
+              : { dependsOnQueuedMessageIds }),
             ...(input === undefined ? {} : { input }),
             ...(sendAt === undefined ? {} : { sendAt }),
             ...(execution.providerId === undefined

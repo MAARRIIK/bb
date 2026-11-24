@@ -58,6 +58,7 @@ function queue(
   text = "hello",
 ) {
   return createQueuedThreadMessage(db, noopNotifier, {
+    dependsOnQueuedMessageIds: [],
     providerSwitchPolicy: "manual",
     providerSessionId: null,
     providerId: "codex",

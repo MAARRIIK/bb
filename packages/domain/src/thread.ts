@@ -2,6 +2,7 @@ import { z } from "zod";
 import { threadCreateOriginSchema } from "./thread-create-origin.js";
 import { environmentWorkspaceDisplayKindSchema } from "./environment.js";
 import {
+  queuedMessageDependencyIdsSchema,
   queuedMessageFailureReasonSchema,
   queuedMessagePayloadSchema,
   queuedMessageProviderSwitchPolicySchema,
@@ -68,6 +69,7 @@ export const threadQueuedMessageSchema = z.object({
   content: z.array(promptInputSchema).min(1),
   providerId: z.string().min(1).nullable(),
   providerSwitchPolicy: queuedMessageProviderSwitchPolicySchema,
+  dependsOnQueuedMessageIds: queuedMessageDependencyIdsSchema,
   model: z.string().min(1),
   reasoningLevel: reasoningLevelSchema,
   permissionMode: permissionModeSchema,

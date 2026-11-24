@@ -1,3 +1,4 @@
+import type { SendThreadMessageTransactionPreflight } from "./thread-send.js";
 import {
   getLatestThreadSequence,
   getNonDestroyedHostByLaunchKey,
@@ -13,7 +14,6 @@ import { getPreparingEnvironment } from "@bb/db";
 import {
   getThread,
   hasThreadStartTurnRequest,
-  type DbTransaction,
   type EnvironmentRow,
 } from "@bb/db";
 import {
@@ -78,7 +78,7 @@ interface RequestThreadProvisionArgs {
 }
 
 interface RequestThreadTargetReprovisionArgs {
-  beforeRequestAppendInTransaction?: (args: { tx: DbTransaction }) => void;
+  beforeRequestAppendInTransaction?: SendThreadMessageTransactionPreflight;
   environment: EnvironmentRow;
   execution: ResolvedThreadExecutionOptions;
   input: PromptInput[];
@@ -451,7 +451,7 @@ function appendReprovisionTurnRequest(
   const requestId = createClientTurnRequestId();
   const request = deps.db.transaction(
     (tx) => {
-      args.beforeRequestAppendInTransaction?.({ tx });
+      args.beforeRequestAppendInTransaction?.({ tx, requestId });
       const request =
         appendPreparedClientTurnRequestedEventWithNotificationInTransaction(
           tx,

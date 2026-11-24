@@ -1,4 +1,8 @@
 import {
+  holdClaimedTaskForDependencies,
+  requireQueuedTaskDependenciesSucceeded,
+} from "./queued-task-dependencies.js";
+import {
   requestQueuedMachineReadiness,
   requestQueuedMessageDispatch,
 } from "./queued-message-dispatch.js";
@@ -8,6 +12,8 @@ import {
 } from "../machines/lifecycle.js";
 import {
   deleteClaimedQueuedThreadMessageBatchInTransaction,
+  recordQueuedTaskRunsAdmittedInTransaction,
+  cancelQueuedTaskRunsInTransaction,
   getEnvironment,
   getAppSettings,
   hasLiveQueuedRetry,
@@ -382,6 +388,14 @@ async function runDispatchAttempt(
   if (args.source.kind === "operation") {
     return runOperationDispatch(deps, args, args.source);
   }
+  if (args.source.kind === "drain") {
+    const entry = holdClaimedTaskForDependencies(deps, {
+      threadId: thread.id,
+      claimed: args.source.claimed,
+      sendNow: args.source.sendNow,
+    });
+    if (entry !== null) return { kind: "queued", entry };
+  }
   let providerSource = requireThreadProviderSessionSource(deps.db, thread.id);
   requireQueuedMessageProvider(providerSource.providerId, [thread]);
   const automaticProviderSwitch =
@@ -568,7 +582,7 @@ async function runDispatchAttempt(
         trigger: args.trigger,
         ...(systemNotice !== null ? { systemNotice } : {}),
         ...(args.retryOf !== undefined ? { retryOf: args.retryOf } : {}),
-        beforeAppendInTransaction: ({ tx }) => {
+        beforeAppendInTransaction: ({ tx, requestId }) => {
           if (getThread(tx, thread.id)?.status !== thread.status) {
             throw new DispatchThreadStatusChangedError();
           }
@@ -577,7 +591,7 @@ async function runDispatchAttempt(
               claimed,
               thread.id,
               respectManualStopPause,
-            )({ tx });
+            )({ tx, requestId });
           }
         },
       });
@@ -925,11 +939,12 @@ function consumeClaimedRows(
   threadId: string,
   respectManualStopPause: boolean,
 ): SendThreadMessageTransactionPreflight {
-  return ({ tx }) => {
+  return ({ tx, requestId }) => {
     const thread = getThread(tx, threadId);
     if (thread === null)
       throw new ApiError(404, "thread_not_found", "Thread not found");
     requireQueuedMessageProviderSession(thread, claimed);
+    requireQueuedTaskDependenciesSucceeded(tx, { threadId, claimed });
     if (respectManualStopPause && isThreadQueueAutoSendPaused(tx, threadId)) {
       throw createQueuedMessageAutoSendPausedError();
     }
@@ -939,6 +954,21 @@ function consumeClaimedRows(
     if (!consumed) {
       throw createQueuedMessageClaimLostError();
     }
+    if (requestId !== null)
+      recordQueuedTaskRunsAdmittedInTransaction(tx, {
+        queuedMessages: claimed,
+        requestId,
+        threadId,
+        source: {
+          providerId: thread.providerId,
+          providerSessionId: thread.providerSessionId,
+        },
+      });
+    if (requestId === null)
+      cancelQueuedTaskRunsInTransaction(tx, {
+        threadId,
+        queuedMessageIds: claimed.map((row) => row.id),
+      });
   };
 }
 
@@ -1015,13 +1045,6 @@ async function admitPendingThread(
         // flip that loses to a concurrent attempt rolls the consumption back,
         // so the row stays claimed for the caller to hand back rather than
         // being deleted under a message that never dispatched.
-        if (args.claimed !== null && args.claimed.length > 0) {
-          consumeClaimedRows(
-            args.claimed,
-            args.thread.id,
-            args.respectManualStopPause,
-          )({ tx });
-        }
         const prepared = runThreadLifecycleInTransaction(
           { db: tx, hub: deps.hub, logger: deps.logger },
           args.thread.id,
@@ -1032,7 +1055,7 @@ async function admitPendingThread(
         }
         const starting = getThread(tx, args.thread.id);
         if (starting === null) throw new PendingThreadAdmissionLost();
-        const { messageSequence } = requestThreadProvision(deps, {
+        const { messageSequence, context } = requestThreadProvision(deps, {
           author: args.author,
           thread: starting,
           environmentIntent: startContext.environmentIntent,
@@ -1047,6 +1070,13 @@ async function admitPendingThread(
           startedOnBehalfOf: startContext.startedOnBehalfOf,
           titleProvided: startContext.titleProvided,
         });
+        if (args.claimed !== null && args.claimed.length > 0) {
+          consumeClaimedRows(
+            args.claimed,
+            args.thread.id,
+            args.respectManualStopPause,
+          )({ tx, requestId: context.request.clientRequestId });
+        }
         return { messageSequence, startingThread: starting };
       },
       { behavior: "immediate" },

@@ -35,6 +35,7 @@ export function isQueuedMessageSendNowAllowed({
   waitingOn: QueuedMessageWaitingOn | null;
   failureReason: string | null;
 }): boolean {
+  if (waitingOn?.kind === "dependency") return false;
   if (failureReason !== null) return true;
   if (waitingOn === null) return true;
   switch (waitingOn.kind) {
@@ -88,6 +89,8 @@ export function queuedMessageWaitIcon(args: {
       return "CloudOff";
     case "interaction":
       return "CircleQuestion";
+    case "dependency":
+      return args.waitingOn.status === "failed" || args.waitingOn.status === "cancelled" ? "AlertCircle" : "TimeSchedule";
     case "app-update":
       return "Download";
     case "plugin":
@@ -168,6 +171,8 @@ export function describeQueuedMessageWait(
       return "Sending after bb restarts to update";
     case "plugin":
       return `Held by ${args.pluginDisplayName ?? args.waitingOn.pluginId} · ${args.waitingOn.reason}`;
+    case "dependency":
+      return `Waiting for task ${args.waitingOn.queuedMessageId} to succeed (${args.waitingOn.status})`;
   }
 }
 

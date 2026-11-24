@@ -377,6 +377,7 @@ function buildOptimisticQueuedMessage({
   return {
     id: `optimistic-queued-${nanoid()}`,
     providerSwitchPolicy: "manual",
+    dependsOnQueuedMessageIds: [],
     origin: null,
     originPluginId: null,
     initiator: "user",

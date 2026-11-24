@@ -9,6 +9,7 @@ import {
   getProviderTransition,
   getQueuedThreadMessage,
   getThread,
+  listQueuedTaskRunsByIds,
   listQueuedThreadMessages,
   listRunningThreads,
   releaseQueuedMessageClaim,
@@ -94,6 +95,7 @@ function fixture(harness: TestAppHarness, sendAt: number | null = null) {
     },
   });
   const queued = createQueuedThreadMessage(harness.db, harness.hub, {
+    dependsOnQueuedMessageIds: [],
     threadId: data.thread.id,
     providerId: "claude-code",
     providerSessionId: null,
@@ -316,6 +318,7 @@ describe("automatic queued provider transitions", () => {
       const row = listQueuedThreadMessages(harness.db, created.id)[0];
       if (row === undefined) throw Error("Missing pending task");
       const saved = updateQueuedThreadMessage(harness.db, harness.hub, {
+        dependsOnQueuedMessageIds: null,
         id: row.id,
         threadId: created.id,
         expectedUpdatedAt: row.updatedAt,
@@ -341,6 +344,18 @@ describe("automatic queued provider transitions", () => {
       ).toEqual({ delivery: "sent" });
       expect(getQueuedThreadMessage(harness.db, row.id)).toBeNull();
       expect(getThread(harness.db, created.id)?.providerId).toBe("codex");
+      expect(
+        listQueuedTaskRunsByIds(harness.db, {
+          threadId: created.id,
+          queuedMessageIds: [row.id],
+        }),
+      ).toMatchObject([
+        {
+          state: "running",
+          originalRequestId: JSON.parse(requests(harness, created.id)[0]!.data)
+            .requestId,
+        },
+      ]);
       expect(listQueuedCommands(harness, "thread.session.prepare")).toEqual([]);
     });
   });

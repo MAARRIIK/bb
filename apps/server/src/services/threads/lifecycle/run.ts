@@ -286,10 +286,21 @@ export function runThreadLifecycleInTransaction(
     }
   }
   if (appended.size > 0) {
-    deps.hub.notifyThread(threadId, ["events-appended"], {
-      timelineSequence: getLatestThreadSequence(deps.db, { threadId }),
-      eventTypes: [...appended],
-    });
+    deps.hub.notifyThread(
+      threadId,
+      [...appended].some(
+        (type) =>
+          type === "turn/completed" ||
+          type === "system/thread/interrupted" ||
+          type === "client/turn/rejected",
+      )
+        ? ["events-appended", "queue-changed"]
+        : ["events-appended"],
+      {
+        timelineSequence: getLatestThreadSequence(deps.db, { threadId }),
+        eventTypes: [...appended],
+      },
+    );
   }
   return {
     effects: postCommit,

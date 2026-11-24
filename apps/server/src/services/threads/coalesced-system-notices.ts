@@ -78,6 +78,7 @@ export function postCoalescedSystemNotice<State>(
       return {
         kind: "created",
         row: createQueuedThreadMessageInTransaction(tx, {
+          dependsOnQueuedMessageIds: [],
           threadId: args.threadId,
           content: next.input,
           providerId: null,

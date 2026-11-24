@@ -180,6 +180,7 @@ function moveWaitingRetry(
     return waiting;
   }
   const result = updateQueuedThreadMessage(deps.db, deps.hub, {
+    dependsOnQueuedMessageIds: null,
     content: null,
     execution: null,
     reschedule: { sendAt },

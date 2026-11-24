@@ -33,6 +33,7 @@ interface StoredQueuedThreadMessageRow {
   model: string;
   providerId: string | null;
   providerSwitchPolicy: string;
+  dependsOnQueuedMessageIds: string[];
   payloadKind: QueuedMessagePayloadKind;
   reasoningLevel: string;
   retryAttempt: number | null;
@@ -205,6 +206,7 @@ export function toThreadQueuedMessage(
     providerSwitchPolicy: queuedMessageProviderSwitchPolicySchema.parse(
       row.providerSwitchPolicy,
     ),
+    dependsOnQueuedMessageIds: row.dependsOnQueuedMessageIds,
     reasoningLevel: row.reasoningLevel,
     permissionMode: row.permissionMode,
     serviceTier: row.serviceTier,

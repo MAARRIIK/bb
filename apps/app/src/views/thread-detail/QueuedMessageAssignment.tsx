@@ -8,7 +8,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@bb/shared-ui/dialog";
-import { providerServiceTierOptions } from "@bb/domain";
+import {
+  providerServiceTierOptions,
+  MAX_QUEUED_MESSAGE_DEPENDENCIES,
+  isStandaloneBuiltinClearCommand,
+  type ThreadQueuedMessage,
+} from "@bb/domain";
 import type { InlineQueuedMessageEditState } from "@/components/thread/composer/useInlineQueuedMessageEditing";
 import {
   useSystemExecutionOptions,
@@ -19,6 +24,7 @@ import { getMutationErrorMessage } from "@/lib/mutation-errors";
 
 export type QueuedMessageAssignmentSelection = Pick<
   InlineQueuedMessageEditState,
+  | "dependsOnQueuedMessageIds"
   | "providerId"
   | "providerSwitchPolicy"
   | "model"
@@ -36,14 +42,37 @@ function AssignmentForm({
   onSelect,
   disabled,
   submitLabel,
+  dependencyOptions,
 }: {
   environmentId: string;
   initial: QueuedMessageAssignmentSelection;
   onSelect: (selection: QueuedMessageAssignmentSelection) => void;
   disabled: boolean;
   submitLabel: string;
+  dependencyOptions: readonly ThreadQueuedMessage[];
 }) {
   const { t } = useInterfaceTranslation();
+  const [dependencyIds, setDependencyIds] = useState(
+    initial.dependsOnQueuedMessageIds,
+  );
+  const dependencyCandidates = new Map(
+    dependencyOptions
+      .filter(
+        (row) =>
+          row.payload.kind === "inline" &&
+          row.systemNotice === null &&
+          !isStandaloneBuiltinClearCommand(row.content),
+      )
+      .map((row) => [
+        row.id,
+        row.content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text)
+          .join(" "),
+      ]),
+  );
+  for (const id of dependencyIds)
+    if (!dependencyCandidates.has(id)) dependencyCandidates.set(id, id);
   const [providerId, setProviderId] = useState(initial.providerId);
   const [modelId, setModelId] = useState(initial.model);
   const [permission, setPermission] = useState<string>(initial.permissionMode);
@@ -212,6 +241,42 @@ function AssignmentForm({
           </span>
         </span>
       </label>
+      <fieldset className="flex min-w-0 flex-col gap-2 text-sm">
+        <legend>{t("Wait for tasks to succeed")}</legend>
+        <p className="text-muted-foreground">
+          {t(
+            "Failed or cancelled tasks keep this task waiting. You can change its dependencies later.",
+          )}
+        </p>
+        {dependencyCandidates.size === 0 ? (
+          <p className="text-muted-foreground">{t("No other queued tasks")}</p>
+        ) : (
+          <div className="max-h-40 space-y-2 overflow-y-auto">
+            {[...dependencyCandidates].map(([id, label]) => (
+              <label key={id} className="flex min-w-0 items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={dependencyIds.includes(id)}
+                  disabled={
+                    !dependencyIds.includes(id) &&
+                    dependencyIds.length >= MAX_QUEUED_MESSAGE_DEPENDENCIES
+                  }
+                  onChange={(event) =>
+                    setDependencyIds((ids) =>
+                      event.target.checked
+                        ? [...ids, id].sort()
+                        : ids.filter((selected) => selected !== id),
+                    )
+                  }
+                />
+                <span className="min-w-0 break-words" title={id}>
+                  {label || id}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+      </fieldset>
       <Button
         type="button"
         disabled={
@@ -228,6 +293,7 @@ function AssignmentForm({
           )
             return;
           onSelect({
+            dependsOnQueuedMessageIds: dependencyIds,
             providerId,
             providerSwitchPolicy: switchAutomatically
               ? "recent-messages"
@@ -250,14 +316,19 @@ export function QueuedMessageAssignment({
   currentProviderId,
   environmentId,
   onSelect,
+  queuedMessages,
 }: {
   edit: InlineQueuedMessageEditState;
+  queuedMessages: readonly ThreadQueuedMessage[];
   currentProviderId: string;
   environmentId: string;
   onSelect: (selection: QueuedMessageAssignmentSelection) => void;
 }) {
   return (
     <QueuedMessageAssignmentDialog
+      dependencyOptions={queuedMessages.filter(
+        (row) => row.id !== edit.queuedMessageId,
+      )}
       purpose="edit"
       sessionKey={edit.editSessionId}
       environmentId={environmentId}
@@ -270,6 +341,7 @@ export function QueuedMessageAssignment({
 
 export function QueuedMessageAssignmentDialog({
   purpose,
+  dependencyOptions,
   sessionKey,
   environmentId,
   initial,
@@ -277,6 +349,7 @@ export function QueuedMessageAssignmentDialog({
   disabled,
 }: {
   purpose: "edit" | "create";
+  dependencyOptions: readonly ThreadQueuedMessage[];
   sessionKey: string | number;
   environmentId: string;
   initial: QueuedMessageAssignmentSelection;
@@ -350,6 +423,7 @@ export function QueuedMessageAssignmentDialog({
           key={`${sessionKey}:${formSessionId}`}
           environmentId={environmentId}
           initial={initial}
+          dependencyOptions={dependencyOptions}
           disabled={disabled || pending}
           submitLabel={t(
             pending

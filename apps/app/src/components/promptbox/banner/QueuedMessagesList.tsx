@@ -683,15 +683,22 @@ function QueuedMessageWaitLine({
   threadStatus: ThreadStatus;
 }) {
   const now = useSecondTick();
-  const label = describeQueuedMessageWait({
-    failureReason: queuedMessage.failureReason,
-    now,
-    payload: queuedMessage.payload,
-    pluginDisplayName,
-    sendAt: queuedMessage.sendAt,
-    threadStatus,
-    waitingOn: queuedMessage.waitingOn,
-  });
+  const { t } = useInterfaceTranslation();
+  const label =
+    queuedMessage.waitingOn?.kind === "dependency"
+      ? t("Waiting for task {id} to succeed ({status})", {
+          id: queuedMessage.waitingOn.queuedMessageId,
+          status: t(queuedMessage.waitingOn.status),
+        })
+      : describeQueuedMessageWait({
+          failureReason: queuedMessage.failureReason,
+          now,
+          payload: queuedMessage.payload,
+          pluginDisplayName,
+          sendAt: queuedMessage.sendAt,
+          threadStatus,
+          waitingOn: queuedMessage.waitingOn,
+        });
   if (label === null) return null;
   const failed = queuedMessage.failureReason !== null;
   const icon = queuedMessageWaitIcon(queuedMessage);
@@ -952,6 +959,16 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
               >
                 {queuedMessage.providerId} · {queuedMessage.model}
               </span>
+              {queuedMessage.dependsOnQueuedMessageIds.length > 0 ? (
+                <span
+                  className="shrink-0"
+                  title={queuedMessage.dependsOnQueuedMessageIds.join(", ")}
+                >
+                  {t("Dependencies: {count}", {
+                    count: queuedMessage.dependsOnQueuedMessageIds.length,
+                  })}
+                </span>
+              ) : null}
               {queuedMessage.providerSwitchPolicy === "recent-messages" ? (
                 <span className="shrink-0">{t("Automatic switch")}</span>
               ) : null}

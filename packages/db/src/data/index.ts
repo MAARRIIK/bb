@@ -32,6 +32,7 @@ export * from "./provider-transitions.js";
 export * from "./prompt-history.js";
 export * from "./provider-model-catalogs.js";
 export * from "./queued-thread-messages.js";
+export * from "./queued-task-runs.js";
 export * from "./retained-event-outputs.js";
 export * from "./server-move.js";
 export * from "./sessions.js";

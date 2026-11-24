@@ -401,8 +401,9 @@ const OPTIONAL_SERVER_FIELD_GROUPS: readonly OptionalServerFieldGroup[] = [
   },
   {
     reason:
-      "Follow-up and queued messages may omit execution fields so the thread's current/default execution settings are reused. Omitted queue providerSwitchPolicy uses manual switching; recent context transfer requires explicit consent.",
+      "Follow-up and queued messages may omit execution fields so the thread's current/default execution settings are reused. Omitted queue providerSwitchPolicy uses manual switching; recent context transfer requires explicit consent. Omitted queued task dependencies mean independent work; the server records [] at the create boundary.",
     fields: [
+      "createQueuedMessageRequestSchema.dependsOnQueuedMessageIds",
       "createQueuedMessageRequestSchema.providerSwitchPolicy",
       "createQueuedMessageRequestSchema.model",
       "createQueuedMessageRequestSchema.providerId",

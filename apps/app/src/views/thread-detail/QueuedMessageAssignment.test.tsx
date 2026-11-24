@@ -70,7 +70,10 @@ afterEach(() => {
 
 let nextDraftId = 0;
 
-function draftFixture(compact = false) {
+function draftFixture(
+  compact = false,
+  queuedMessages: ThreadQueuedMessage[] = [],
+) {
   const threadId = `thr_queue_draft_${++nextDraftId}`;
   const draft = getPromptDraftAccessor({
     kind: "thread",
@@ -100,12 +103,14 @@ function draftFixture(compact = false) {
     <CompactViewportOverrideProvider isCompactViewport={compact}>
       <QueryClientProvider client={queryClient}>
         <QueueDraftWithModel
+          queuedMessages={queuedMessages}
           draft={draft}
           threadId={threadId}
           environmentId="env_assignment"
           initial={{
             providerId: "codex",
             providerSwitchPolicy: "manual",
+            dependsOnQueuedMessageIds: [],
             model: "codex-model",
             permissionMode: "accept-edits",
             reasoningLevel: "medium",
@@ -145,7 +150,12 @@ describe("queue the composer draft with a model", () => {
     "creates once with the full %s assignment and attachments before any dispatch",
     async (policy) => {
       const { draft, original, create, send, update, threadId, queryClient } =
-        draftFixture();
+        draftFixture(false, [
+          makeThreadQueuedMessage({
+            id: "qmsg_parent",
+            content: [{ type: "text", text: "Parent task", mentions: [] }],
+          }),
+        ]);
       const response = createDeferredPromise<ThreadQueuedMessage>();
       create.mockReturnValue(response.promise);
       const submitted = vi.fn();
@@ -155,6 +165,7 @@ describe("queue the composer draft with a model", () => {
       );
       try {
         await selectDraftModel();
+        fireEvent.click(screen.getByRole("checkbox", { name: "Parent task" }));
         if (policy === "recent-messages")
           fireEvent.click(
             screen.getByRole("checkbox", { name: /Switch automatically/ }),
@@ -166,6 +177,7 @@ describe("queue the composer draft with a model", () => {
         expect(create).toHaveBeenCalledWith({
           threadId,
           providerId: "pi",
+          dependsOnQueuedMessageIds: ["qmsg_parent"],
           providerSwitchPolicy: policy,
           model: "pi-model",
           permissionMode: "full",
@@ -242,6 +254,7 @@ describe("queue the composer draft with a model", () => {
       providerId: "pi",
       model: "pi-model",
       providerSwitchPolicy: "manual",
+      dependsOnQueuedMessageIds: [],
       input: [
         { type: "text", text: `${original.text}\n\nNew thought`, mentions: [] },
         { type: "localFile", path: "uploads/design.txt", name: "design.txt" },
@@ -308,6 +321,7 @@ function fixture(compact = false) {
     <CompactViewportOverrideProvider isCompactViewport={compact}>
       <QueryClientProvider client={new QueryClient()}>
         <QueuedMessageAssignment
+          queuedMessages={[]}
           currentProviderId="codex"
           environmentId="env_assignment"
           edit={{
@@ -315,6 +329,7 @@ function fixture(compact = false) {
             expectedUpdatedAt: 1,
             providerId: "codex",
             providerSwitchPolicy: "manual",
+            dependsOnQueuedMessageIds: [],
             model: "codex-model",
             reasoningLevel: "medium",
             permissionMode: "accept-edits",
@@ -372,6 +387,7 @@ describe("queued task assignment", () => {
     fireEvent.click(automatic);
     fireEvent.click(screen.getByRole("button", { name: "Use for this task" }));
     expect(onSelect).toHaveBeenCalledExactlyOnceWith({
+      dependsOnQueuedMessageIds: [],
       providerId: "pi",
       providerSwitchPolicy: "recent-messages",
       model: "pi-model",

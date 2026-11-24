@@ -537,6 +537,7 @@ describe("thread runtime display", () => {
     ]) {
       for (let index = 0; index < count; index += 1) {
         createQueuedThreadMessage(db, noopNotifier, {
+          dependsOnQueuedMessageIds: [],
           providerSwitchPolicy: "manual",
           providerSessionId: null,
           providerId: null,

@@ -21,6 +21,7 @@ import { useQueuedMessageEditHold } from "./useQueuedMessageEditHold";
 export interface InlineQueuedMessageEditState {
   draft: PromptDraftState;
   initialDraft: PromptDraftState;
+  dependsOnQueuedMessageIds: string[];
   editSessionId: number;
   expectedUpdatedAt: number;
   model: ThreadQueuedMessage["model"];
@@ -188,6 +189,7 @@ export function useInlineQueuedMessageEditing({
       commitInlineQueuedMessage({
         draft: initialDraft,
         initialDraft,
+        dependsOnQueuedMessageIds: queuedMessage.dependsOnQueuedMessageIds,
         editSessionId: (inlineEditSessionIdRef.current += 1),
         expectedUpdatedAt: queuedMessage.updatedAt,
         model: queuedMessage.model,

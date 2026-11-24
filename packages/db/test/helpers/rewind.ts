@@ -1,6 +1,7 @@
 import type { DbConnection } from "../../src/index.js";
 
 export function dropProviderProvenanceColumns(db: DbConnection): void {
+  dropQueuedTaskDependencies(db);
   db.$client.exec("DROP TABLE IF EXISTS thread_provider_transitions");
   for (const { table, column } of [
     { table: "queued_thread_messages", column: "provider_switch_policy" },
@@ -251,4 +252,15 @@ export function restoreDiffViewedFilesTable(db: DbConnection): void {
       FOREIGN KEY (environment_id) REFERENCES environments(id) ON UPDATE no action ON DELETE cascade
     )
   `);
+}
+
+export function dropQueuedTaskDependencies(db: DbConnection): void {
+  db.$client.exec("DROP TABLE IF EXISTS queued_task_runs");
+  const columns = db.$client
+    .prepare<[], { name: string }>("PRAGMA table_info(queued_thread_messages)")
+    .all();
+  if (columns.some((column) => column.name === "depends_on_queued_message_ids"))
+    db.$client.exec(
+      "ALTER TABLE queued_thread_messages DROP COLUMN depends_on_queued_message_ids",
+    );
 }

@@ -137,6 +137,7 @@ export function recordQueuedMessageWait(
           requireCurrentProviderSession(current, args.message.providerSource);
         }
         const created = createQueuedThreadMessageInTransaction(tx, {
+          dependsOnQueuedMessageIds: [],
           threadId: args.thread.id,
           content: args.message.input,
           senderThreadId: args.message.senderThreadId,

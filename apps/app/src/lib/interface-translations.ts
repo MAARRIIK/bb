@@ -7,6 +7,18 @@ export type InterfaceTranslator = (
 
 const russian = new Map<string, string>(
   Object.entries({
+    "Wait for tasks to succeed": "Дождаться успешного завершения заданий",
+    "Failed or cancelled tasks keep this task waiting. You can change its dependencies later.":
+      "При ошибке или отмене предшественника это задание продолжит ждать. Зависимости можно изменить позже.",
+    "No other queued tasks": "Других заданий в очереди нет",
+    "Dependencies: {count}": "Зависимости: {count}",
+    "Waiting for task {id} to succeed ({status})":
+      "Ожидание успешного завершения задания {id} ({status})",
+    queued: "в очереди",
+    running: "выполняется",
+    failed: "ошибка",
+    cancelled: "отменено",
+
     "Assign task model": "Назначить модель заданию",
     "Queue with model": "В очередь с моделью",
     "Add to queue": "Добавить в очередь",

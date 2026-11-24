@@ -138,6 +138,7 @@ describe("assigning a provider to a queued task", () => {
       await withTestHarness(async (harness) => {
         const { api, thread } = fixture(harness);
         const row = createQueuedThreadMessage(harness.db, harness.hub, {
+          dependsOnQueuedMessageIds: [],
           threadId: thread.id,
           providerId: kind === "retry" ? "codex" : null,
           providerSessionId: null,
@@ -276,6 +277,7 @@ describe("assigning a provider to a queued task", () => {
       const { api, thread } = fixture(harness);
       const sendAt = Date.now() + 3_600_000;
       const row = createQueuedThreadMessage(harness.db, harness.hub, {
+        dependsOnQueuedMessageIds: [],
         providerSwitchPolicy: "manual",
         threadId: thread.id,
         providerId: null,
@@ -311,6 +313,7 @@ describe("assigning a provider to a queued task", () => {
       await withTestHarness(async (harness) => {
         const { api, thread } = fixture(harness);
         const row = createQueuedThreadMessage(harness.db, harness.hub, {
+          dependsOnQueuedMessageIds: [],
           providerSwitchPolicy: "manual",
           threadId: thread.id,
           providerId: kind === "notice" ? null : "codex",
