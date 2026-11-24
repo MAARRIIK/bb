@@ -124,6 +124,7 @@ interface SettingsWithControlProps {
   label: string;
   labelBadge?: string;
   description?: ReactNode;
+  translateContent?: boolean;
   controlPlacement?: SettingsControlPlacement;
   children: ReactNode;
 }
@@ -140,6 +141,7 @@ export function SettingsWithControl({
   label,
   labelBadge,
   description,
+  translateContent = true,
   controlPlacement = "inline",
   children,
 }: SettingsWithControlProps) {
@@ -169,13 +171,15 @@ export function SettingsWithControl({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <p className="min-w-0 text-sm font-normal text-foreground">
-              {t(label)}
+              {translateContent ? t(label) : label}
             </p>
             {labelBadge ? <SettingsBadge>{t(labelBadge)}</SettingsBadge> : null}
           </div>
           {description ? (
             <p className="mt-0.5 text-xs leading-snug text-subtle-foreground/75">
-              {typeof description === "string" ? t(description) : description}
+              {translateContent && typeof description === "string"
+                ? t(description)
+                : description}
             </p>
           ) : null}
         </div>

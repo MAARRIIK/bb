@@ -32,6 +32,7 @@ import {
   makePluginRegistrationSet,
 } from "@/test/fixtures/plugins";
 import { createDeferredPromise } from "@bb/test-helpers";
+import { InterfaceLanguageProvider } from "@/lib/interface-language";
 
 interface RecordedRequest {
   url: string;
@@ -221,7 +222,12 @@ describe("PluginSettingsForm", () => {
     );
 
     const { wrapper } = createQueryClientTestHarness();
-    render(<PluginSettingsForm pluginId="demo" />, { wrapper });
+    const rendered = render(
+      <InterfaceLanguageProvider preference="en">
+        <PluginSettingsForm pluginId="demo" />
+      </InterfaceLanguageProvider>,
+      { wrapper },
+    );
 
     const retries = (await screen.findByLabelText(
       "Retries",
@@ -239,6 +245,18 @@ describe("PluginSettingsForm", () => {
       "Enter a finite number",
     );
     expect(retries.value).toBe("3");
+    rendered.rerender(
+      <InterfaceLanguageProvider preference="ru">
+        <PluginSettingsForm pluginId="demo" />
+      </InterfaceLanguageProvider>,
+    );
+    expect(screen.getByRole("alert").textContent).toBe("Введи конечное число");
+    rendered.rerender(
+      <InterfaceLanguageProvider preference="en">
+        <PluginSettingsForm pluginId="demo" />
+      </InterfaceLanguageProvider>,
+    );
+    expect(screen.getByRole("alert").textContent).toBe("Enter a finite number");
     badInput.mockRestore();
 
     fireEvent.change(retries, { target: { value: "4.5" } });
@@ -451,51 +469,57 @@ describe("PluginSettingsForm", () => {
     });
   });
 
-  it("shows a server validator error beneath the field and retries on blur", async () => {
-    const view = {
-      ok: true,
-      schema: {
-        agents: {
-          type: "string",
-          label: "Custom agents",
-          experimental_multiline: true,
+  it.each(["Custom agents must be a JSON array", "Enter a finite number"])(
+    "keeps server validator text literal and retryable: %s",
+    async (message) => {
+      const view = {
+        ok: true,
+        schema: {
+          agents: {
+            type: "string",
+            label: "Custom agents",
+            experimental_multiline: true,
+          },
         },
-      },
-      values: { agents: "[]" },
-    };
-    const requests: RecordedRequest[] = [];
-    let rejectSave = true;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: string, init?: RequestInit) => {
-        requests.push({ url, init });
-        if (init?.method === "PUT" && rejectSave) {
-          return jsonError("Custom agents must be a JSON array");
-        }
-        return jsonOk(view);
-      }),
-    );
+        values: { agents: "[]" },
+      };
+      const requests: RecordedRequest[] = [];
+      let rejectSave = true;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string, init?: RequestInit) => {
+          requests.push({ url, init });
+          if (init?.method === "PUT" && rejectSave) {
+            return jsonError(message);
+          }
+          return jsonOk(view);
+        }),
+      );
 
-    const { wrapper } = createQueryClientTestHarness();
-    render(<PluginSettingsForm pluginId="demo" />, { wrapper });
+      const { wrapper } = createQueryClientTestHarness();
+      render(
+        <InterfaceLanguageProvider preference="ru">
+          <PluginSettingsForm pluginId="demo" />
+        </InterfaceLanguageProvider>,
+        { wrapper },
+      );
 
-    const agents = await screen.findByLabelText("Custom agents");
-    fireEvent.change(agents, { target: { value: "{}" } });
-    fireEvent.blur(agents);
-    expect((await screen.findByRole("alert")).textContent).toContain(
-      "Custom agents must be a JSON array",
-    );
-    expect(agents.getAttribute("aria-invalid")).toBe("true");
-    expect(
-      requests.filter((request) => request.init?.method === "PUT"),
-    ).toHaveLength(1);
+      const agents = await screen.findByLabelText("Custom agents");
+      fireEvent.change(agents, { target: { value: "{}" } });
+      fireEvent.blur(agents);
+      expect((await screen.findByRole("alert")).textContent).toContain(message);
+      expect(agents.getAttribute("aria-invalid")).toBe("true");
+      expect(
+        requests.filter((request) => request.init?.method === "PUT"),
+      ).toHaveLength(1);
 
-    rejectSave = false;
-    fireEvent.change(agents, { target: { value: "[]" } });
-    fireEvent.blur(agents);
-    await vi.waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
-    expect(agents.getAttribute("aria-invalid")).toBe("false");
-  });
+      rejectSave = false;
+      fireEvent.change(agents, { target: { value: "[]" } });
+      fireEvent.blur(agents);
+      await vi.waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+      expect(agents.getAttribute("aria-invalid")).toBe("false");
+    },
+  );
 
   it("never sends an untouched secret and includes a typed one", async () => {
     const requests: RecordedRequest[] = [];
@@ -632,6 +656,86 @@ function installedPlugin(
 }
 
 describe("PluginSettingsPage", () => {
+  it("changes host labels live while preserving plugin text, drafts and save keys", async () => {
+    const requests: RecordedRequest[] = [];
+    const view = {
+      ok: true,
+      schema: {
+        greeting: { type: "string", label: "Settings", description: "Queue" },
+        apiKey: { type: "string", label: "API key", secret: true },
+      },
+      values: { greeting: "Message queue", apiKey: { set: true } },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        requests.push({ url, init });
+        if (url === "/api/v1/plugins/linear/settings") {
+          if (init?.method === "PUT") {
+            const body = JSON.parse(String(init.body));
+            return jsonOk({
+              ...view,
+              values: { ...view.values, ...body.values },
+            });
+          }
+          return jsonOk(view);
+        }
+        return jsonOk({
+          plugins: [
+            {
+              ...installedPlugin(true),
+              name: "Settings",
+              description: "Queued messages",
+            },
+          ],
+        });
+      }),
+    );
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    const page = (language: "en" | "ru") => (
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <InterfaceLanguageProvider preference={language}>
+            <PluginSettingsPage pluginId="linear" />
+          </InterfaceLanguageProvider>
+        </QueryClientWrapper>
+      </MemoryRouter>
+    );
+    const result = render(page("en"));
+    const field = await screen.findByLabelText("Settings");
+    fireEvent.change(field, { target: { value: "Русский / {source} / $&" } });
+    result.rerender(page("ru"));
+    expect(screen.getByText("Queue")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy();
+    expect(screen.getByText("Queued messages")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Настройки" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "О плагине" }).getAttribute("href"),
+    ).toBe("/settings/plugins/linear?view=installed");
+    expect(
+      screen.getByRole("switch", { name: "Отключить linear" }),
+    ).toBeTruthy();
+    expect(screen.getByPlaceholderText("[сохранён]")).toBeTruthy();
+    const current = screen.getByLabelText("Settings");
+    if (!(current instanceof HTMLInputElement))
+      throw new Error("Expected a text input");
+    expect(current).toBe(field);
+    expect(current.value).toBe("Русский / {source} / $&");
+    expect(requests.some((request) => request.init?.method === "PUT")).toBe(
+      false,
+    );
+    fireEvent.blur(current);
+    await vi.waitFor(() => {
+      const writes = requests.filter(
+        (request) => request.init?.method === "PUT",
+      );
+      expect(writes).toHaveLength(1);
+      expect(writes[0]?.url).toBe("/api/v1/plugins/linear/settings");
+      expect(JSON.parse(String(writes[0]?.init?.body))).toEqual({
+        values: { greeting: "Русский / {source} / $&" },
+      });
+    });
+  });
   it("lets users disable and enable a plugin from the settings header", async () => {
     const requests: RecordedRequest[] = [];
     let enabled = true;

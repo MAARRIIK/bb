@@ -7,6 +7,25 @@ export type InterfaceTranslator = (
 
 const russian = new Map<string, string>(
   Object.entries({
+    Configuration: "Настройки",
+    "Plugin details": "О плагине",
+    "Enable {plugin}": "Включить {plugin}",
+    "Disable {plugin}": "Отключить {plugin}",
+    "Loading plugin settings…": "Загрузка настроек плагина…",
+    "Could not load plugin settings.":
+      "Не удалось загрузить настройки плагина.",
+    "This plugin is not installed.": "Этот плагин не установлен.",
+    "Settings are unavailable while the plugin is {status}.":
+      "Настройки недоступны, пока плагин имеет статус {status}.",
+    "Enable this plugin to edit its settings.":
+      "Включи плагин, чтобы изменить его настройки.",
+    "Could not save this setting": "Не удалось сохранить настройку",
+    "Enter a finite number": "Введи конечное число",
+    "Select…": "Выбрать…",
+    "Select a project…": "Выбрать проект…",
+    "[set]": "[сохранён]",
+    "[not set]": "[не задан]",
+    secret: "секрет",
     "in {count}s": "через {count} с",
     "in {count}m": "через {count} мин",
     "in {count}h": "через {count} ч",
