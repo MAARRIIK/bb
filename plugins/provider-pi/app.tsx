@@ -5,6 +5,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { QuestionForm } from "@/components/ui/question-form";
+import { PiApiConnections } from "./src/api-connections.js";
 import {
   PI_EXTENSION_UI_RENDERER_ID,
   piExtensionUiPayloadDataSchema,
@@ -186,6 +187,10 @@ function ExtensionUiInteraction({
 }
 
 export default definePluginApp((app) => {
+  app.slots.settingsSection({
+    id: "api-connections",
+    component: PiApiConnections,
+  });
   app.slots.pendingInteraction({
     id: PI_EXTENSION_UI_RENDERER_ID,
     component: ExtensionUiInteraction,

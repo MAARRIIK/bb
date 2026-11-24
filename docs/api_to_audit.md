@@ -5664,3 +5664,20 @@ restart recovery and error-state transitions. Audit whether the failure-only
 snapshot is sufficient for other admission policies before adding general
 provider usage state. Then rename the field and type project-wide and remove
 this entry. No host-daemon wire fields are added.
+
+## `experimental_useInterfaceLanguage`
+
+Requires SDK 0.6.180.
+
+The frontend hook returns BB's resolved interface language (`en` or `ru`) and
+updates on preference changes and device language changes in system mode. Plugins
+own their translations. Core `useInterfaceTranslation` and the Plugin SDK use
+the same context reader; there is no separate plugin language setting. The Pi
+API connections panel is the first plugin caller. The frontend test harness
+accepts an optional resolved `interfaceLanguage`, defaulting to English.
+
+Before stabilization, verify dynamic preference and system changes, mounted
+plugin views, mobile web, SSR fallback and future language additions. Decide
+whether the public contract should expand the union or expose language tags
+before additional translations ship. Then rename project-wide and remove this
+entry. No server/daemon wire fields change.

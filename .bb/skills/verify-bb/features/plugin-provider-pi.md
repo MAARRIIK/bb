@@ -16,11 +16,16 @@ SKILL.md. Inspect nested `--help` before selecting flags and IDs.
 
 - `plugins/provider-pi/package.json`
 - `plugins/provider-pi/server.ts`
+- `plugins/provider-pi/src/api-connections.tsx`
+- `plugins/provider-pi/src/api-providers.ts`
+- `plugins/provider-pi/src/api-providers-contract.ts`
+- `plugins/provider-pi/src/cli.ts`
 
 ## Feature recipes
 
 | Feature | Drive | Observable success |
 | --- | --- | --- |
+| API connections | In Pi plugin settings, save dummy keys for each preset globally and for a disposable project, switch language and reload, remove the project override; compare `bb pi api-providers --json`, the read-only preset RPC and `bb machine env list --project <id> --json`. Inspect catalog through an isolated Pi agent directory; do not send dummy keys to inference APIs. | Global/project writes use the encrypted environment owner, saved values stay masked, deleting an override restores inheritance. The draft clears on service/scope change and after success. Native Pi credentials retain priority; saving and listing do not claim remote authentication. English/Russian changes update mounted plugin UI. Repeat at compact width; Chromium does not prove Safari. |
 | Discovery and options | Refresh models/reasoning, select a supported model, and start a short turn. | Catalog and execution agree; unsupported permission modes are not presented as supported. |
 | RPC lifecycle | Exercise streaming, tool output, follow-up, stop, error and restart. | RPC events produce correct thread state and recoverable failures. |
 | Fork and compact | Fork a synthetic conversation and compact each branch as supported. | Branch context and subsequent continuation stay independent and preserve supported history. |

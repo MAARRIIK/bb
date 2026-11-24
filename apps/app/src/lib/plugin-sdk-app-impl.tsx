@@ -132,6 +132,7 @@ import { useTabVisible } from "@/components/secondary-panel/tab-visibility";
 import { useServerChoices } from "@/hooks/useServerChoices";
 import { getServerChoices } from "@/lib/server-choices";
 import { ThreadRowMetadata } from "@/components/plugin/ThreadRowMetadata";
+import { useResolvedInterfaceLanguage } from "./interface-language";
 
 function PluginInfoListRow({
   onSelect,
@@ -259,6 +260,7 @@ export const pluginSdkAppImplementation = {
   experimental_resolveThreadStatus,
   useEnvironmentProviders,
   useSdk,
+  experimental_useInterfaceLanguage: useResolvedInterfaceLanguage,
   experimental_useProviders: useProviders,
   experimental_useCodeTheme: useCodeTheme,
   experimental_copyToClipboard: copyToClipboard,
