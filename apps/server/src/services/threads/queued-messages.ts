@@ -73,7 +73,14 @@ import {
 import { resolvePromptAttachmentReferences } from "../projects/attachments.js";
 import { requestQueuedMessageDispatch } from "./queued-message-dispatch.js";
 import { assertThreadHostAcceptsWork } from "./thread-host-admission.js";
-import { ThreadContextChangeInProgressError } from "./thread-session-guard.js";
+import {
+  ThreadContextChangeInProgressError,
+  withThreadSendGuard,
+} from "./thread-session-guard.js";
+import { requireProviderTransitionSettled } from "./provider-transition-guard.js";
+import { requireThreadProviderSessionSource } from "./thread-provider-session-source.js";
+import { requireCurrentProviderSession } from "../../internal/provider-session.js";
+import { requireQueuedMessageProvider } from "./queued-message-provider.js";
 
 interface SendQueuedMessageArgs {
   claimPolicy: QueuedThreadMessageGroupClaimPolicy;
@@ -192,6 +199,20 @@ export async function createQueuedMessageForThread(
   deps: LoggedPendingInteractionWorkSessionDeps,
   args: CreateQueuedMessageForThreadArgs,
 ): Promise<ThreadQueuedMessage> {
+  return withThreadSendGuard(args.thread.id, () => {
+    requireProviderTransitionSettled(deps.db, args.thread.id);
+    requireQueuedMessageProvider(
+      requireThreadProviderSessionSource(deps.db, args.thread.id).providerId,
+      [args.thread],
+    );
+    return createQueuedMessageForCurrentProvider(deps, args);
+  });
+}
+
+async function createQueuedMessageForCurrentProvider(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+  args: CreateQueuedMessageForThreadArgs,
+): Promise<ThreadQueuedMessage> {
   const { payload, thread } = args;
   ensureThreadQueueIsWritable(thread);
   const input = await resolvePromptAttachmentReferences({
@@ -216,8 +237,11 @@ export async function createQueuedMessageForThread(
           throw new ApiError(404, "thread_not_found", "Thread not found");
         }
         const { hasProviderSession } = admitQueuedMessage(tx, currentThread);
+        requireQueuedMessageProvider(currentThread.providerId, [thread]);
         const queuedMessage = createQueuedThreadMessageInTransaction(tx, {
           threadId: thread.id,
+          providerId: thread.providerId,
+          providerSessionId: currentThread.providerSessionId,
           content: input,
           senderThreadId,
           model: execution.model,
@@ -302,6 +326,10 @@ export async function resolveQueuedMessageExecutionChange(
     return null;
   }
   const current = toThreadQueuedMessage(row);
+  requireProviderTransitionSettled(deps.db, args.thread.id);
+  const source = requireThreadProviderSessionSource(deps.db, args.thread.id);
+  requireQueuedMessageProvider(source.providerId, [args.thread]);
+  requireQueuedMessageProvider(args.thread.providerId, [row]);
   const resolved = await buildExecutionOptions(
     deps,
     {
@@ -311,6 +339,11 @@ export async function resolveQueuedMessageExecutionChange(
       serviceTier: request.serviceTier ?? current.serviceTier,
     },
     { threadId: args.thread.id },
+  );
+  requireProviderTransitionSettled(deps.db, args.thread.id);
+  requireCurrentProviderSession(
+    requireThreadProviderSessionSource(deps.db, args.thread.id),
+    source,
   );
   return {
     model: resolved.model,

@@ -2566,6 +2566,8 @@ describe("migrate", () => {
         status: "idle",
       });
       const workspaceWriteQueue = createQueuedThreadMessage(db, noopNotifier, {
+        providerSessionId: null,
+        providerId: regularThread.providerId,
         threadId: regularThread.id,
         content: [
           { type: "text", text: "legacy workspace write", mentions: [] },
@@ -2580,6 +2582,8 @@ describe("migrate", () => {
         systemNotice: null,
       });
       const inheritedQueue = createQueuedThreadMessage(db, noopNotifier, {
+        providerSessionId: null,
+        providerId: sideChatWithHistory.providerId,
         threadId: sideChatWithHistory.id,
         content: [{ type: "text", text: "legacy side chat", mentions: [] }],
         model: "gpt-5",
@@ -2592,6 +2596,8 @@ describe("migrate", () => {
         systemNotice: null,
       });
       const fallbackQueue = createQueuedThreadMessage(db, noopNotifier, {
+        providerSessionId: null,
+        providerId: sideChatWithoutHistory.providerId,
         threadId: sideChatWithoutHistory.id,
         content: [{ type: "text", text: "legacy fallback", mentions: [] }],
         model: "gpt-5",

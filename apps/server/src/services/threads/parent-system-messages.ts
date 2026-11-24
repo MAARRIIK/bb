@@ -163,6 +163,8 @@ export async function queueParentSystemMessage(
       if (!isWritableParent(getThread(tx, args.parentThreadId))) return null;
       return createQueuedThreadMessageInTransaction(tx, {
         threadId: args.parentThreadId,
+        providerId: null,
+        providerSessionId: null,
         content: args.input,
         senderThreadId: null,
         model: execution.model,

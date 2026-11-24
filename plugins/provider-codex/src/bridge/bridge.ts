@@ -466,6 +466,7 @@ interface CodexBridgeSession {
   construction: CodexSessionConstruction;
   constructionSignature: string;
   environmentHash: string;
+  hasSubmittedTurn: boolean;
   turnPermissionSettings: ReturnType<typeof toCodexPermissionSettings>;
   openCodexTurnIds: Set<string>;
   responseOpenedTurns: Map<string, ResponseOpenedTurn>;
@@ -1373,6 +1374,7 @@ async function constructThreadSession(
       envHash,
     ),
     environmentHash: envHash,
+    hasSubmittedTurn: args.request.kind !== "start",
     turnPermissionSettings: toCodexPermissionSettings({
       additionalWorkspaceWriteRoots: decoded.additionalWorkspaceWriteRoots,
       gitWritableRoots: [],
@@ -1633,6 +1635,7 @@ function registerResumableSession(session: CodexBridgeSession): void {
     construction: session.construction,
     constructionSignature: session.constructionSignature,
     environmentHash: session.environmentHash,
+    hasSubmittedTurn: session.hasSubmittedTurn,
     turnPermissionSettings: session.turnPermissionSettings,
     openCodexTurnIds: new Set(),
     pendingChildRequests: new Map(),
@@ -1678,7 +1681,9 @@ async function rebuildThreadSession(
       ...(session.construction.dynamicTools !== undefined
         ? { dynamicTools: session.construction.dynamicTools }
         : {}),
-      request: { kind: "resume", providerThreadId: codexThreadId },
+      request: session.hasSubmittedTurn
+        ? { kind: "resume", providerThreadId: codexThreadId }
+        : { kind: "start" },
     });
   } catch (error) {
     if (!(error instanceof CodexSessionReleasedError)) {
@@ -1855,7 +1860,9 @@ async function requireLiveSessionForTurn(
     session = await rebuildThreadSession(
       session,
       params.options,
-      "codex app-server exited; the session was restored from its rollout.",
+      session.hasSubmittedTurn
+        ? "codex app-server exited; the session was restored from its rollout."
+        : "codex app-server exited before its first input; the empty session was recreated.",
     );
   } else if (session.rebuildBeforeNextTurnReason !== null) {
     session = await rebuildThreadSession(
@@ -2174,6 +2181,7 @@ async function handleTurnStart(
   }
 
   const input: PromptInput[] = params.input;
+  session.hasSubmittedTurn = true;
   const decoded = decodeCodexOptions(params.options);
 
   const prepared = session.translator.prepareTurnStart({

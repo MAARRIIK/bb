@@ -30,6 +30,7 @@ interface StoredQueuedThreadMessageRow {
   id: string;
   groupWithNext: boolean;
   model: string;
+  providerId: string | null;
   payloadKind: QueuedMessagePayloadKind;
   reasoningLevel: string;
   retryAttempt: number | null;
@@ -198,6 +199,7 @@ export function toThreadQueuedMessage(
     threadId: row.threadId,
     content: parseStoredQueuedThreadMessageContent(row),
     model: row.model,
+    providerId: row.providerId,
     reasoningLevel: row.reasoningLevel,
     permissionMode: row.permissionMode,
     serviceTier: row.serviceTier,

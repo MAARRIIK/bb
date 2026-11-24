@@ -48,6 +48,8 @@ function queueTurnEndMessage(
   },
 ) {
   return createQueuedThreadMessage(db, noopNotifier, {
+    providerSessionId: null,
+    providerId: "codex",
     threadId,
     content,
     model: "gpt-5",
@@ -78,6 +80,46 @@ function setup() {
 }
 
 describe("queued thread messages", () => {
+  it.each([
+    { providerId: "pi", providerSessionId: null },
+    { providerId: "codex", providerSessionId: "another-generation" },
+  ])(
+    "does not group matching models with a different assignment: %j",
+    (assignment) => {
+      const { db, thread } = setup();
+      const common = {
+        threadId: thread.id,
+        content: defaultInput,
+        model: "shared-model",
+        reasoningLevel: "medium",
+        permissionMode: "full" as const,
+        serviceTier: "default",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" as const },
+        systemNotice: null,
+      };
+      const first = createQueuedThreadMessage(db, noopNotifier, {
+        ...common,
+        providerId: "codex",
+        providerSessionId: null,
+      });
+      const second = createQueuedThreadMessage(db, noopNotifier, {
+        ...common,
+        ...assignment,
+      });
+      expect(
+        setQueuedThreadMessageGroupBoundary({
+          db,
+          notifier: noopNotifier,
+          threadId: thread.id,
+          expectedGroupedPrefixQueuedMessageIds: [first.id, second.id],
+          groupBoundaryQueuedMessageId: second.id,
+        }).kind,
+      ).toBe("invalid_execution_options");
+    },
+  );
+
   it("lists an idle thread waiting for its turn to start", () => {
     const { db, project } = setup();
     const thread = createThread(db, noopNotifier, {
@@ -86,6 +128,8 @@ describe("queued thread messages", () => {
       status: "idle",
     });
     createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -106,6 +150,8 @@ describe("queued thread messages", () => {
   it("updates queued message content without changing its identity or position", () => {
     const { db, thread } = setup();
     const first = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -118,6 +164,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const second = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -167,6 +215,8 @@ describe("queued thread messages", () => {
   it("rejects a second update based on the same queued message version", () => {
     const { db, thread } = setup();
     const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -210,6 +260,8 @@ describe("queued thread messages", () => {
     try {
       const { db, thread } = setup();
       const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+        providerSessionId: null,
+        providerId: thread.providerId,
         threadId: thread.id,
         content: defaultInput,
         model: "gpt-5",
@@ -243,6 +295,8 @@ describe("queued thread messages", () => {
   it("does not update a queued message that is already claimed for sending", () => {
     const { db, thread } = setup();
     const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -276,6 +330,8 @@ describe("queued thread messages", () => {
   it("deletes a queued message", () => {
     const { db, thread } = setup();
     const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -300,6 +356,8 @@ describe("queued thread messages", () => {
   it("claims a queued message and hides it from the queue until the claim is released", () => {
     const { db, thread } = setup();
     const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -337,6 +395,8 @@ describe("queued thread messages", () => {
   it("does not release or consume a queued message claimed by another owner", () => {
     const { db, thread } = setup();
     const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -422,6 +482,8 @@ describe("queued thread messages", () => {
     try {
       nowSpy.mockReturnValue(1_000);
       const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+        providerSessionId: null,
+        providerId: thread.providerId,
         threadId: thread.id,
         content: defaultInput,
         model: "gpt-5",
@@ -470,6 +532,8 @@ describe("queued thread messages", () => {
         db,
         noopNotifier,
         {
+          providerSessionId: null,
+          providerId: thread.providerId,
           threadId: thread.id,
           content: defaultInput,
           model: "gpt-5",
@@ -486,6 +550,8 @@ describe("queued thread messages", () => {
         db,
         noopNotifier,
         {
+          providerSessionId: null,
+          providerId: thread.providerId,
           threadId: thread.id,
           content: altInput,
           model: "gpt-5",
@@ -542,6 +608,8 @@ describe("queued thread messages", () => {
     try {
       nowSpy.mockReturnValueOnce(1_000);
       const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+        providerSessionId: null,
+        providerId: thread.providerId,
         threadId: thread.id,
         content: defaultInput,
         model: "gpt-5",
@@ -555,6 +623,8 @@ describe("queued thread messages", () => {
       });
       nowSpy.mockReturnValueOnce(2_000);
       const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+        providerSessionId: null,
+        providerId: thread.providerId,
         threadId: thread.id,
         content: altInput,
         model: "gpt-5",
@@ -587,6 +657,8 @@ describe("queued thread messages", () => {
   it("persists the contiguous lead group boundary", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -599,6 +671,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -611,6 +685,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("third"),
       model: "gpt-5",
@@ -650,6 +726,8 @@ describe("queued thread messages", () => {
   it("rejects a group boundary when the expected prefix is stale", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -662,6 +740,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -674,6 +754,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("third"),
       model: "gpt-5",
@@ -723,6 +805,8 @@ describe("queued thread messages", () => {
   it("claims the contiguous lead group together", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -735,6 +819,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -747,6 +833,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("third"),
       model: "gpt-5",
@@ -794,6 +882,8 @@ describe("queued thread messages", () => {
       status: "idle",
     });
     const ordinary = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -806,6 +896,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const notice = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: null,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -868,6 +960,8 @@ describe("queued thread messages", () => {
       status: "idle",
     });
     const heldBack = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -880,6 +974,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const askedForDuringStop = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -935,6 +1031,8 @@ describe("queued thread messages", () => {
       status: "idle",
     });
     createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -967,6 +1065,8 @@ describe("queued thread messages", () => {
   it("does not split a requeued group: the tail waits with its blocked lead", () => {
     const { db, thread } = setup();
     const lead = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -979,6 +1079,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const tail = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1028,6 +1130,8 @@ describe("queued thread messages", () => {
 
     // An independent row behind the blocked group still drains past it.
     const independent = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("independent"),
       model: "gpt-5",
@@ -1052,6 +1156,8 @@ describe("queued thread messages", () => {
   it("claiming a cleared lead takes its still-grouped tail with it", () => {
     const { db, thread } = setup();
     const lead = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1064,6 +1170,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const tail = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1112,6 +1220,8 @@ describe("queued thread messages", () => {
   it("claims only the selected message when sending outside the lead group", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1124,6 +1234,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1136,6 +1248,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("third"),
       model: "gpt-5",
@@ -1178,6 +1292,8 @@ describe("queued thread messages", () => {
   it("clears the previous group edge when deleting a grouped follower", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1190,6 +1306,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1202,6 +1320,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("third"),
       model: "gpt-5",
@@ -1250,6 +1370,8 @@ describe("queued thread messages", () => {
   it("clears the previous group edge when claiming a grouped follower", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1262,6 +1384,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1274,6 +1398,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("third"),
       model: "gpt-5",
@@ -1316,6 +1442,8 @@ describe("queued thread messages", () => {
   it("clears the claimed follower group edge when releasing a failed direct send", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1328,6 +1456,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1340,6 +1470,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("third"),
       model: "gpt-5",
@@ -1395,6 +1527,8 @@ describe("queued thread messages", () => {
   it("rejects grouped prefixes that mix sender attribution", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1407,6 +1541,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       senderThreadId: "thr_sender",
@@ -1446,6 +1582,8 @@ describe("queued thread messages", () => {
   it("rejects grouped prefixes that mix execution options", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1458,6 +1596,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5.5",
@@ -1496,6 +1636,8 @@ describe("queued thread messages", () => {
   it("does not consume any grouped claim when batch deletion is stale", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1508,6 +1650,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1562,6 +1706,8 @@ describe("queued thread messages", () => {
   it("reorders queued messages to the front, middle, and end", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1574,6 +1720,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1586,6 +1734,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("third"),
       model: "gpt-5",
@@ -1653,6 +1803,8 @@ describe("queued thread messages", () => {
   it("claims the reordered first queued message", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1665,6 +1817,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1703,6 +1857,8 @@ describe("queued thread messages", () => {
   it("rolls back a reorder when the requested group boundary is invalid", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1715,6 +1871,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       senderThreadId: "thr_sender",
@@ -1728,6 +1886,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("third"),
       model: "gpt-5",
@@ -1767,6 +1927,8 @@ describe("queued thread messages", () => {
   it("clears grouping when reorder-only would regroup different messages", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1779,6 +1941,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1791,6 +1955,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("third"),
       model: "gpt-5",
@@ -1851,6 +2017,8 @@ describe("queued thread messages", () => {
       providerId: "codex",
     });
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: defaultInput,
       model: "gpt-5",
@@ -1863,6 +2031,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: altInput,
       model: "gpt-5",
@@ -1875,6 +2045,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: thread.providerId,
       threadId: thread.id,
       content: textInput("third"),
       model: "gpt-5",
@@ -1887,6 +2059,8 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const otherQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSessionId: null,
+      providerId: otherThread.providerId,
       threadId: otherThread.id,
       content: defaultInput,
       model: "gpt-5",

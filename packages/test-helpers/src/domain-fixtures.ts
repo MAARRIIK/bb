@@ -215,6 +215,7 @@ export function makeThreadQueuedMessage(
     senderThreadId: null,
     threadId: "thr_test",
     content: [{ type: "text", text: "Queued message", mentions: [] }],
+    providerId: "codex",
     model: "gpt-5.5",
     reasoningLevel: "medium",
     permissionMode: "auto",

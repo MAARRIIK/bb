@@ -61,6 +61,8 @@ it.each([false, true])(
         pluginId: string | null,
       ) =>
         createQueuedThreadMessage(db, noopNotifier, {
+          providerSessionId: null,
+          providerId: null,
           threadId,
           content,
           model: "test-model",

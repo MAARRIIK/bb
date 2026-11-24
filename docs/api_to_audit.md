@@ -609,6 +609,21 @@ before the toggle is reachable.
 
 ## Queued message edit holds
 
+Queue rows now expose `providerId: string | null` through the existing queue
+SDK and plugin events. New ordinary requests retain the accepting provider;
+dispatch, send-now and execution edits refuse a different current provider.
+Core's queue and CLI use the same checks, including atomic claim consumption.
+Source generations are stored internally. Saved retries require that original
+generation, while ordinary new tasks may run in a later session of their assigned
+provider. Retry coalescing and failed-turn recovery use the current session.
+Null preserves unknown provenance on legacy rows and the intentional current-agent
+delivery of core system notices. Grouping requires matching assignments and
+source generations. This
+does not authorize an automatic provider transition. Before extending queue
+selection, audit reviewed handoff policy, crash recovery, retries, legacy null
+handling and per-task context collection. Docs: Plugin Guide, The bb SDK
+(`plugins/plugin-api-docs/src/surfaces.ts`).
+
 `bb.sdk.threads.queuedMessages.experimental_holdForEdit({ threadId, queuedMessageId })`
 (`POST /threads/:id/queued-messages/:queuedMessageId/edit-hold`) holds a
 queued row while someone edits it and returns `{ leaseMs }`. While the hold

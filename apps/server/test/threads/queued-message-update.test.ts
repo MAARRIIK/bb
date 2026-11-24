@@ -342,6 +342,8 @@ describe("a queued bb notice", () => {
         subject: { kind: "thread-batch" as const, count: 2 },
       };
       const row = createQueuedThreadMessage(harness.db, harness.hub, {
+        providerSessionId: null,
+        providerId: null,
         threadId: thread.id,
         content: textInput("[bb system]\n\nChild thread updates:"),
         senderThreadId: null,

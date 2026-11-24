@@ -1127,6 +1127,73 @@ describe("ThreadDetailPromptArea", () => {
     expect(screen.getByTestId("composer-location").textContent).toBe("bottom");
   });
 
+  it.each([
+    {
+      assignedProviderId: "codex",
+      expectedProviderId: "codex",
+      readOnly: "true",
+    },
+    {
+      assignedProviderId: null,
+      expectedProviderId: "claude-code",
+      readOnly: "false",
+    },
+  ])(
+    "keeps a queued editor bound to its assignment after the chat switches: $assignedProviderId",
+    async ({ assignedProviderId, expectedProviderId, readOnly }) => {
+      mocks.queuedMessages = [
+        makeQueuedMessage({ providerId: assignedProviderId }),
+      ];
+      renderPromptArea({ thread: makeThread({ providerId: "claude-code" }) });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Edit queued message 1" }),
+      );
+      const inlineEditor = within(
+        screen.getByTestId("inline-queued-message-editor"),
+      );
+      expect(inlineEditor.getByTestId("selected-provider").textContent).toBe(
+        expectedProviderId,
+      );
+      expect(inlineEditor.getByTestId("command-suggestions").textContent).toBe(
+        `${expectedProviderId}:thread`,
+      );
+      expect(inlineEditor.getByTestId("execution-read-only").textContent).toBe(
+        readOnly,
+      );
+      expect(inlineEditor.getByTestId("permission-read-only").textContent).toBe(
+        readOnly,
+      );
+      fireEvent.click(
+        inlineEditor.getByRole("button", { name: "Capture plugin host" }),
+      );
+      expect(mocks.pluginComposerHost?.getSelection?.().providerId).toBe(
+        expectedProviderId,
+      );
+      fireEvent.change(
+        inlineEditor.getByRole("textbox", { name: "Composer message" }),
+        { target: { value: "Edited for the original provider" } },
+      );
+      fireEvent.click(
+        inlineEditor.getByRole("button", { name: "Submit composer" }),
+      );
+      await waitFor(() => {
+        expect(mocks.updateQueuedMessageMutateAsync).toHaveBeenCalledWith({
+          expectedUpdatedAt: 1,
+          id: "thr_1",
+          input: [
+            {
+              type: "text",
+              text: "Edited for the original provider",
+              mentions: [],
+            },
+          ],
+          queuedMessageId: "qmsg_1",
+        });
+      });
+      expect(mocks.sendMessageMutateAsync).not.toHaveBeenCalled();
+    },
+  );
+
   it("saves the inline editor's model and permission picks onto the queued message only", async () => {
     mocks.queuedMessages = [makeQueuedMessage()];
 

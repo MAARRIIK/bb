@@ -930,6 +930,8 @@ describe("public thread interaction routes", () => {
         threadId: thread.id,
       });
       const queuedMessage = createQueuedThreadMessage(harness.db, harness.hub, {
+        providerSessionId: null,
+        providerId: thread.providerId,
         threadId: thread.id,
         content: textInput("Queued message"),
         model: "gpt-5",

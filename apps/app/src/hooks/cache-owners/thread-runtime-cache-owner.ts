@@ -382,6 +382,8 @@ function buildOptimisticQueuedMessage({
     senderThreadId: null,
     threadId: request.id,
     content: request.input,
+    providerId:
+      getThreadEntity(queryClient, request.id)?.thread.providerId ?? null,
     model: request.model ?? defaultExecutionOptions?.model ?? "pending",
     reasoningLevel:
       request.reasoningLevel ??
