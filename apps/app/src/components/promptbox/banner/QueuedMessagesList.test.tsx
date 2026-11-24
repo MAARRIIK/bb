@@ -407,7 +407,7 @@ describe("QueuedMessagesList", () => {
         systemNotice: { kind: "child-completed" as const, subject: null },
         waitingOn: { kind: "thread-busy" as const },
       },
-      height: "102px",
+      height: "158px",
     },
     {
       label: "a system notice waiting on its host",
@@ -417,7 +417,7 @@ describe("QueuedMessagesList", () => {
         systemNotice: { kind: "child-completed" as const, subject: null },
         waitingOn: { kind: "host-offline" as const, hostName: "M4" },
       },
-      height: "118px",
+      height: "174px",
     },
     {
       label: "an agent sender",
@@ -425,7 +425,7 @@ describe("QueuedMessagesList", () => {
         initiator: "agent" as const,
         senderThreadId: "thr_sender",
       },
-      height: "124px",
+      height: "196px",
     },
   ])("reserves the metadata height for $label", ({ message, height }) => {
     const { container } = renderQueuedMessages([
@@ -474,7 +474,7 @@ describe("QueuedMessagesList", () => {
 
     fireEvent.click(toggle);
     expect(header?.getAttribute("data-queued-messages-mode")).toBe("drawer");
-    expect(surface?.style.height).toBe("135px");
+    expect(surface?.style.height).toBe("293px");
     expect(
       getByRole("button", { name: "Collapse queued messages" }).querySelector(
         '[data-icon="ChevronUp"]',
@@ -490,12 +490,51 @@ describe("QueuedMessagesList", () => {
     expect(document.activeElement).toBe(toggle);
 
     fireEvent.click(toggle);
-    expect(surface?.style.height).toBe("135px");
+    expect(surface?.style.height).toBe("293px");
     toggle.focus();
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(surface?.style.height).toBe("44px");
     expect(document.activeElement).toBe(toggle);
+  });
+
+  it("fits measured drawer content and grows up to its cap when the list expands", () => {
+    let notifyResize = noop;
+    class ResizeObserverMock {
+      constructor(callback: ResizeObserverCallback) {
+        notifyResize = () => callback([], this as unknown as ResizeObserver);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    let listHeight = 125;
+    const nativeRect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        if (this.getAttribute("aria-label") === "Queued messages")
+          return new DOMRect(0, 0, 600, 220);
+        if (this.hasAttribute("data-queued-messages-scroll-frame"))
+          return new DOMRect(0, 0, 600, 120);
+        if (this.tagName === "UL" && this.classList.contains("group/queue"))
+          return new DOMRect(0, 0, 600, listHeight);
+        return nativeRect.call(this);
+      },
+    );
+    const { container, getByRole } = renderQueuedMessages([
+      makeQueuedMessage("q_one", "A queued message"),
+    ]);
+    fireEvent.click(getByRole("button", { name: "Toggle queued messages" }));
+    const surface = container.querySelector<HTMLElement>(
+      'section[aria-label="Queued messages"]',
+    );
+    expect(surface?.style.height).toBe("227px");
+    listHeight = 350;
+    act(() => notifyResize());
+    expect(surface?.style.height).toBe("300px");
+    fireEvent.click(getByRole("button", { name: "Collapse queued messages" }));
+    expect(surface?.style.height).toBe("44px");
   });
 
   it("gives a row that renders a wait line room for it", () => {
@@ -524,8 +563,8 @@ describe("QueuedMessagesList", () => {
       'section[aria-label="Queued messages"]',
     )?.style.height;
 
-    expect(plainHeight).toBe("102px");
-    expect(waitingHeight).toBe("118px");
+    expect(plainHeight).toBe("174px");
+    expect(waitingHeight).toBe("190px");
   });
 
   it("toggles an overflowing queue with the same disclosure as a fitted queue", () => {
@@ -1197,7 +1236,7 @@ describe("QueuedMessagesList", () => {
           .querySelector("[data-queued-messages-mode]")
           ?.getAttribute("data-queued-messages-mode"),
       ).toBe("drawer");
-      expect(surface?.style.height).toBe("201px");
+      expect(surface?.style.height).toBe("300px");
     });
   });
 
@@ -1317,7 +1356,7 @@ describe("QueuedMessagesList", () => {
     rerender(renderSurface(false));
 
     await waitFor(() => {
-      expect(surface?.style.height).toBe("135px");
+      expect(surface?.style.height).toBe("293px");
       expect(
         container
           .querySelector("[data-queued-messages-mode]")

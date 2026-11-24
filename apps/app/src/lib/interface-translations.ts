@@ -104,8 +104,10 @@ const russian = new Map<string, string>(
     "Assign task model": "Назначить модель заданию",
     "Queue with model": "В очередь с моделью",
     "Queue requests with different models": "Очередь с разными моделями",
-    "Write a request below, then choose its model and add it to the queue. Repeat for the next request.":
-      "Введи запрос в поле ниже, затем выбери модель и добавь его в очередь. Повтори для следующего запроса.",
+    "Choose a model for this queued request.":
+      "Выбери модель для этого задания.",
+    "Show more": "Показать полностью",
+    "Show less": "Свернуть",
     "Add to queue": "Добавить в очередь",
     "Saving…": "Сохранение…",
     "Could not save this queued task.": "Не удалось сохранить задание очереди.",

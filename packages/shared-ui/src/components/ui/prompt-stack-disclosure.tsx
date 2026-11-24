@@ -207,7 +207,7 @@ export function SectionToggleButton({
         label !== null && label !== undefined ? "gap-1.5" : "gap-0",
         fillRow && "flex-1 justify-start text-left",
         PROMPT_STACK_DISCLOSURE_TRIGGER_CLASS,
-        isExpanded ? "text-foreground" : "text-muted-foreground",
+        "text-foreground",
       )}
     >
       {icon}

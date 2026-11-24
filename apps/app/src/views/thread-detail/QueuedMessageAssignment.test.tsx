@@ -117,7 +117,21 @@ function draftFixture(
             serviceTier: "default",
           }}
           disabled={false}
-        />
+          available={true}
+          hasInput={true}
+        >
+          {(action) =>
+            action ? (
+              <button
+                type="button"
+                disabled={action.disabled}
+                onClick={action.run}
+              >
+                {action.label}
+              </button>
+            ) : null
+          }
+        </QueueDraftWithModel>
       </QueryClientProvider>
     </CompactViewportOverrideProvider>
   );
@@ -273,6 +287,14 @@ describe("queue the composer draft with a model", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(draft.getCurrent()).toEqual(original);
     expect(create).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Queue with model" }));
+    expect(
+      await screen.findByRole("combobox", { name: "Provider" }),
+    ).toHaveProperty("value", "codex");
+    expect(
+      screen.getByRole("checkbox", { name: /Switch automatically/ }),
+    ).toHaveProperty("checked", false);
+    expect(draft.getCurrent()).toEqual(original);
   });
 
   it("does not enqueue a draft removed while the form was open", async () => {

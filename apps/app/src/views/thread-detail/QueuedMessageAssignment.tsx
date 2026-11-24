@@ -347,6 +347,8 @@ export function QueuedMessageAssignmentDialog({
   initial,
   onSelect,
   disabled,
+  control,
+  showTrigger = true,
 }: {
   purpose: "edit" | "create";
   dependencyOptions: readonly ThreadQueuedMessage[];
@@ -357,13 +359,24 @@ export function QueuedMessageAssignmentDialog({
     selection: QueuedMessageAssignmentSelection,
   ) => void | Promise<void>;
   disabled: boolean;
+  control?: { open: boolean; onOpenChange(open: boolean): void };
+  showTrigger?: boolean;
 }) {
   const { t } = useInterfaceTranslation();
-  const [open, setOpen] = useState(false);
-  const [formSessionId, setFormSessionId] = useState(0);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = control?.open ?? internalOpen;
+  const setOpen = (next: boolean) => {
+    setInternalOpen(next);
+    control?.onOpenChange(next);
+  };
+  const [formSession, setFormSession] = useState({ open, id: 0 });
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  if (formSession.open !== open) {
+    setFormSession({ open, id: formSession.id + (open ? 1 : 0) });
+    if (open) setError(null);
+  }
   const select = async (selection: QueuedMessageAssignmentSelection) => {
     if (disabled || submitting.current) return;
     submitting.current = true;
@@ -390,24 +403,22 @@ export function QueuedMessageAssignmentDialog({
       open={open}
       onOpenChange={(next) => {
         if (submitting.current) return;
-        if (next && !open) {
-          setFormSessionId((session) => session + 1);
-          setError(null);
-        }
         setOpen(next);
       }}
       modal={false}
     >
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant={purpose === "create" ? "outline" : "ghost"}
-          size="sm"
-          disabled={disabled || pending}
-        >
-          {t(purpose === "create" ? "Queue with model" : "Assign task model")}
-        </Button>
-      </DialogTrigger>
+      {showTrigger ? (
+        <DialogTrigger asChild>
+          <Button
+            type="button"
+            variant={purpose === "create" ? "outline" : "ghost"}
+            size="sm"
+            disabled={disabled || pending}
+          >
+            {t(purpose === "create" ? "Queue with model" : "Assign task model")}
+          </Button>
+        </DialogTrigger>
+      ) : null}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("Model for this queued task")}</DialogTitle>
@@ -420,7 +431,7 @@ export function QueuedMessageAssignmentDialog({
           </DialogDescription>
         </DialogHeader>
         <AssignmentForm
-          key={`${sessionKey}:${formSessionId}`}
+          key={`${sessionKey}:${formSession.id}`}
           environmentId={environmentId}
           initial={initial}
           dependencyOptions={dependencyOptions}

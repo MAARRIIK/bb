@@ -11,6 +11,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { CONTROL_HOVER_TRANSITION } from "@/components/ui/motion";
 import { CompactLongPressMenu } from "@/components/ui/compact-long-press-menu";
+import type { InternalComposerInputSlots } from "./core-input-slots";
 import {
   experimental_useComposerContributions as useComposerContributions,
   type ExperimentalComposerAction,
@@ -29,6 +30,8 @@ export function ComposerSendMenu({
   hasInput,
   canSubmit,
   onSubmit,
+  queueWithModelAction,
+  showContributions = true,
 }: {
   children: ReactNode;
   isPointerCoarse: boolean;
@@ -36,22 +39,30 @@ export function ComposerSendMenu({
   hasInput: boolean;
   canSubmit: boolean;
   onSubmit: (() => void) | undefined;
+  queueWithModelAction?: InternalComposerInputSlots["internal_DO_NOT_USE_queueWithModelAction"];
+  showContributions?: boolean;
 }) {
   const isCompactViewport = useIsCompactViewport();
   const { sendMenuItems: contributions, MenuEntry } =
     useComposerContributions();
   const [open, setOpen] = useState(false);
   const queue = modifierKind === "queue";
+  const canOpen = canSubmit || queueWithModelAction !== undefined;
+  const showArrow = hasInput || queueWithModelAction !== undefined;
 
   useEffect(() => {
-    if (!canSubmit) setOpen(false);
-  }, [canSubmit]);
-  const handleOpenChange = (nextOpen: boolean) =>
-    setOpen(nextOpen && canSubmit);
+    if (!canOpen) setOpen(false);
+  }, [canOpen]);
+  const handleOpenChange = (nextOpen: boolean) => setOpen(nextOpen && canOpen);
 
-  if (!onSubmit && contributions.length === 0) return children;
+  if (
+    !onSubmit &&
+    (!showContributions || contributions.length === 0) &&
+    !queueWithModelAction
+  )
+    return children;
 
-  const items = canSubmit ? (
+  const items = (
     <>
       {onSubmit ? (
         <DropdownMenuItem disabled={!canSubmit} onSelect={onSubmit}>
@@ -62,17 +73,33 @@ export function ComposerSendMenu({
           {MODIFIER_LABELS[modifierKind ?? "steer"]}
         </DropdownMenuItem>
       ) : null}
-      {contributions.map((contribution) => (
-        <MenuEntry
-          key={contribution.key}
-          kind="send"
-          contribution={contribution}
-        />
-      ))}
+      {queueWithModelAction ? (
+        <DropdownMenuItem
+          disabled={queueWithModelAction.disabled}
+          onSelect={queueWithModelAction.run}
+        >
+          <Icon name="ListEnd" className="size-4 shrink-0 -scale-x-100" />
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span>{queueWithModelAction.label}</span>
+            <span className="text-xs text-muted-foreground">
+              {queueWithModelAction.description}
+            </span>
+          </span>
+        </DropdownMenuItem>
+      ) : null}
+      {canSubmit && showContributions
+        ? contributions.map((contribution) => (
+            <MenuEntry
+              key={contribution.key}
+              kind="send"
+              contribution={contribution}
+            />
+          ))
+        : null}
     </>
-  ) : null;
+  );
 
-  if (isPointerCoarse && isCompactViewport) {
+  if (isPointerCoarse && isCompactViewport && !queueWithModelAction) {
     if (!canSubmit) return children;
     return (
       <CompactLongPressMenu
@@ -101,25 +128,26 @@ export function ComposerSendMenu({
         "group/send ml-1 inline-flex items-center rounded-md [&_[data-promptbox-submit-action]]:ml-0",
         CONTROL_HOVER_TRANSITION,
         "bg-foreground text-background [&_button]:!bg-transparent [&_button]:!text-inherit [&_button]:!opacity-100",
-        hasInput && "[&_[data-promptbox-submit-action]]:rounded-r-none",
-        canSubmit
+        showArrow && "[&_[data-promptbox-submit-action]]:rounded-r-none",
+        canOpen
           ? "[&_button:hover]:!bg-background/15 [&_button[data-state=open]]:!bg-background/15"
           : "opacity-50",
+        queueWithModelAction && !canSubmit && "[&_button:disabled]:!opacity-50",
       )}
     >
       {children}
-      <DropdownMenu open={open && canSubmit} onOpenChange={handleOpenChange}>
+      <DropdownMenu open={open && canOpen} onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger asChild>
           <Button
             type="button"
             size="sm"
             variant="ghost"
             aria-label="Send options"
-            disabled={!canSubmit}
-            aria-hidden={hasInput ? undefined : true}
+            disabled={!canOpen}
+            aria-hidden={showArrow ? undefined : true}
             className={cn(
               "min-w-0 overflow-hidden rounded-l-none px-0 transition-[width] duration-150 ease-out motion-reduce:transition-none",
-              hasInput ? "w-6" : "w-0",
+              showArrow ? "w-6" : "w-0",
             )}
           >
             <Icon

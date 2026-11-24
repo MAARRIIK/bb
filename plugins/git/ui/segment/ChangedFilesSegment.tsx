@@ -6,9 +6,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { BranchPicker } from "@bb/shared-ui/branch-picker";
 import { Icon } from "@bb/shared-ui/icon";
-import {
-  getMergeBaseBranchCandidateGroups,
-} from "../merge-base-branch-candidates";
+import { getMergeBaseBranchCandidateGroups } from "../merge-base-branch-candidates";
 import { BannerActionSlot } from "@bb/shared-ui/prompt-banner-actions";
 import {
   AnimatedDisclosureBody,
@@ -90,19 +88,18 @@ export function MergeBaseActionView({
   return (
     <BannerActionSlot hideInCompact>
       <Icon name="GitMerge" className="size-3.5 shrink-0" aria-hidden="true" />
-      <span className="shrink-0">Merge base</span>
+      <span className="shrink-0 text-foreground">Merge base</span>
       <BranchPicker
         value={branch}
         options={candidates.options}
         remoteOptions={candidates.remoteOptions}
         variant="minimal"
-        emphasizeTriggerValue={false}
+        emphasizeTriggerValue
         loading={mergeBase.optionsLoading}
         onChange={mergeBase.onChange}
         onOpenChange={mergeBase.onPickerOpenChange}
         onSearchQueryChange={mergeBase.onSearchQueryChange}
         className="max-w-[10rem]"
-        muted
         popoverAlign="end"
       />
     </BannerActionSlot>
@@ -214,7 +211,10 @@ function SegmentContent({
       section={section}
       action={
         props.part === "action" ? (
-          <MergeBaseAction environmentId={environmentId} workspace={workspace} />
+          <MergeBaseAction
+            environmentId={environmentId}
+            workspace={workspace}
+          />
         ) : null
       }
       onFileClick={(file) => actions.onChangedFileClick({ file, section })}
