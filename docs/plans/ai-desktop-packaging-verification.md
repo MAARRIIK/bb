@@ -110,3 +110,21 @@ commit are recorded separately with the final artifacts and private handoff.
 
 The user's existing IDE, server, daemon and data were preserved throughout.
 Screenshots, model output and inventories stay private in the evidence directory.
+
+## Packaging CI follow-up
+
+The first hosted run (`45506864027`) reached the desktop tests on both platforms
+and exposed stale Windows package-name assertions and native recovery-fixture
+window titles. Existing assertions were updated to the actual AI contract; the
+full local desktop suite then passed (664 tests, one platform skip). The inherited
+launcher suite passed on both hosted platforms. Locally its macOS proxy-child
+case cannot run under Node 22.19 (`--use-env-proxy` is unsupported); its other
+230 cases passed. These results do not turn the first failed workflow green.
+The feed generator now has an uncached Turbo task, shared by local commands
+and the hosted workflow.
+
+Final main `496758c4255379a1800ac1714a89c01ec8649d32` was embedded in the local
+macOS 0.50.2 package. Its verified DMG boot showed the AI title, all 39 enabled
+bundled plugins running, and retained `AI_PACKAGE_QA_OK` from the previous
+installation. Final Linux rebuild and Debian upgrade evidence are retained
+with the private release artifacts.

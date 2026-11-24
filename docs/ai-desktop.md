@@ -19,7 +19,7 @@ On an Apple Silicon Mac, build a DMG for installation and a ZIP for updates:
 
 ```sh
 CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec turbo run desktop:build --filter=@bb/desktop --output-logs=new-only
-pnpm --dir apps/desktop run desktop:version-feed
+pnpm exec turbo run desktop:version-feed --filter=@bb/desktop --output-logs=new-only
 ```
 
 Open the DMG in `apps/desktop/release/` and drag `AI.app` to `/Applications`.
@@ -33,7 +33,7 @@ architecture:
 
 ```sh
 pnpm exec turbo run desktop:build:linux --filter=@bb/desktop --output-logs=new-only
-pnpm --dir apps/desktop run desktop:version-feed
+pnpm exec turbo run desktop:version-feed --filter=@bb/desktop --output-logs=new-only
 sudo apt install ./apps/desktop/release/AI-*.deb
 ai-ide
 ```
