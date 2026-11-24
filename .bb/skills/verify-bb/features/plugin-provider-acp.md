@@ -34,8 +34,13 @@ In isolated source QA, enable provider-acp and open its plugin settings.
 Follow Open subscription connections to the Subscriptions page; also exercise
 the sidebar entry. Native terminal opening must be checked on that page, since
 the generic plugin-settings host can decline terminal navigation.
-Check Russian and English, desktop and narrow layouts. Add each subscription
-profile and reload; custom agents must remain intact. Sign-in stays disabled
+Check Russian and English, desktop and narrow layouts. With empty customAgents,
+open the normal model picker and find Antigravity, Kimi Code and Qwen Code next
+to Codex and Claude. Reload and verify they remain. Subscription setup must
+allow sign-in without adding profiles first. The legacy add command remains
+idempotent; custom overrides must survive reload, and removing one restores
+the shipped provider. Disable/enable a provider through CLI and verify the
+picker follows the same catalog. Sign-in stays disabled
 until an explicit connected machine is chosen. Check the same list/add/login
 path through `bb acp subscriptions --help` and `sdk.plugins.callRpc`.
 

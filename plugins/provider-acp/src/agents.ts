@@ -73,7 +73,19 @@ export function customAcpAgentDefinition(
 ): AcpAgentDefinition {
   const nativeSkillRoots =
     agent.nativeSkillRoots ?? shipped?.launch.nativeSkillRoots;
+  const matchesShippedLaunch =
+    shipped !== undefined &&
+    agent.command === shipped.launch.command &&
+    JSON.stringify(agent.args) === JSON.stringify(shipped.launch.args) &&
+    JSON.stringify(agent.env) === JSON.stringify(shipped.launch.env) &&
+    agent.cwd === shipped.launch.cwd;
   return {
+    ...(matchesShippedLaunch && shipped.signInCommand !== undefined
+      ? { signInCommand: shipped.signInCommand }
+      : {}),
+    ...(matchesShippedLaunch && shipped.installUrl !== undefined
+      ? { installUrl: shipped.installUrl }
+      : {}),
     id: formatCustomAcpProviderId(agent.id),
     displayName: agent.displayName,
     icon: registryAgentIcon(agent.id) ?? CUSTOM_AGENT_GLYPH,

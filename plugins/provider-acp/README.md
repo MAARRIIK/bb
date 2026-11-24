@@ -1,7 +1,9 @@
 # ACP providers
 
 First-party plugin for ACP (Agent Client Protocol) agent providers: Cursor,
-opencode, omp, Grok Build and Hermes Agent.
+opencode, omp, Grok Build, Hermes Agent, Antigravity, Kimi Code and Qwen Code.
+The latter three appear in the normal model picker without adding a profile;
+Subscriptions provides their native account sign-in on the chosen machine.
 
 OpenCode Go usage appears under OpenCode in the Provider usage panel for the
 selected machine. It reads the official Go endpoint using the machine's OpenCode

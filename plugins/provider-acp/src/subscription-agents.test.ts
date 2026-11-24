@@ -70,11 +70,11 @@ function terminalSession(
 
 const loadedHosts: ReturnType<typeof createFakePluginHost>[] = [];
 
-async function loadPlugin(customAgents = "[]") {
+async function loadPlugin(customAgents?: string) {
   const host = createFakePluginHost({
     pluginId: "provider-acp",
     experimental_declaredIconNames: declaredIconNames,
-    settings: { customAgents },
+    ...(customAgents === undefined ? {} : { settings: { customAgents } }),
   });
   loadedHosts.push(host);
   host.harness.sdk.stub("hosts.list", () => Promise.resolve([]));
@@ -102,7 +102,7 @@ afterEach(async () => {
 });
 
 describe("ACP subscription setup", () => {
-  it("persists parallel profile additions without losing an existing custom agent", async () => {
+  it("preserves a custom agent across parallel subscription setup and reload", async () => {
     const host = await loadPlugin(
       JSON.stringify([
         {
@@ -184,11 +184,35 @@ describe("ACP subscription setup", () => {
   });
 
   it.each(profiles)(
-    "opens $name native sign-in on the requested machine without claiming authentication",
+    "registers $name by default and opens native sign-in without a setup step",
     async (profile) => {
       const host = await loadPlugin();
-      await host.harness.callRpc("configureSubscriptionAgent", {
-        id: profile.id,
+      expect(await host.harness.callRpc("listSubscriptionAgents", {})).toEqual(
+        expect.arrayContaining(
+          profiles.map((entry) =>
+            expect.objectContaining({
+              id: entry.id,
+              configured: true,
+              matchesProfile: true,
+            }),
+          ),
+        ),
+      );
+      for (const entry of profiles) {
+        expect(
+          host.harness.registrations.providerRegistrations.filter(
+            (provider) => provider.id === `acp-${entry.id}`,
+          ),
+        ).toHaveLength(1);
+      }
+      expect(
+        host.harness.registrations.providerRegistrations.find(
+          (provider) => provider.id === `acp-${profile.id}`,
+        ),
+      ).toMatchObject({
+        displayName: profile.name,
+        experimental_visibility: "always",
+        strings: { signInHint: expect.stringContaining(profile.command) },
       });
       const rpcResult = await host.harness.callRpc("startSubscriptionSignIn", {
         id: profile.id,
@@ -228,6 +252,101 @@ describe("ACP subscription setup", () => {
       ]);
     },
   );
+
+  it("keeps an existing custom override through setup and reload, then restores the shipped provider when removed", async () => {
+    const override = {
+      id: "kimi-code",
+      displayName: "Private Kimi",
+      command: "/opt/private-kimi",
+      args: ["--custom-acp"],
+      env: { KIMI_BASE_URL: "https://private.example.test" },
+      cwd: "/private/workspace",
+    };
+    const host = await loadPlugin(JSON.stringify([override]));
+    const original = host.harness.registrations.providerRegistrations.find(
+      (provider) => provider.id === "acp-kimi-code",
+    );
+    expect(original).toMatchObject({
+      displayName: "Private Kimi",
+      experimental_bridgeOptions: {
+        acpLaunchSpec: {
+          command: "/opt/private-kimi",
+          args: ["--custom-acp"],
+          env: { KIMI_BASE_URL: "https://private.example.test" },
+          cwd: "/private/workspace",
+        },
+      },
+    });
+    expect(original?.strings?.signInHint).not.toContain("npx -y @moonshot-ai");
+    await host.harness.callRpc("configureSubscriptionAgent", {
+      id: "kimi-code",
+    });
+    const reloaded = await host.harness.reload(acpProvidersPlugin);
+    loadedHosts.splice(loadedHosts.indexOf(host), 1, reloaded);
+    reloaded.harness.sdk.stub("hosts.get", () =>
+      Promise.resolve({
+        ...makeHostResponse({ id: "host-login" }),
+        connectMachineId: null,
+        threadStorageRootPath: null,
+      }),
+    );
+    reloaded.harness.sdk.stub("terminals.list", () =>
+      Promise.resolve({ sessions: [] }),
+    );
+    reloaded.harness.sdk.stub("terminals.create", () =>
+      Promise.resolve(terminalSession()),
+    );
+    expect(
+      reloaded.harness.registrations.providerRegistrations.find(
+        (provider) => provider.id === "acp-kimi-code",
+      ),
+    ).toEqual(original);
+    await expect(
+      reloaded.harness.callRpc("startSubscriptionSignIn", {
+        id: "kimi-code",
+        hostId: "host-login",
+      }),
+    ).rejects.toThrow("A custom launch configuration");
+    expect(reloaded.harness.sdk.callsTo("terminals.create")).toEqual([]);
+    await reloaded.harness.setSettings({ customAgents: "[]" });
+    await vi.waitFor(() =>
+      expect(
+        reloaded.harness.registrations.providerRegistrations.find(
+          (provider) => provider.id === "acp-kimi-code",
+        ),
+      ).toMatchObject({
+        displayName: "Kimi Code",
+        experimental_bridgeOptions: {
+          acpLaunchSpec: {
+            command: "npx",
+            args: ["-y", "@moonshot-ai/kimi-code@2.7.3", "acp"],
+            env: {},
+          },
+        },
+        strings: {
+          signInHint: expect.stringContaining(
+            "npx -y @moonshot-ai/kimi-code@2.7.3 login",
+          ),
+        },
+      }),
+    );
+    expect(
+      await reloaded.harness.callRpc("listSubscriptionAgents", {}),
+    ).toContainEqual(
+      expect.objectContaining({
+        id: "kimi-code",
+        configured: true,
+        matchesProfile: true,
+      }),
+    );
+    expect(
+      await reloaded.harness.callRpc("startSubscriptionSignIn", {
+        id: "kimi-code",
+        hostId: "host-login",
+      }),
+    ).toEqual({ terminalId: "term-login" });
+    expect(reloaded.harness.sdk.callsTo("terminals.create")).toHaveLength(1);
+  });
 
   it("reopens a running native sign-in terminal and starts a new one after it exits", async () => {
     const host = await loadPlugin();
@@ -294,7 +413,6 @@ describe("ACP subscription setup", () => {
   });
 
   it.each([
-    { name: "unconfigured", customAgents: "[]" },
     {
       name: "custom environment",
       customAgents: JSON.stringify([
@@ -339,7 +457,7 @@ describe("ACP subscription setup", () => {
           id: "kimi-code",
           hostId: "host-login",
         }),
-      ).rejects.toThrow("Add the subscription profile first");
+      ).rejects.toThrow("A custom launch configuration");
       const cli = await host.harness.runCli([
         "subscriptions",
         "login",
@@ -348,7 +466,7 @@ describe("ACP subscription setup", () => {
         "host-login",
       ]);
       expect(cli.exitCode).toBe(1);
-      expect(cli.stderr).toContain("Add the subscription profile first");
+      expect(cli.stderr).toContain("A custom launch configuration");
       expect(host.harness.sdk.callsTo("terminals.create")).toEqual([]);
     },
   );

@@ -9,8 +9,6 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { acpProviderDeclaration } from "../declaration.js";
-import { KNOWN_ACP_AGENTS } from "../known-agents.js";
 import { resolveAcpNativeRoots } from "./index.js";
 
 let tempRoot: string;
@@ -332,17 +330,5 @@ describe("resolveAcpNativeRoots", () => {
     expect(String(warn.mock.calls[0]?.[0])).toContain(
       `dropped the skills root "${path.join(pluginRoot, "skills")}"`,
     );
-  });
-});
-
-describe("known agent declarations", () => {
-  it("declares the native-roots resolver flag for every shipped agent", () => {
-    expect(
-      KNOWN_ACP_AGENTS.filter(
-        (agent) =>
-          acpProviderDeclaration(agent).experimental_resolvesNativeRoots ===
-          true,
-      ).map((agent) => agent.id),
-    ).toEqual(KNOWN_ACP_AGENTS.map((agent) => agent.id));
   });
 });

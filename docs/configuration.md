@@ -819,8 +819,10 @@ section or with `bb acp registry`, `bb acp add <agent-id>`, and
 `bb acp remove <agent-id>`. An added agent is a `customAgents` entry running
 the registry's `npx` or `uvx` package on the thread's host.
 
-The Subscriptions page offers profiles for Antigravity, Kimi Code, and cloud
-Qwen Code; the ACP settings page links to it. `bb acp subscriptions list --json`, `bb acp subscriptions add <id>`,
+Antigravity, Kimi Code, and cloud Qwen Code are built-in ACP providers in the
+normal provider/model picker alongside Codex and Claude. Their models come from
+the agent's ACP catalog. The Subscriptions page is for account sign-in and setup;
+the ACP settings page links to it. No Add agent step is required. `bb acp subscriptions list --json`, `bb acp subscriptions add <id>`,
 and `bb acp subscriptions login <id> --machine <host-id>` share the UI's path.
 Profile ids are `antigravity-acp`, `kimi-code`, and `qwen-code`. Add appends to
 `customAgents` without replacing an existing entry. Antigravity uses installed
@@ -828,7 +830,10 @@ Profile ids are `antigravity-acp`, `kimi-code`, and `qwen-code`. Add appends to
 a native-agent command in a BB terminal on the explicitly chosen connected
 machine. Credentials stay in that agent's native storage. A returned terminal
 id confirms terminal creation or reuse, not account authentication or plan access.
-Modified launch settings require their own sign-in procedure. See the owning
+Existing custom overrides keep their launch settings. Removing an override
+restores the built-in provider; use `bb provider disable <provider-id>` to hide
+it. Modified launch settings require their own sign-in procedure. Provider
+visibility and CLI availability do not confirm authentication or plan access. See the owning
 [ACP skill](../plugins/provider-acp/skills/acp-provider/SKILL.md).
 
 ## Custom Models
