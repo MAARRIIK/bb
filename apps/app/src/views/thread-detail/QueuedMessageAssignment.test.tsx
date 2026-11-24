@@ -10,6 +10,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeProviderInfo } from "@bb/test-helpers/domain-fixtures";
+import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
 import { QueuedMessageAssignment } from "./QueuedMessageAssignment";
 
 const state = vi.hoisted(() => ({ placeholder: false, error: false }));
@@ -55,33 +56,40 @@ afterEach(() => {
   state.error = false;
 });
 
-function fixture() {
+function fixture(compact = false) {
   const onSelect = vi.fn();
   const appRoot = document.createElement("div");
   appRoot.id = "root";
   document.body.append(appRoot);
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <QueuedMessageAssignment
-        currentProviderId="codex"
-        environmentId="env_assignment"
-        edit={{
-          editSessionId: 1,
-          expectedUpdatedAt: 1,
-          providerId: "codex",
-          model: "codex-model",
-          reasoningLevel: "medium",
-          permissionMode: "accept-edits",
-          serviceTier: "default",
-          ownerThreadId: "thr_assignment",
-          queuedMessageId: "qmsg_assignment",
-          queuedMessageIndex: 0,
-          draft: { text: "Keep my task", mentions: [], attachments: [] },
-          initialDraft: { text: "Keep my task", mentions: [], attachments: [] },
-        }}
-        onSelect={onSelect}
-      />
-    </QueryClientProvider>,
+    <CompactViewportOverrideProvider isCompactViewport={compact}>
+      <QueryClientProvider client={new QueryClient()}>
+        <QueuedMessageAssignment
+          currentProviderId="codex"
+          environmentId="env_assignment"
+          edit={{
+            editSessionId: 1,
+            expectedUpdatedAt: 1,
+            providerId: "codex",
+            providerSwitchPolicy: "manual",
+            model: "codex-model",
+            reasoningLevel: "medium",
+            permissionMode: "accept-edits",
+            serviceTier: "default",
+            ownerThreadId: "thr_assignment",
+            queuedMessageId: "qmsg_assignment",
+            queuedMessageIndex: 0,
+            draft: { text: "Keep my task", mentions: [], attachments: [] },
+            initialDraft: {
+              text: "Keep my task",
+              mentions: [],
+              attachments: [],
+            },
+          }}
+          onSelect={onSelect}
+        />
+      </QueryClientProvider>
+    </CompactViewportOverrideProvider>,
     { container: appRoot },
   );
   return onSelect;
@@ -102,7 +110,13 @@ describe("queued task assignment", () => {
     const onSelect = fixture();
     fireEvent.click(screen.getByRole("button", { name: "Assign task model" }));
     const provider = await screen.findByRole("combobox", { name: "Provider" });
+    const automatic = screen.getByRole("checkbox", {
+      name: /Switch automatically/,
+    });
+    expect(automatic).toHaveProperty("checked", false);
+    fireEvent.click(automatic);
     fireEvent.change(provider, { target: { value: "pi" } });
+    expect(automatic).toHaveProperty("checked", false);
     expect(
       screen
         .getByRole("button", { name: "Use for this task" })
@@ -112,9 +126,11 @@ describe("queued task assignment", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Permissions" }), {
       target: { value: "full" },
     });
+    fireEvent.click(automatic);
     fireEvent.click(screen.getByRole("button", { name: "Use for this task" }));
     expect(onSelect).toHaveBeenCalledExactlyOnceWith({
       providerId: "pi",
+      providerSwitchPolicy: "recent-messages",
       model: "pi-model",
       permissionMode: "full",
       reasoningLevel: "medium",
@@ -138,25 +154,38 @@ describe("queued task assignment", () => {
     },
   );
 
-  it("discards selection changes when the dialog is dismissed", async () => {
-    const onSelect = fixture();
-    fireEvent.click(screen.getByRole("button", { name: "Assign task model" }));
-    fireEvent.change(
-      await screen.findByRole("combobox", { name: "Provider" }),
-      { target: { value: "pi" } },
-    );
-    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-    await waitFor(() =>
-      expect(screen.queryByRole("combobox", { name: "Provider" })).toBeNull(),
-    );
-    expect(onSelect).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Assign task model" }));
-    expect(
-      (
-        (await screen.findByRole("combobox", {
-          name: "Provider",
-        })) as HTMLSelectElement
-      ).value,
-    ).toBe("codex");
-  });
+  it.each([false, true])(
+    "discards provider and context consent changes when dismissed (compact: %s)",
+    async (compact) => {
+      const onSelect = fixture(compact);
+      fireEvent.click(
+        screen.getByRole("button", { name: "Assign task model" }),
+      );
+      fireEvent.change(
+        await screen.findByRole("combobox", { name: "Provider" }),
+        { target: { value: "pi" } },
+      );
+      fireEvent.click(
+        screen.getByRole("checkbox", { name: /Switch automatically/ }),
+      );
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+      await waitFor(() =>
+        expect(screen.queryByRole("combobox", { name: "Provider" })).toBeNull(),
+      );
+      expect(onSelect).not.toHaveBeenCalled();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Assign task model" }),
+      );
+      expect(
+        await screen.findByRole("checkbox", { name: /Switch automatically/ }),
+      ).toHaveProperty("checked", false);
+      expect(
+        (
+          (await screen.findByRole("combobox", {
+            name: "Provider",
+          })) as HTMLSelectElement
+        ).value,
+      ).toBe("codex");
+    },
+  );
 });

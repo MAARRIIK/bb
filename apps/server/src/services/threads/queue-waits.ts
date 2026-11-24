@@ -152,6 +152,7 @@ export function recordQueuedMessageWait(
               ? args.message.providerSource.providerSessionId
               : null,
           model: args.message.execution.model,
+          providerSwitchPolicy: "manual",
           reasoningLevel: args.message.execution.reasoningLevel,
           permissionMode: args.message.execution.permissionMode,
           serviceTier: args.message.execution.serviceTier,

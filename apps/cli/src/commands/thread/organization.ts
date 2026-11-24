@@ -4,6 +4,7 @@ import { updateThreadTabsRequestSchema } from "@bb/server-contract";
 import {
   RESTART_RESUME_RETRY_REASON,
   queuedMessageWaitHolderSchema,
+  queuedMessageProviderSwitchPolicySchema,
   type PromptInput,
   type QueuedMessageWaitHolder,
 } from "@bb/domain";
@@ -63,6 +64,7 @@ interface QueueListOptions extends JsonOptions {
 
 interface QueueCreateOptions extends JsonOptions {
   provider?: string;
+  providerSwitchPolicy?: string;
   permissionMode?: string;
   reasoningLevel?: string;
   serviceTier?: string;
@@ -74,6 +76,7 @@ interface QueueCreateOptions extends JsonOptions {
 
 interface QueueUpdateOptions extends JsonOptions {
   provider?: string;
+  providerSwitchPolicy?: string;
   clearSendAt?: boolean;
   file?: string[];
   image?: string[];
@@ -135,6 +138,7 @@ function printQueueTable(rows: ThreadQueuedMessagesResult): void {
         : (row.senderThreadId ?? "Agent"),
     row.providerId ?? "—",
     truncateCell(row.model, MAX_QUEUE_TEXT_WIDTH),
+    row.providerSwitchPolicy,
     truncateCell(
       row.payload.kind === "retry" &&
         row.payload.reason === RESTART_RESUME_RETRY_REASON
@@ -159,12 +163,13 @@ function printQueueTable(rows: ThreadQueuedMessagesResult): void {
         "Sender",
         "Provider",
         "Model",
+        "Switch policy",
         "Message",
         "State",
         "Waiting on",
         "Send at",
       ],
-      colWidths: columnWidths(table, [2, 6, 6, 8, 5, 7, 5, 10, 7]),
+      colWidths: columnWidths(table, [2, 6, 6, 8, 5, 13, 7, 5, 10, 7]),
     },
     table,
   );
@@ -381,6 +386,10 @@ export function registerOrganizationCommands(
       "Assign this task to a provider without switching the chat",
     )
     .option("--model <model>", "Model override for the queued message")
+    .option(
+      "--provider-switch-policy <policy>",
+      "manual (default) or recent-messages: switch at execution and transfer recent visible context within an 8192-token budget",
+    )
     .option("--permission-mode <mode>", PERMISSION_MODE_HELP)
     .option(
       "--reasoning-level <level>",
@@ -432,6 +441,14 @@ export function registerOrganizationCommands(
             threadId,
             input,
             ...(opts.provider ? { providerId: opts.provider } : {}),
+            ...(opts.providerSwitchPolicy === undefined
+              ? {}
+              : {
+                  providerSwitchPolicy:
+                    queuedMessageProviderSwitchPolicySchema.parse(
+                      opts.providerSwitchPolicy,
+                    ),
+                }),
             permissionMode: parsePermissionMode(opts.permissionMode),
             reasoningLevel: parseReasoningLevel(opts.reasoningLevel),
             serviceTier: parseServiceTier(opts.serviceTier),
@@ -452,6 +469,10 @@ export function registerOrganizationCommands(
     .option(
       "--provider <id>",
       "Assign this task to a provider without switching the chat",
+    )
+    .option(
+      "--provider-switch-policy <policy>",
+      "manual or recent-messages: allow this task to switch providers and transfer bounded recent context at execution",
     )
     .option(
       "--message-file <path>",
@@ -509,6 +530,12 @@ export function registerOrganizationCommands(
                 : undefined;
           const execution = {
             providerId: opts.provider,
+            providerSwitchPolicy:
+              opts.providerSwitchPolicy === undefined
+                ? undefined
+                : queuedMessageProviderSwitchPolicySchema.parse(
+                    opts.providerSwitchPolicy,
+                  ),
             model: opts.model,
             permissionMode: parsePermissionMode(opts.permissionMode),
             reasoningLevel: parseReasoningLevel(opts.reasoningLevel),
@@ -561,6 +588,9 @@ export function registerOrganizationCommands(
             ...(execution.providerId === undefined
               ? {}
               : { providerId: execution.providerId }),
+            ...(execution.providerSwitchPolicy === undefined
+              ? {}
+              : { providerSwitchPolicy: execution.providerSwitchPolicy }),
             ...(execution.model === undefined
               ? {}
               : { model: execution.model }),

@@ -23,6 +23,7 @@ function retryRow(
     threadId: "thread-wait-retry",
     content: [{ type: "text", text: "Do the thing", mentions: [] }],
     providerId: "codex",
+    providerSwitchPolicy: "manual",
     model: "gpt-5",
     reasoningLevel: "medium",
     permissionMode: "auto",

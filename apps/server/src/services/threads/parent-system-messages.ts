@@ -165,6 +165,7 @@ export async function queueParentSystemMessage(
         threadId: args.parentThreadId,
         providerId: null,
         providerSessionId: null,
+        providerSwitchPolicy: "manual",
         content: args.input,
         senderThreadId: null,
         model: execution.model,

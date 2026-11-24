@@ -261,6 +261,7 @@ async function createQueuedMessageForCurrentProvider(
             providerId === currentThread.providerId
               ? currentThread.providerSessionId
               : null,
+          providerSwitchPolicy: payload.providerSwitchPolicy ?? "manual",
           content: input,
           senderThreadId,
           model: execution.model,
@@ -317,7 +318,12 @@ export interface ResolveQueuedMessageExecutionChangeArgs {
   queuedMessageId: string;
   request: Pick<
     UpdateQueuedMessageRequest,
-    "providerId" | "model" | "permissionMode" | "reasoningLevel" | "serviceTier"
+    | "providerId"
+    | "providerSwitchPolicy"
+    | "model"
+    | "permissionMode"
+    | "reasoningLevel"
+    | "serviceTier"
   >;
   thread: Thread;
 }
@@ -327,13 +333,13 @@ export async function resolveQueuedMessageExecutionChange(
   args: ResolveQueuedMessageExecutionChangeArgs,
 ): Promise<QueuedThreadMessageExecution | null> {
   const { request } = args;
-  if (
-    request.providerId === undefined &&
-    request.model === undefined &&
-    request.permissionMode === undefined &&
-    request.reasoningLevel === undefined &&
-    request.serviceTier === undefined
-  ) {
+  const changesParameters =
+    request.providerId !== undefined ||
+    request.model !== undefined ||
+    request.permissionMode !== undefined ||
+    request.reasoningLevel !== undefined ||
+    request.serviceTier !== undefined;
+  if (!changesParameters && request.providerSwitchPolicy === undefined) {
     return null;
   }
   const row = getQueuedThreadMessage(deps.db, args.queuedMessageId);
@@ -356,6 +362,17 @@ export async function resolveQueuedMessageExecutionChange(
       "invalid_request",
       "Retries and system notices cannot be assigned to another provider",
     );
+  if (
+    request.providerSwitchPolicy === "recent-messages" &&
+    (row.payloadKind === "retry" ||
+      row.systemNotice !== null ||
+      (row.providerId === null && request.providerId === undefined))
+  )
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Automatic switching requires an ordinary task with an explicit provider assignment",
+    );
   requireProviderTransitionSettled(deps.db, args.thread.id);
   const source = requireThreadProviderSessionSource(deps.db, args.thread.id);
   requireQueuedMessageProvider(source.providerId, [args.thread]);
@@ -367,8 +384,9 @@ export async function resolveQueuedMessageExecutionChange(
         reasoningLevel: request.reasoningLevel ?? current.reasoningLevel,
         serviceTier: request.serviceTier ?? current.serviceTier,
       };
-  const resolved =
-    providerId === args.thread.providerId && !reassigning
+  const resolved = !changesParameters
+    ? current
+    : providerId === args.thread.providerId && !reassigning
       ? await buildExecutionOptions(deps, selected, {
           threadId: args.thread.id,
         })
@@ -389,6 +407,9 @@ export async function resolveQueuedMessageExecutionChange(
         ? source.providerSessionId
         : null
       : row.providerSessionId,
+    providerSwitchPolicy:
+      request.providerSwitchPolicy ??
+      (reassigning ? "manual" : current.providerSwitchPolicy),
     model: resolved.model,
     permissionMode: resolved.permissionMode,
     reasoningLevel: resolved.reasoningLevel,

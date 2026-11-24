@@ -21,6 +21,7 @@ import {
   requeueClaimedQueuedThreadMessages,
   setQueuedThreadMessageFailureReason,
   setQueuedThreadMessageGroupBoundary,
+  setClaimedQueuedMessageProviderSwitchOperation,
   updateQueuedThreadMessage,
 } from "../../src/data/queued-thread-messages.js";
 import { createProject } from "../../src/data/projects.js";
@@ -48,6 +49,7 @@ function queueTurnEndMessage(
   },
 ) {
   return createQueuedThreadMessage(db, noopNotifier, {
+    providerSwitchPolicy: "manual",
     providerSessionId: null,
     providerId: "codex",
     threadId,
@@ -80,9 +82,55 @@ function setup() {
 }
 
 describe("queued thread messages", () => {
+  it("preserves an operation across claims and refuses a stale owner's replacement", () => {
+    const { db, thread } = setup();
+    const row = queueTurnEndMessage(db, thread.id, defaultInput);
+    const oldClaim = claimQueuedThreadMessageGroup(db, noopNotifier, row.id, {
+      kind: "explicit-send",
+    });
+    if (oldClaim === null) throw Error("Missing first claim");
+    expect(
+      setClaimedQueuedMessageProviderSwitchOperation(db, {
+        claimed: oldClaim,
+        expectedOperationId: null,
+        operationId: "original-operation",
+      }),
+    ).toBe(true);
+    releaseQueuedMessageClaim(db, noopNotifier, {
+      id: row.id,
+      claimToken: oldClaim[0]!.claimToken,
+    });
+    const newClaim = claimQueuedThreadMessageGroup(db, noopNotifier, row.id, {
+      kind: "explicit-send",
+    });
+    if (newClaim === null) throw Error("Missing replacement claim");
+    expect(newClaim[0]?.providerSwitchOperationId).toBe("original-operation");
+    expect(
+      setClaimedQueuedMessageProviderSwitchOperation(db, {
+        claimed: oldClaim,
+        expectedOperationId: "original-operation",
+        operationId: "stale-operation",
+      }),
+    ).toBe(false);
+    expect(getQueuedThreadMessage(db, row.id)?.providerSwitchOperationId).toBe(
+      "original-operation",
+    );
+    expect(
+      setClaimedQueuedMessageProviderSwitchOperation(db, {
+        claimed: newClaim,
+        expectedOperationId: "original-operation",
+        operationId: "replacement-operation",
+      }),
+    ).toBe(true);
+    expect(getQueuedThreadMessage(db, row.id)?.providerSwitchOperationId).toBe(
+      "replacement-operation",
+    );
+    db.$client.close();
+  });
   it.each([
     { providerId: "pi", providerSessionId: null },
     { providerId: "codex", providerSessionId: "another-generation" },
+    { providerId: "codex", providerSessionId: null, providerSwitchPolicy: "recent-messages" as const },
   ])(
     "does not group matching models with a different assignment: %j",
     (assignment) => {
@@ -100,11 +148,13 @@ describe("queued thread messages", () => {
         systemNotice: null,
       };
       const first = createQueuedThreadMessage(db, noopNotifier, {
+        providerSwitchPolicy: "manual",
         ...common,
         providerId: "codex",
         providerSessionId: null,
       });
       const second = createQueuedThreadMessage(db, noopNotifier, {
+        providerSwitchPolicy: "manual",
         ...common,
         ...assignment,
       });
@@ -128,6 +178,7 @@ describe("queued thread messages", () => {
       status: "idle",
     });
     createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -150,6 +201,7 @@ describe("queued thread messages", () => {
   it("updates queued message content without changing its identity or position", () => {
     const { db, thread } = setup();
     const first = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -164,6 +216,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const second = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -215,6 +268,7 @@ describe("queued thread messages", () => {
   it("rejects a second update based on the same queued message version", () => {
     const { db, thread } = setup();
     const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -260,6 +314,7 @@ describe("queued thread messages", () => {
     try {
       const { db, thread } = setup();
       const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: thread.providerId,
         threadId: thread.id,
@@ -295,6 +350,7 @@ describe("queued thread messages", () => {
   it("does not update a queued message that is already claimed for sending", () => {
     const { db, thread } = setup();
     const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -330,6 +386,7 @@ describe("queued thread messages", () => {
   it("deletes a queued message", () => {
     const { db, thread } = setup();
     const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -356,6 +413,7 @@ describe("queued thread messages", () => {
   it("claims a queued message and hides it from the queue until the claim is released", () => {
     const { db, thread } = setup();
     const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -395,6 +453,7 @@ describe("queued thread messages", () => {
   it("does not release or consume a queued message claimed by another owner", () => {
     const { db, thread } = setup();
     const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -482,6 +541,7 @@ describe("queued thread messages", () => {
     try {
       nowSpy.mockReturnValue(1_000);
       const queuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: thread.providerId,
         threadId: thread.id,
@@ -532,6 +592,7 @@ describe("queued thread messages", () => {
         db,
         noopNotifier,
         {
+          providerSwitchPolicy: "manual",
           providerSessionId: null,
           providerId: thread.providerId,
           threadId: thread.id,
@@ -550,6 +611,7 @@ describe("queued thread messages", () => {
         db,
         noopNotifier,
         {
+          providerSwitchPolicy: "manual",
           providerSessionId: null,
           providerId: thread.providerId,
           threadId: thread.id,
@@ -608,6 +670,7 @@ describe("queued thread messages", () => {
     try {
       nowSpy.mockReturnValueOnce(1_000);
       const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: thread.providerId,
         threadId: thread.id,
@@ -623,6 +686,7 @@ describe("queued thread messages", () => {
       });
       nowSpy.mockReturnValueOnce(2_000);
       const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+        providerSwitchPolicy: "manual",
         providerSessionId: null,
         providerId: thread.providerId,
         threadId: thread.id,
@@ -657,6 +721,7 @@ describe("queued thread messages", () => {
   it("persists the contiguous lead group boundary", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -671,6 +736,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -685,6 +751,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -726,6 +793,7 @@ describe("queued thread messages", () => {
   it("rejects a group boundary when the expected prefix is stale", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -740,6 +808,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -754,6 +823,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -805,6 +875,7 @@ describe("queued thread messages", () => {
   it("claims the contiguous lead group together", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -819,6 +890,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -833,6 +905,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -882,6 +955,7 @@ describe("queued thread messages", () => {
       status: "idle",
     });
     const ordinary = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -896,6 +970,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const notice = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: null,
       threadId: thread.id,
@@ -960,6 +1035,7 @@ describe("queued thread messages", () => {
       status: "idle",
     });
     const heldBack = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -974,6 +1050,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const askedForDuringStop = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1031,6 +1108,7 @@ describe("queued thread messages", () => {
       status: "idle",
     });
     createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1065,6 +1143,7 @@ describe("queued thread messages", () => {
   it("does not split a requeued group: the tail waits with its blocked lead", () => {
     const { db, thread } = setup();
     const lead = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1079,6 +1158,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const tail = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1130,6 +1210,7 @@ describe("queued thread messages", () => {
 
     // An independent row behind the blocked group still drains past it.
     const independent = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1156,6 +1237,7 @@ describe("queued thread messages", () => {
   it("claiming a cleared lead takes its still-grouped tail with it", () => {
     const { db, thread } = setup();
     const lead = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1170,6 +1252,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const tail = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1220,6 +1303,7 @@ describe("queued thread messages", () => {
   it("claims only the selected message when sending outside the lead group", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1234,6 +1318,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1248,6 +1333,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1292,6 +1378,7 @@ describe("queued thread messages", () => {
   it("clears the previous group edge when deleting a grouped follower", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1306,6 +1393,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1320,6 +1408,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1370,6 +1459,7 @@ describe("queued thread messages", () => {
   it("clears the previous group edge when claiming a grouped follower", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1384,6 +1474,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1398,6 +1489,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1442,6 +1534,7 @@ describe("queued thread messages", () => {
   it("clears the claimed follower group edge when releasing a failed direct send", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1456,6 +1549,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1470,6 +1564,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1527,6 +1622,7 @@ describe("queued thread messages", () => {
   it("rejects grouped prefixes that mix sender attribution", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1541,6 +1637,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1582,6 +1679,7 @@ describe("queued thread messages", () => {
   it("rejects grouped prefixes that mix execution options", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1596,6 +1694,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1636,6 +1735,7 @@ describe("queued thread messages", () => {
   it("does not consume any grouped claim when batch deletion is stale", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1650,6 +1750,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1706,6 +1807,7 @@ describe("queued thread messages", () => {
   it("reorders queued messages to the front, middle, and end", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1720,6 +1822,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1734,6 +1837,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1803,6 +1907,7 @@ describe("queued thread messages", () => {
   it("claims the reordered first queued message", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1817,6 +1922,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1857,6 +1963,7 @@ describe("queued thread messages", () => {
   it("rolls back a reorder when the requested group boundary is invalid", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1871,6 +1978,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1886,6 +1994,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1927,6 +2036,7 @@ describe("queued thread messages", () => {
   it("clears grouping when reorder-only would regroup different messages", () => {
     const { db, thread } = setup();
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1941,6 +2051,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -1955,6 +2066,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -2017,6 +2129,7 @@ describe("queued thread messages", () => {
       providerId: "codex",
     });
     const firstQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -2031,6 +2144,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const secondQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -2045,6 +2159,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const thirdQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: thread.providerId,
       threadId: thread.id,
@@ -2059,6 +2174,7 @@ describe("queued thread messages", () => {
       systemNotice: null,
     });
     const otherQueuedMessage = createQueuedThreadMessage(db, noopNotifier, {
+      providerSwitchPolicy: "manual",
       providerSessionId: null,
       providerId: otherThread.providerId,
       threadId: otherThread.id,
@@ -2153,6 +2269,7 @@ describe("queued thread messages", () => {
             ? { kind, pluginId: "gate", reason: "Held" }
             : { kind };
         const queued = createQueuedThreadMessage(db, noopNotifier, {
+          providerSwitchPolicy: "manual",
           threadId: thread.id,
           providerId: "codex",
           providerSessionId: null,
@@ -2179,7 +2296,7 @@ describe("queued thread messages", () => {
           expectedUpdatedAt: failed?.updatedAt ?? -1,
           content: null,
           reschedule: null,
-          execution: {
+          execution: { providerSwitchPolicy: "manual",
             ...opus,
             providerId: "claude-code",
             providerSessionId: null,
@@ -2211,7 +2328,7 @@ describe("queued thread messages", () => {
 
       const result = updateQueuedThreadMessage(db, noopNotifier, {
         content: null,
-        execution: { ...opus, providerId: "codex", providerSessionId: null },
+        execution: { providerSwitchPolicy: "manual", ...opus, providerId: "codex", providerSessionId: null },
         reschedule: null,
         expectedUpdatedAt: queued.updatedAt,
         id: queued.id,
@@ -2246,7 +2363,7 @@ describe("queued thread messages", () => {
       const update = (row: { id: string }) =>
         updateQueuedThreadMessage(db, noopNotifier, {
           content: null,
-          execution: { ...opus, providerId: "codex", providerSessionId: null },
+          execution: { providerSwitchPolicy: "manual", ...opus, providerId: "codex", providerSessionId: null },
           reschedule: null,
           expectedUpdatedAt: getQueuedThreadMessage(db, row.id)?.updatedAt ?? -1,
           id: row.id,

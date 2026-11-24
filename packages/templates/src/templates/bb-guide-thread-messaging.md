@@ -117,10 +117,12 @@ Queued messages:
   bb thread queue create <thread-id> <message> [--file <path>] [--image <path>]
                          [--provider <id>] [--model <model>] [--permission-mode <mode>]
                          [--reasoning-level <level>] [--service-tier <tier>]
+                         [--provider-switch-policy manual|recent-messages]
   bb thread queue update <thread-id> <message-id> [<message>] [--file <path>] [--image <path>]
                          [--send-at <when> | --clear-send-at] [--provider <id>] [--model <model>]
                          [--reasoning-level <level>] [--permission-mode <mode>]
                          [--service-tier <tier>]
+                         [--provider-switch-policy manual|recent-messages]
                                            create and update also take --message-file <path>
   bb thread queue send <thread-id> <message-id> [--mode auto|steer]
   bb thread queue reorder <thread-id> <message-id> [--after <id>] [--before <id>]
@@ -131,13 +133,14 @@ Queued messages:
   leave it blank. The SDK and `--json` include `initiator` and `senderThreadId`.
   `Provider` and `Model` show each task's assignment; an em dash marks a null
   provider, whose legacy or system-notice meaning is described below.
+  `Switch policy` shows whether a task may transfer context and switch providers.
   SDK: `threads.queue.list` (all threads) and
   `threads.queuedMessages.list|send|update|delete` (one thread).
 
   New ordinary messages keep the provider that accepted them, as well as their
   model and execution options. SDK and JSON rows expose `providerId`; null means
   a legacy row whose provider was never recorded, or a core system notice that
-  follows the chat's current provider. After switching the chat's provider, an
+  follows the chat's current provider. In the default manual mode, after switching the chat's provider, an
   assigned message stays queued with a failure instead of running on the other
   agent. Switch back before using `queue send`. Execution edits validate the
   assigned provider, including when a different agent is current. Text, timing,
@@ -157,7 +160,22 @@ Queued messages:
   original native session; after a new session starts, cancel that retry and
   send a new request. Ordinary new tasks may run in a later session of their
   assigned provider. Failure recovery reads requests from the current session.
-  Queueing does not yet schedule an automatic provider switch.
+  `--provider-switch-policy recent-messages` explicitly allows an ordinary task
+  to switch providers at execution. SDK create/update use `providerSwitchPolicy`;
+  omitted create values default to `manual`, and reassignment without a new
+  policy resets it to `manual`. In Assign task model, opt into automatic switching
+  and save the editor. Changing providers clears that checkbox.
+  A policy-only update preserves the execution tuple and does not require the
+  assigned provider to be enabled or reachable. Dispatch validates it again.
+  The server transfers recent visible text within a conservative 8192-token
+  budget, further capped at one quarter of the target catalog window. Earlier
+  messages may be omitted; hidden input, reasoning, tool results and attachment
+  contents are excluded, and recognized credentials are redacted. Context is
+  built when the task runs, after plugin admission and core waits. Active work
+  is never steered to another provider. Retries, core notices and unassigned
+  legacy rows cannot opt in. Grouped rows must share the policy and transition
+  operation. The durable transition journal is reconciled before dispatch;
+  failure retains the task, and claimed rows are consumed with the turn request.
 
   A queued message is one that could not dispatch yet. It is not in the
   timeline or `thread log` until it dispatches; thread list rows carry

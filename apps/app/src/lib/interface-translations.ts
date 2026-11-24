@@ -8,9 +8,14 @@ export type InterfaceTranslator = (
 const russian = new Map<string, string>(
   Object.entries({
     "Assign task model": "Назначить модель заданию",
+    "Automatic switch": "Автопереключение",
     "Model for this queued task": "Модель для этого задания очереди",
-    "Save the editor to keep this assignment. The active conversation does not switch. Return to the assigned provider before this task runs.":
-      "Сохрани изменения в редакторе, чтобы оставить это назначение. Активный агент диалога не меняется. Перед выполнением задания вернись к назначенному провайдеру.",
+    "Save the editor to keep this assignment. Choose whether this task may switch providers when it starts. Otherwise, return to its provider manually.":
+      "Сохрани изменения в редакторе, чтобы оставить назначение. Выбери, может ли задание само сменить провайдера при запуске. Без этого вернись к его провайдеру вручную.",
+    "Switch automatically when this task starts":
+      "Переключать провайдера при запуске задания",
+    "When another provider is active, transfer recent visible messages with a context budget of up to 8192 tokens, also limited by the model catalog. Earlier messages may be omitted. The task waits for the current turn to finish.":
+      "Если выбран другой провайдер, передать последние видимые сообщения с бюджетом контекста до 8192 токенов и дополнительным ограничением по каталогу модели. Ранние сообщения могут не войти. Задание дождётся завершения текущего хода.",
     "Could not verify the target model catalog.":
       "Не удалось проверить каталог целевой модели.",
     "Use for this task": "Использовать для задания",

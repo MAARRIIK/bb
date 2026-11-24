@@ -19,6 +19,7 @@ import {
 } from "@/hooks/useSenderThreadMetadataById";
 import { useSecondTick } from "@/hooks/useSecondTick";
 import { usePluginDisplayName } from "@/lib/plugin-logos";
+import { useInterfaceTranslation } from "@/lib/interface-language";
 import { PluginIcon } from "@/components/plugin/PluginIcon";
 import {
   describeQueuedMessageWait,
@@ -825,6 +826,7 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
   isGroupBoundary,
   threadStatus,
 }: QueuedMessageRowProps) {
+  const { t } = useInterfaceTranslation();
   const actionsRef = useRef<HTMLDivElement>(null);
   const focusActionsOnExpandRef = useRef(false);
   useLayoutEffect(() => {
@@ -943,11 +945,16 @@ const QueuedMessageRow = memo(function QueuedMessageRow({
           </div>
           {queuedMessage.providerId !== null &&
           queuedMessage.systemNotice === null ? (
-            <div
-              className="mt-0.5 truncate text-2xs text-subtle-foreground"
-              title={`${queuedMessage.providerId} · ${queuedMessage.model}`}
-            >
-              {queuedMessage.providerId} · {queuedMessage.model}
+            <div className="mt-0.5 flex min-w-0 items-center gap-2 text-2xs text-subtle-foreground">
+              <span
+                className="min-w-0 truncate"
+                title={`${queuedMessage.providerId} · ${queuedMessage.model}`}
+              >
+                {queuedMessage.providerId} · {queuedMessage.model}
+              </span>
+              {queuedMessage.providerSwitchPolicy === "recent-messages" ? (
+                <span className="shrink-0">{t("Automatic switch")}</span>
+              ) : null}
             </div>
           ) : null}
           {senderLabel !== null || isProcessing || hasWaitLine ? (

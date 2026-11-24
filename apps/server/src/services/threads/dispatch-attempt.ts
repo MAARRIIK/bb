@@ -23,6 +23,7 @@ import {
 import {
   createStandaloneBuiltinCompactCommandInput,
   promptInputSchema,
+  resolvedThreadExecutionOptionsSchema,
   type PromptInput,
   type QueuedMessagePayload,
   type QueuedMessageDeliveryMode,
@@ -92,6 +93,7 @@ import {
 } from "./thread-runtime-display.js";
 import { toThreadQueuedMessage } from "./thread-queued-messages.js";
 import {
+  allowsQueuedMessageProviderSwitch,
   requireQueuedMessageProvider,
   requireQueuedMessageProviderSession,
 } from "./queued-message-provider.js";
@@ -113,6 +115,7 @@ import {
 import type { TurnRequestRetryMarker } from "./thread-events.js";
 import { restoreInterruptedThreadStartupRequest } from "./thread-provisioning.js";
 import { markTurnTraceSpan } from "../system/turn-trace.js";
+import { switchQueuedMessageProvider } from "./queued-message-provider-switch.js";
 
 export const pendingThreadStartContextSchema = z.object({
   environmentIntent: threadProvisionEnvironmentIntentSchema,
@@ -374,16 +377,30 @@ async function runDispatchAttempt(
   args: DispatchAttemptArgs,
   run: DispatchAttemptRun,
 ): Promise<DispatchAttemptOutcome> {
-  const { thread } = args;
+  let { thread } = args;
   let { payload } = args;
   if (args.source.kind === "operation") {
     return runOperationDispatch(deps, args, args.source);
   }
-  const providerSource = requireThreadProviderSessionSource(deps.db, thread.id);
+  let providerSource = requireThreadProviderSessionSource(deps.db, thread.id);
   requireQueuedMessageProvider(providerSource.providerId, [thread]);
-  if (args.source.kind === "drain") {
+  const automaticProviderSwitch =
+    args.source.kind === "drain" &&
+    allowsQueuedMessageProviderSwitch(args.source.claimed);
+  const assignedProviderId =
+    automaticProviderSwitch && args.source.kind === "drain"
+      ? args.source.claimed[0]!.providerId!
+      : thread.providerId;
+  const changingProvider = assignedProviderId !== providerSource.providerId;
+  if (args.source.kind === "drain" && !automaticProviderSwitch) {
     requireQueuedMessageProviderSession(providerSource, args.source.claimed);
   }
+  if (changingProvider && payload.mode === "steer")
+    throw new ApiError(
+      409,
+      "queued_message_provider_changed",
+      "A queued task cannot steer a different provider. Wait for the current turn to finish.",
+    );
   // A stopping thread is writable HERE and nowhere upstream: the checkpoint
   // below turns it into a core wait, which is a truthful "not yet" the row can
   // recover from, rather than the 409 that used to make a stop a dead end for
@@ -461,11 +478,17 @@ async function runDispatchAttempt(
     args.source.kind === "drain" && args.source.respectManualStopPause;
   const attempt = resolveDispatchAttemptKind(thread, payload.mode);
 
-  const execution = await buildExecutionOptions(
-    deps,
-    payload,
-    args.executionDefaults ?? { threadId: thread.id },
-  );
+  const execution =
+    changingProvider && args.source.kind === "drain"
+      ? resolvedThreadExecutionOptionsSchema.parse({
+          ...args.source.claimed[0],
+          source: "client/turn/requested",
+        })
+      : await buildExecutionOptions(
+          deps,
+          payload,
+          args.executionDefaults ?? { threadId: thread.id },
+        );
   requireCurrentProviderSession(
     requireThreadProviderSessionSource(deps.db, thread.id),
     providerSource,
@@ -530,6 +553,46 @@ async function runDispatchAttempt(
     reattemptThread: null,
   };
 
+  const dispatchReadyThread = async (): Promise<
+    DispatchAttemptOutcome | { kind: "thread-changed"; thread: Thread | null }
+  > => {
+    markTurnTraceSpan("dispatch.checkpoint.done");
+    const environment = await requireThreadCommandEnvironment(deps, { thread });
+    let messageSequence: number | null;
+    try {
+      messageSequence = await sendThreadMessage(deps, {
+        environment,
+        originPluginId: args.originPluginId,
+        payload: resolvedPayload,
+        thread,
+        trigger: args.trigger,
+        ...(systemNotice !== null ? { systemNotice } : {}),
+        ...(args.retryOf !== undefined ? { retryOf: args.retryOf } : {}),
+        beforeAppendInTransaction: ({ tx }) => {
+          if (getThread(tx, thread.id)?.status !== thread.status) {
+            throw new DispatchThreadStatusChangedError();
+          }
+          if (claimed !== null) {
+            consumeClaimedRows(
+              claimed,
+              thread.id,
+              respectManualStopPause,
+            )({ tx });
+          }
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof DispatchThreadStatusChangedError)) {
+        throw error;
+      }
+      return { kind: "thread-changed", thread: getThread(deps.db, thread.id) };
+    }
+    if (claimed !== null) {
+      settleQueueRowDispatched({ row: claimed[0]! });
+    }
+    return { kind: "dispatched", messageSequence };
+  };
+
   const continueThroughCoreWaits = async (): Promise<void> => {
     const sendAt = payload.sendAt ?? null;
     if (!sendNow && sendAt !== null && sendAt > Date.now()) {
@@ -555,6 +618,11 @@ async function runDispatchAttempt(
 
     if (thread.status === "stopping") {
       continued.outcome = waitOn({ kind: "stopping" });
+      return;
+    }
+
+    if (changingProvider && thread.status === "active") {
+      continued.outcome = waitOn({ kind: "thread-busy" });
       return;
     }
 
@@ -646,7 +714,10 @@ async function runDispatchAttempt(
         return;
       }
     }
-    if (!firstDispatch && isPreStartThreadStatus(thread.status)) {
+    if (
+      (!firstDispatch || changingProvider) &&
+      isPreStartThreadStatus(thread.status)
+    ) {
       continued.outcome = waitOn({ kind: "provisioning" });
       return;
     }
@@ -683,6 +754,32 @@ async function runDispatchAttempt(
         continued.reattemptThread = current;
       }
     }
+    if (
+      !firstDispatch &&
+      automaticProviderSwitch &&
+      claimed !== null &&
+      (changingProvider ||
+        claimed.some((row) => row.providerSwitchOperationId !== null))
+    ) {
+      thread = await switchQueuedMessageProvider(deps, {
+        thread,
+        source: providerSource,
+        claimed,
+        respectManualStopPause,
+      });
+      providerSource = requireThreadProviderSessionSource(deps.db, thread.id);
+      requireQueuedMessageProviderSession(providerSource, claimed);
+      queuedMessage.providerSource = providerSource;
+      args = { ...args, thread };
+      const outcome = await dispatchReadyThread();
+      if (outcome.kind === "thread-changed") {
+        if (outcome.thread === null)
+          throw new ApiError(404, "thread_not_found", "Thread not found");
+        continued.reattemptThread = outcome.thread;
+      } else {
+        continued.outcome = outcome;
+      }
+    }
   };
 
   if (!sendNow && hasMessageDispatchHooks()) {
@@ -698,7 +795,7 @@ async function runDispatchAttempt(
       environmentIntent: intendedThreadEnvironmentIntent(deps, thread),
       input: payload.input,
       requestedExecution: {
-        providerId: thread.providerId,
+        providerId: assignedProviderId,
         model: execution.model,
         reasoningLevel: execution.reasoningLevel,
         serviceTier: execution.serviceTier,
@@ -766,47 +863,10 @@ async function runDispatchAttempt(
     return { kind: "dispatched", messageSequence: admission.messageSequence };
   }
 
-  markTurnTraceSpan("dispatch.checkpoint.done");
-  const environment = await requireThreadCommandEnvironment(deps, { thread });
-  let messageSequence: number | null;
-  try {
-    messageSequence = await sendThreadMessage(deps, {
-      environment,
-      originPluginId: args.originPluginId,
-      payload: resolvedPayload,
-      thread,
-      trigger: args.trigger,
-      ...(systemNotice !== null ? { systemNotice } : {}),
-      ...(args.retryOf !== undefined ? { retryOf: args.retryOf } : {}),
-      beforeAppendInTransaction: ({ tx }) => {
-        if (getThread(tx, thread.id)?.status !== thread.status) {
-          throw new DispatchThreadStatusChangedError();
-        }
-        if (claimed !== null) {
-          consumeClaimedRows(
-            claimed,
-            thread.id,
-            respectManualStopPause,
-          )({ tx });
-        }
-      },
-    });
-  } catch (error) {
-    if (!(error instanceof DispatchThreadStatusChangedError)) {
-      throw error;
-    }
-    return reattemptDispatchForThreadChange(
-      deps,
-      args,
-      getThread(deps.db, thread.id),
-      run,
-      waitOn,
-    );
-  }
-  if (claimed !== null) {
-    settleQueueRowDispatched({ row: claimed[0]! });
-  }
-  return { kind: "dispatched", messageSequence };
+  const outcome = await dispatchReadyThread();
+  return outcome.kind === "thread-changed"
+    ? reattemptDispatchForThreadChange(deps, args, outcome.thread, run, waitOn)
+    : outcome;
 }
 
 class DispatchThreadStatusChangedError extends Error {}

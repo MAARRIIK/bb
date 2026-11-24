@@ -24,6 +24,7 @@ function queuedMessage(
     threadId: "thread-1",
     content: [{ type: "text", text: "Follow up", mentions: [] }],
     providerId: "codex",
+    providerSwitchPolicy: "manual",
     model: "gpt-5",
     reasoningLevel: "medium",
     permissionMode: "auto",
@@ -70,10 +71,17 @@ describe("bb thread organization commands", () => {
         "pi",
         "--model",
         "qwen-test",
+        "--provider-switch-policy",
+        "recent-messages",
         "--permission-mode",
         "full",
       ],
-      options: { providerId: "pi", model: "qwen-test", permissionMode: "full" },
+      options: {
+        providerId: "pi",
+        providerSwitchPolicy: "recent-messages",
+        model: "qwen-test",
+        permissionMode: "full",
+      },
     },
   ])(
     "creates an explicitly assigned queued message with $flags",
@@ -426,32 +434,39 @@ describe("bb thread organization commands", () => {
   it.each([
     {
       flags: ["--send-at", "2h"],
-      sendAt: Date.parse("2026-10-30T12:00:00Z") + 2 * 3_600_000,
+      changes: { sendAt: Date.parse("2026-10-30T12:00:00Z") + 2 * 3_600_000 },
     },
-    { flags: ["--clear-send-at"], sendAt: null },
-  ])("changes only the send time with $flags", async ({ flags, sendAt }) => {
-    vi.useFakeTimers({ now: Date.parse("2026-10-30T12:00:00Z") });
-    try {
-      const list = vi.fn(async () => [{ id: "queued-1", updatedAt: 42 }]);
-      const update = vi.fn(async () => ({ id: "queued-1", sendAt }));
-      stubServerApi({
-        "v1.threads.:id.queued-messages.$get": list,
-        "v1.threads.:id.queued-messages.:queuedMessageId.$patch": update,
-      });
+    { flags: ["--clear-send-at"], changes: { sendAt: null } },
+    {
+      flags: ["--provider-switch-policy", "recent-messages"],
+      changes: { providerSwitchPolicy: "recent-messages" },
+    },
+  ])(
+    "updates a queued task without replacing its text with $flags",
+    async ({ flags, changes }) => {
+      vi.useFakeTimers({ now: Date.parse("2026-10-30T12:00:00Z") });
+      try {
+        const list = vi.fn(async () => [{ id: "queued-1", updatedAt: 42 }]);
+        const update = vi.fn(async () => ({ id: "queued-1", ...changes }));
+        stubServerApi({
+          "v1.threads.:id.queued-messages.$get": list,
+          "v1.threads.:id.queued-messages.:queuedMessageId.$patch": update,
+        });
 
-      await runCommand(
-        ["thread", "queue", "update", "thread-1", "queued-1", ...flags],
-        register,
-      );
+        await runCommand(
+          ["thread", "queue", "update", "thread-1", "queued-1", ...flags],
+          register,
+        );
 
-      expect(update).toHaveBeenCalledWith({
-        param: { id: "thread-1", queuedMessageId: "queued-1" },
-        json: { expectedUpdatedAt: 42, sendAt },
-      });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+        expect(update).toHaveBeenCalledWith({
+          param: { id: "thread-1", queuedMessageId: "queued-1" },
+          json: { expectedUpdatedAt: 42, ...changes },
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
 
   it("reassigns execution options, mapping workspace-write to accept-edits", async () => {
     const list = vi.fn(async () => [{ id: "queued-1", updatedAt: 42 }]);
@@ -472,6 +487,8 @@ describe("bb thread organization commands", () => {
         "pi",
         "--model",
         "gpt-5.1-codex",
+        "--provider-switch-policy",
+        "manual",
         "--reasoning-level",
         "high",
         "--permission-mode",
@@ -486,6 +503,7 @@ describe("bb thread organization commands", () => {
         expectedUpdatedAt: 42,
         providerId: "pi",
         model: "gpt-5.1-codex",
+        providerSwitchPolicy: "manual",
         permissionMode: "accept-edits",
         reasoningLevel: "high",
       },

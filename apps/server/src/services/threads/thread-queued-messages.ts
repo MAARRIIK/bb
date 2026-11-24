@@ -1,5 +1,6 @@
 import {
   promptInputSchema,
+  queuedMessageProviderSwitchPolicySchema,
   queuedMessageSystemNoticeSchema,
   queuedMessageWaitingOnSchema,
   threadQueuedMessageSchema,
@@ -31,6 +32,7 @@ interface StoredQueuedThreadMessageRow {
   groupWithNext: boolean;
   model: string;
   providerId: string | null;
+  providerSwitchPolicy: string;
   payloadKind: QueuedMessagePayloadKind;
   reasoningLevel: string;
   retryAttempt: number | null;
@@ -200,6 +202,9 @@ export function toThreadQueuedMessage(
     content: parseStoredQueuedThreadMessageContent(row),
     model: row.model,
     providerId: row.providerId,
+    providerSwitchPolicy: queuedMessageProviderSwitchPolicySchema.parse(
+      row.providerSwitchPolicy,
+    ),
     reasoningLevel: row.reasoningLevel,
     permissionMode: row.permissionMode,
     serviceTier: row.serviceTier,

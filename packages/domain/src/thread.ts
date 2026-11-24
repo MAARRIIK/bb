@@ -4,6 +4,7 @@ import { environmentWorkspaceDisplayKindSchema } from "./environment.js";
 import {
   queuedMessageFailureReasonSchema,
   queuedMessagePayloadSchema,
+  queuedMessageProviderSwitchPolicySchema,
   queuedMessageSystemNoticeSchema,
   queuedMessageWaitingOnSchema,
 } from "./queued-message.js";
@@ -66,6 +67,7 @@ export const threadQueuedMessageSchema = z.object({
   threadId: z.string(),
   content: z.array(promptInputSchema).min(1),
   providerId: z.string().min(1).nullable(),
+  providerSwitchPolicy: queuedMessageProviderSwitchPolicySchema,
   model: z.string().min(1),
   reasoningLevel: reasoningLevelSchema,
   permissionMode: permissionModeSchema,

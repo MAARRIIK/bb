@@ -6,6 +6,17 @@ import {
   systemMessageSubjectSchema,
 } from "./system-message.js";
 
+export const queuedMessageProviderSwitchPolicyValues = [
+  "manual",
+  "recent-messages",
+] as const;
+export const queuedMessageProviderSwitchPolicySchema = z.enum(
+  queuedMessageProviderSwitchPolicyValues,
+);
+export type QueuedMessageProviderSwitchPolicy = z.infer<
+  typeof queuedMessageProviderSwitchPolicySchema
+>;
+
 /**
  * The queue is the one queue for a dispatch that cannot run yet.
  *

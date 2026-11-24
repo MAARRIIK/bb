@@ -2,6 +2,23 @@ import { ApiError } from "../../errors.js";
 import type { ProviderSessionSource } from "@bb/domain";
 import type { QueuedThreadMessageRow } from "@bb/db";
 
+export function allowsQueuedMessageProviderSwitch(
+  rows: readonly QueuedThreadMessageRow[],
+): boolean {
+  const providerId = rows[0]?.providerId;
+  return (
+    providerId !== undefined &&
+    providerId !== null &&
+    rows.every(
+      (row) =>
+        row.providerId === providerId &&
+        row.providerSwitchPolicy === "recent-messages" &&
+        row.payloadKind === "inline" &&
+        row.systemNotice === null,
+    )
+  );
+}
+
 export function requireQueuedMessageProvider(
   providerId: string,
   rows: readonly { providerId: string | null }[],

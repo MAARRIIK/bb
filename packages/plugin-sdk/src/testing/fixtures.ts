@@ -326,6 +326,7 @@ export function makeQueueEntry(
     threadId: "thread-1",
     content: [{ type: "text", text: "Queued turn", mentions: [] }],
     providerId: "codex",
+    providerSwitchPolicy: "manual",
     model: "test-model",
     reasoningLevel: "medium",
     permissionMode: "auto",

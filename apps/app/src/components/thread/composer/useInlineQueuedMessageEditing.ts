@@ -25,6 +25,7 @@ export interface InlineQueuedMessageEditState {
   expectedUpdatedAt: number;
   model: ThreadQueuedMessage["model"];
   providerId: ThreadQueuedMessage["providerId"];
+  providerSwitchPolicy: ThreadQueuedMessage["providerSwitchPolicy"];
   ownerThreadId: string;
   permissionMode: ThreadQueuedMessage["permissionMode"];
   queuedMessageId: string;
@@ -191,6 +192,7 @@ export function useInlineQueuedMessageEditing({
         expectedUpdatedAt: queuedMessage.updatedAt,
         model: queuedMessage.model,
         providerId: queuedMessage.providerId,
+        providerSwitchPolicy: queuedMessage.providerSwitchPolicy,
         ownerThreadId,
         permissionMode: queuedMessage.permissionMode,
         queuedMessageId,

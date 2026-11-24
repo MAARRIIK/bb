@@ -282,6 +282,7 @@ export function seedQueuedMessage(
   if (thread === null)
     throw new Error("expected a thread for the queued message");
   return createQueuedThreadMessage(deps.db, deps.hub, {
+    providerSwitchPolicy: "manual",
     providerSessionId: thread.providerSessionId,
     providerId: thread.providerId,
     threadId: args.threadId,

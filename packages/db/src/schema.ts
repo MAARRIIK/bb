@@ -15,6 +15,7 @@ import {
   queuedMessageStateValues,
 } from "@bb/domain/queued-message-lifecycle";
 import { threadStatusValues } from "@bb/domain/thread-status";
+import { queuedMessageProviderSwitchPolicyValues } from "@bb/domain/queued-message";
 import {
   heldTurnCompletionStatusValues,
   threadTurnRequestKindValues,
@@ -1121,6 +1122,12 @@ export const queuedThreadMessages = sqliteTable(
     providerId: text("provider_id"),
     providerSessionId: text("provider_session_id"),
     model: text("model").notNull(),
+    providerSwitchPolicy: text("provider_switch_policy", {
+      enum: queuedMessageProviderSwitchPolicyValues,
+    })
+      .notNull()
+      .default("manual"),
+    providerSwitchOperationId: text("provider_switch_operation_id"),
     reasoningLevel: text("reasoning_level").notNull(),
     permissionMode: text("permission_mode").$type<PermissionMode>().notNull(),
     serviceTier: text("service_tier").notNull(),
