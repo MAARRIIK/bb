@@ -24,6 +24,7 @@ import {
 import {
   threadScope,
   type PromptInput,
+  type ResolvedInterfaceLanguage,
   type Thread,
   type ThreadEvent,
 } from "@bb/domain";
@@ -75,6 +76,7 @@ type ThreadRewindPrepareCommand = Extract<
 
 interface EditableTurn {
   leadingAgentOnlyInput: PromptInput[];
+  clientLanguage?: ResolvedInterfaceLanguage | null;
   currentTurnId: string;
   oldMaxSequence: number;
   precedingProviderCheckpoint: string | null;
@@ -287,6 +289,7 @@ function resolveEditableTurnCandidate(
   }
   return {
     leadingAgentOnlyInput: getLeadingAgentOnlyInput(request.input),
+    clientLanguage: request.clientLanguage,
     currentTurnId: accepted.turnId,
     oldMaxSequence,
     precedingProviderCheckpoint,
@@ -568,6 +571,7 @@ export async function editThreadMessage(
       thread: editableThread,
       payload: {
         ...sendPayload,
+        clientLanguage: target.clientLanguage,
         input: [...target.leadingAgentOnlyInput, ...sendPayload.input],
         mode: "start",
       },

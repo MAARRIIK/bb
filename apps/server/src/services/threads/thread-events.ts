@@ -35,6 +35,7 @@ import type {
   ClientTurnRequestId,
   ClientTurnLifecycleEventData,
   PromptInput,
+  ResolvedInterfaceLanguage,
   ProvisioningTranscriptEntry,
   RecordedThreadExecutionOptions,
   SystemThreadProvisioningStatus,
@@ -89,6 +90,7 @@ interface ClientTurnRequestedEventArgs {
   execution: ResolvedThreadExecutionOptions;
   initiator: ThreadTurnInitiator;
   input: PromptInput[];
+  clientLanguage?: ResolvedInterfaceLanguage | null;
   inputGroups?: PromptInput[][];
   originPluginId: string | null;
   requestMethod: "thread/start" | "turn/start";
@@ -224,6 +226,9 @@ function buildClientTurnRequestedEventData(
       ? { systemMessageSubject: args.systemMessageSubject }
       : {}),
     input: args.input,
+    ...(args.clientLanguage === undefined
+      ? {}
+      : { clientLanguage: args.clientLanguage }),
     ...(args.inputGroups !== undefined
       ? { inputGroups: args.inputGroups }
       : {}),

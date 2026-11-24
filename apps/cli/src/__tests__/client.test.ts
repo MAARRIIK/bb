@@ -14,6 +14,7 @@ describe("createCliBbSdk", () => {
     "marks requests as CLI requests with caller thread $callerHeader",
     async ({ threadId, callerHeader }) => {
       vi.stubEnv("BB_THREAD_ID", threadId);
+      vi.stubEnv("LC_ALL", "ru_RU.UTF-8");
       const fetchMock = vi.fn(
         async (_input: RequestInfo | URL, _init?: RequestInit) =>
           new Response(JSON.stringify({ ok: true, archivedThreadIds: [] }), {
@@ -30,6 +31,9 @@ describe("createCliBbSdk", () => {
       const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
       expect(headers.get("x-bb-cli")).toBe("1");
       expect(headers.get("x-bb-caller-thread")).toBe(callerHeader);
+      expect(headers.get("x-bb-client-language")).toBe(
+        threadId === undefined ? "ru" : null,
+      );
     },
   );
 });

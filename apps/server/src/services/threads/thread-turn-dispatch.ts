@@ -1,6 +1,7 @@
 import type { SendThreadMessageTransactionPreflight } from "./thread-send.js";
 import type {
   PromptInput,
+  ResolvedInterfaceLanguage,
   ResolvedThreadExecutionOptions,
   SystemMessageKind,
   SystemMessageSubject,
@@ -34,6 +35,7 @@ interface DispatchTurnDuringReprovisionArgs {
   execution: ResolvedThreadExecutionOptions;
   initiator: ThreadTurnInitiator;
   input: PromptInput[];
+  clientLanguage?: ResolvedInterfaceLanguage | null;
   inputGroups?: PromptInput[][];
   originPluginId: string | null;
   retryOf?: TurnRequestRetryMarker;
@@ -89,6 +91,7 @@ export async function dispatchTurnDuringReprovision(
       execution: args.execution,
       initiator: args.initiator,
       input: args.input,
+      clientLanguage: args.clientLanguage,
       inputGroups: args.inputGroups,
       originPluginId: args.originPluginId,
       ...(args.retryOf !== undefined ? { retryOf: args.retryOf } : {}),

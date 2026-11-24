@@ -43,6 +43,7 @@ import type {
   QueuedMessageWaitHolder,
   ReasoningLevel,
   ResolvedThreadExecutionOptions,
+  ResolvedInterfaceLanguage,
   ServiceTier,
   SystemThreadInterruptedReason,
   TerminalSessionCloseReason,
@@ -1161,6 +1162,7 @@ export const queuedThreadMessages = sqliteTable(
       .$type<QueuedMessagePayloadKind>()
       .notNull()
       .default("inline"),
+    clientLanguage: text("client_language").$type<ResolvedInterfaceLanguage>(),
     retryOfTurnRequestId: text("retry_of_turn_request_id"),
     retryAttempt: integer("retry_attempt"),
     retryReason: text("retry_reason"),

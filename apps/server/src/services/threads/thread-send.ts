@@ -164,6 +164,7 @@ interface AppendAndQueueSendThreadMessageArgs {
   execution: ResolvedThreadExecutionOptions;
   initiator: ThreadTurnInitiator;
   input: PromptInput[];
+  clientLanguage?: SendMessageRequest["clientLanguage"];
   inputGroups?: PromptInput[][];
   originPluginId: string | null;
   queueInTransaction: SendThreadMessageQueueRequest;
@@ -429,6 +430,7 @@ function appendAndQueueSendThreadMessageInTransaction({
   initiator,
   input,
   inputGroups,
+  clientLanguage,
   originPluginId,
   queueInTransaction,
   requestId,
@@ -451,6 +453,7 @@ function appendAndQueueSendThreadMessageInTransaction({
             type: "client/turn/requested",
             ...(retryOf !== undefined ? { retryOf } : {}),
             input,
+            clientLanguage,
             ...(inputGroups !== undefined ? { inputGroups } : {}),
             execution,
             initiator,
@@ -679,6 +682,7 @@ async function sendThreadMessageWithoutContextClear(
     execution,
     initiator,
     input,
+    clientLanguage: payload.clientLanguage,
     inputGroups,
     originPluginId: args.originPluginId,
     ...(args.retryOf !== undefined ? { retryOf: args.retryOf } : {}),
@@ -727,6 +731,7 @@ async function sendThreadMessageWithoutContextClear(
     const commandArgs = {
       thread,
       input,
+      clientLanguage: payload.clientLanguage,
       ...(inputGroups !== undefined ? { inputGroups } : {}),
       requestId,
       execution,
@@ -773,6 +778,7 @@ async function sendThreadMessageWithoutContextClear(
       execution,
       initiator,
       input,
+      clientLanguage: payload.clientLanguage,
       inputGroups,
       originPluginId: args.originPluginId,
       queueInTransaction: ({ tx }) => ({
@@ -831,6 +837,7 @@ async function sendThreadMessageWithoutContextClear(
   const preparedCommand = await prepareTurnSubmitCommandPayload(deps, {
     thread,
     input,
+    clientLanguage: payload.clientLanguage,
     ...(inputGroups !== undefined ? { inputGroups } : {}),
     execution,
     permissionEscalation,
@@ -857,6 +864,7 @@ async function sendThreadMessageWithoutContextClear(
     execution,
     initiator,
     input,
+    clientLanguage: payload.clientLanguage,
     inputGroups,
     originPluginId: args.originPluginId,
     queueInTransaction: ({ tx }) => ({

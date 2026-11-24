@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolvedInterfaceLanguageSchema } from "./app-settings.js";
 import { pluginIdSchema } from "./plugin-id.js";
 import { clientTurnRequestIdSchema } from "./protocol-ids.js";
 import {
@@ -207,9 +208,13 @@ export type QueuedMessagePayloadKind = z.infer<
 >;
 
 export const queuedMessagePayloadSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("inline") }),
+  z.object({
+    kind: z.literal("inline"),
+    clientLanguage: resolvedInterfaceLanguageSchema.nullable().optional(),
+  }),
   z.object({
     kind: z.literal("retry"),
+    clientLanguage: resolvedInterfaceLanguageSchema.nullable().optional(),
     /**
      * The ORIGINAL request, not the attempt that just failed. Retrying a retry
      * re-submits the same original blocks, so this id is carried forward

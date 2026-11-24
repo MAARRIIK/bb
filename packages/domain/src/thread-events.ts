@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolvedInterfaceLanguageSchema } from "./app-settings.js";
 import {
   approvalPendingInteractionResolutionSchema,
   interactionLifecycleSchema,
@@ -79,6 +80,7 @@ export const turnRequestEventDataSchema = z.object({
   systemMessageKind: systemMessageKindSchema.optional(),
   systemMessageSubject: systemMessageSubjectSchema.nullable().optional(),
   input: z.array(promptInputSchema),
+  clientLanguage: resolvedInterfaceLanguageSchema.nullable().optional(),
   inputGroups: z.array(z.array(promptInputSchema).min(1)).min(1).optional(),
   target: turnRequestTargetSchema,
   request: z.object({

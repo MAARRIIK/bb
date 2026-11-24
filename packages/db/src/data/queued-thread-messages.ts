@@ -559,6 +559,7 @@ function queuedMessageGroupingEnvelopeMatches(
 ): boolean {
   return (
     firstQueuedMessage !== null &&
+    queuedMessage.clientLanguage === firstQueuedMessage.clientLanguage &&
     queuedMessage.providerId === firstQueuedMessage.providerId &&
     queuedMessage.providerSessionId === firstQueuedMessage.providerSessionId &&
     queuedMessage.providerSwitchPolicy ===
@@ -926,6 +927,7 @@ export function createQueuedThreadMessageInTransaction(
       systemNotice:
         input.systemNotice === null ? null : JSON.stringify(input.systemNotice),
       payloadKind: input.payload.kind,
+      clientLanguage: input.payload.clientLanguage ?? null,
       retryOfTurnRequestId:
         input.payload.kind === "retry"
           ? input.payload.retryOfTurnRequestId

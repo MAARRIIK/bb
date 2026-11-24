@@ -19,6 +19,7 @@ import {
 import {
   type EnvironmentProviderSelection,
   type PromptInput,
+  type ResolvedInterfaceLanguage,
   type ResolvedThreadExecutionOptions,
   type SystemMessageKind,
   type SystemMessageSubject,
@@ -69,6 +70,7 @@ interface RequestThreadProvisionArgs {
   execution: ResolvedThreadExecutionOptions;
   fork: ThreadForkDescriptor | null;
   input: PromptInput[];
+  clientLanguage?: ResolvedInterfaceLanguage | null;
   originPluginId: string | null;
   providerInput?: PromptInput[];
   retryOf?: TurnRequestRetryMarker;
@@ -82,6 +84,7 @@ interface RequestThreadTargetReprovisionArgs {
   environment: EnvironmentRow;
   execution: ResolvedThreadExecutionOptions;
   input: PromptInput[];
+  clientLanguage?: ResolvedInterfaceLanguage | null;
   inputGroups?: PromptInput[][];
   initiator: ThreadTurnInitiator;
   originPluginId: string | null;
@@ -283,6 +286,7 @@ async function startThreadIfEnvironmentReady(
     },
     fork: args.context.request.fork,
     input: args.context.request.input,
+    clientLanguage: args.context.request.clientLanguage,
     ...(args.context.request.inputGroups !== undefined
       ? { inputGroups: args.context.request.inputGroups }
       : {}),
@@ -315,6 +319,7 @@ export function requestThreadProvision(
       type: "client/turn/requested",
       ...(args.retryOf !== undefined ? { retryOf: args.retryOf } : {}),
       input: args.input,
+      clientLanguage: args.clientLanguage,
       execution: args.execution,
       initiator,
       originPluginId: args.originPluginId,
@@ -345,6 +350,7 @@ export function requestThreadProvision(
       execution: args.execution,
       fork: args.fork,
       input: args.providerInput ?? args.input,
+      clientLanguage: args.clientLanguage,
       initiator,
       seedWithoutRun: args.startedOnBehalfOf !== null,
       titleProvided: args.titleProvided,
@@ -427,6 +433,7 @@ export function requestThreadTargetReprovision(
       execution: args.execution,
       fork: null,
       input: args.input,
+      clientLanguage: args.clientLanguage,
       ...(args.inputGroups !== undefined
         ? { inputGroups: args.inputGroups }
         : {}),
@@ -461,6 +468,7 @@ function appendReprovisionTurnRequest(
             type: "client/turn/requested",
             ...(args.retryOf !== undefined ? { retryOf: args.retryOf } : {}),
             input: args.input,
+            clientLanguage: args.clientLanguage,
             ...(args.inputGroups !== undefined
               ? { inputGroups: args.inputGroups }
               : {}),

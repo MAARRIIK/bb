@@ -1,4 +1,5 @@
 import { operationComplete } from "../../services/lib/operation-response.js";
+import { requestClientLanguage } from "../client-language.js";
 import { countUnarchivedThreadDescendants } from "../../services/threads/thread-archive.js";
 import { listThreadCascades } from "../../services/threads/thread-cascade.js";
 import { cancelAbandonedProviderCreations } from "../../services/threads/thread-environment-providers.js";
@@ -400,13 +401,23 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
     }
     const thread = await createThreadFromRequest(deps, {
       ...payload,
+      clientLanguage: requestClientLanguage(
+        context.req.raw.headers,
+        payload.clientLanguage,
+      ),
       origin: payload.origin,
     });
     return context.json(toThreadResponseFromThread(deps, { thread }), 201);
   });
 
   post(routes.fork, async (context, payload) => {
-    const thread = await createThreadForkFromRequest(deps, payload);
+    const thread = await createThreadForkFromRequest(deps, {
+      ...payload,
+      clientLanguage: requestClientLanguage(
+        context.req.raw.headers,
+        payload.clientLanguage,
+      ),
+    });
     return context.json(toThreadResponseFromThread(deps, { thread }), 201);
   });
 

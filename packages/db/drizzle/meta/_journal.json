@@ -1212,6 +1212,13 @@
       "when": 1795520898986,
       "tag": "0172_young_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "6",
+      "when": 1795538389244,
+      "tag": "0173_thankful_gladiator",
+      "breakpoints": true
     }
   ]
 }

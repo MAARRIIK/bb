@@ -299,10 +299,28 @@ The server adds an agent-only preference block to each request sent to the model
 queued messages at dispatch and requests in existing sessions. An explicit
 language requested by the user takes precedence; existing replies and prompt
 contents are preserved. `interface` follows an explicit English/Russian interface
-selection. With `interfaceLanguage: "system"`, the model chooses from the request;
-the server does not infer a remote device's locale from its own operating system.
-Automatic per-device reply selection is not implemented yet. Older clients that
-omit `responseLanguage` preserve its saved value.
+selection. With `interfaceLanguage: "system"`, it follows the sending device's
+resolved language captured with the request, including queued work and retries.
+Older clients that omit `responseLanguage` preserve its saved value.
+
+Browser requests send `x-bb-client-language: en` or `ru`. SDK callers can set
+`clientLanguage` on thread create, fork, send, and queued-message create requests:
+`"en"` / `"ru"` overrides the header; `null` explicitly records an unknown language
+and prevents inheritance. An omitted field uses the header, then the originating
+thread's latest request (or the target thread for a direct send). Unsupported
+body or selected header values return 400. Without a known language, the model
+chooses from the request; the server never uses its own OS locale.
+
+User CLI requests derive the hint from `LC_ALL`, then `LC_MESSAGES`, then `LANG`,
+using the same supported-language resolution as the interface (English fallback).
+For example, `LC_ALL=ru_RU.UTF-8 bb thread tell <id> 'Explain the change'` captures
+Russian. Agent CLI calls carrying a caller thread inherit that thread's request
+language instead of the executor's OS locale. Editing queued content, schedule,
+model, or dependencies preserves the captured hint; send-now and retry preserve
+it too. Grouping requires matching captured languages. Legacy queued work has an
+unknown origin and never borrows a later device's language. Explicit global
+response/interface preferences are still evaluated when work starts and override
+the captured device hint.
 
 `idleProviderSessionTimeoutMinutes` (default `30`) sets how long an agent can sit idle after its last turn before every machine stops its provider process to free memory. Allowed values are `0` (ASAP), `5`, `10`, `30`, and `60`. Use Settings → Providers → Configuration → Release idle agent sessions, `bb settings general idleProviderSessionTimeoutMinutes 5`, or SDK `system.updateGeneralSettings({ ...config.generalSettings, idleProviderSessionTimeoutMinutes: 5 })`. Read `config` with `system.config()` or inspect the value with `bb settings show`. Changes apply live and on reconnect. Machines check every five minutes, so release can take up to five minutes beyond the timeout. Only restorable sessions without active, pending, or background work are eligible; threads keep their history and resume on the next message. Manual `bb thread stop` still works. This is not a memory or loaded-process limit.
 

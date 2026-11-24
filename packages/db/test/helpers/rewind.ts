@@ -262,6 +262,10 @@ export function dropQueuedTaskDependencies(db: DbConnection): void {
   const columns = db.$client
     .prepare<[], { name: string }>("PRAGMA table_info(queued_thread_messages)")
     .all();
+  if (columns.some((column) => column.name === "client_language"))
+    db.$client.exec(
+      "ALTER TABLE queued_thread_messages DROP COLUMN client_language",
+    );
   if (columns.some((column) => column.name === "depends_on_queued_message_ids"))
     db.$client.exec(
       "ALTER TABLE queued_thread_messages DROP COLUMN depends_on_queued_message_ids",

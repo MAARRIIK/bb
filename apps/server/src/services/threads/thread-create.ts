@@ -1,4 +1,5 @@
 import { requestThreadStorageDeletion } from "./thread-lifecycle.js";
+import { captureClientLanguage } from "./thread-response-language.js";
 import { seedThreadSessionOptionSelections } from "./thread-session-options.js";
 import {
   admitAfterPathClaimsSettle,
@@ -532,6 +533,7 @@ async function createPendingThreadAndAttemptFirstDispatch(
       thread,
       payload: {
         input: args.request.input,
+        clientLanguage: args.request.clientLanguage,
         mode: "start",
         model: execution.model,
         reasoningLevel: execution.reasoningLevel,
@@ -543,7 +545,12 @@ async function createPendingThreadAndAttemptFirstDispatch(
         ...(args.sendAt !== undefined ? { sendAt: args.sendAt } : {}),
       },
       source: { kind: "inline" },
-      queuePayload: { kind: "inline" },
+      queuePayload: {
+        kind: "inline",
+        ...(args.request.clientLanguage === undefined
+          ? {}
+          : { clientLanguage: args.request.clientLanguage }),
+      },
       pluginSubmission: args.request.pluginSubmission ?? null,
       systemNotice: null,
       startContext,
@@ -628,7 +635,17 @@ export async function createThreadFromRequest(
     );
   }
   const pluginMetadata = resolveCreateThreadPluginMetadata(rawRequestInput);
-  const requestInput = { ...rawRequestInput };
+  const requestInput = {
+    ...rawRequestInput,
+    clientLanguage: captureClientLanguage(
+      deps.db,
+      rawRequestInput.clientLanguage,
+      rawRequestInput.senderThreadId ??
+        rawRequestInput.parentThreadId ??
+        rawRequestInput.sourceThreadId ??
+        null,
+    ),
+  };
   requestInput.input = (
     await appendPluginMentionContext({ input: requestInput.input })
   ).input;

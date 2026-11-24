@@ -1,4 +1,7 @@
-import { APP_SURFACE_HEADER_NAME } from "@bb/config/app-surface";
+import {
+  APP_SURFACE_HEADER_NAME,
+  CLIENT_LANGUAGE_HEADER_NAME,
+} from "@bb/config/app-surface";
 import {
   buildBridgeInjectionScript,
   type NativeShellHandshake,
@@ -32,6 +35,28 @@ describe("app surface request metadata", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     resetNativeShellForTests();
+  });
+
+  it("captures the current resolved UI language on each request", () => {
+    const documentElement = { lang: "ru" };
+    vi.stubGlobal("document", { documentElement });
+    expect(
+      new Headers(appSurfaceRequestInit().headers).get(
+        CLIENT_LANGUAGE_HEADER_NAME,
+      ),
+    ).toBe("ru");
+    documentElement.lang = "en";
+    expect(
+      new Headers(appSurfaceRequestInit().headers).get(
+        CLIENT_LANGUAGE_HEADER_NAME,
+      ),
+    ).toBe("en");
+    documentElement.lang = "fr";
+    expect(
+      new Headers(appSurfaceRequestInit().headers).get(
+        CLIENT_LANGUAGE_HEADER_NAME,
+      ),
+    ).toBeNull();
   });
 
   it("defaults browser requests to the web app surface", () => {

@@ -223,8 +223,8 @@ const russian = new Map<string, string>(
     "AI response language": "Язык ответов ИИ",
     "Choose AI response language": "Выбрать язык ответов ИИ",
     "Follow interface language": "Как в интерфейсе",
-    "Use the selected interface language. With System language, let the model choose from the request.":
-      "Использовать выбранный язык интерфейса. В режиме «Как в системе» модель выбирает язык по запросу.",
+    "Use the interface language. In System mode, keep the sending device's language for queued and background work.":
+      "Использовать язык интерфейса. В режиме «Как в системе» сохранять язык устройства, с которого пришло задание, в том числе в очереди и фоновой работе.",
     "Prefer English for AI explanations.":
       "Предпочитать английский для объяснений ИИ.",
     "Prefer Russian for AI explanations.":
