@@ -1213,3 +1213,14 @@ export function systemProviderCatalogQueryKey() {
 export function pluginUpdateJobsQueryKey() {
   return ["plugin-update-jobs"] as const;
 }
+
+export function providerSwitchOperationIdQueryKey(threadId: string) {
+  return ["provider-switch-operation", threadId] as const;
+}
+
+export function providerSwitchReceiptQueryKey(
+  threadId: string,
+  operationId: string | null,
+) {
+  return ["provider-switch", threadId, operationId] as const;
+}
