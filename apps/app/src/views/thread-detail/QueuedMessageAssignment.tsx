@@ -401,7 +401,7 @@ export function QueuedMessageAssignmentDialog({
       <DialogTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
+          variant={purpose === "create" ? "outline" : "ghost"}
           size="sm"
           disabled={disabled || pending}
         >
