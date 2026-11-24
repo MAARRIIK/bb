@@ -135,7 +135,7 @@ Queued messages:
   provider, whose legacy or system-notice meaning is described below.
   `Switch policy` shows whether a task may transfer context and switch providers.
   SDK: `threads.queue.list` (all threads) and
-  `threads.queuedMessages.list|send|update|delete` (one thread).
+  `threads.queuedMessages.list|create|send|update|delete` (one thread).
 
   New ordinary messages keep the provider that accepted them, as well as their
   model and execution options. SDK and JSON rows expose `providerId`; null means
@@ -154,6 +154,15 @@ Queued messages:
   select parameters, then save the editor. Retry rows and core notices cannot
   be reassigned. Changing a provider clears its old failure without removing
   plugin holds or a scheduled send time.
+
+  Before sending a new draft, choose Queue with model above the composer to
+  select its provider, model, permissions and context policy, then Add to queue.
+  Text and attachments are created with that assignment in one request through
+  `threads.queuedMessages.create`, the same path as `queue create`; no temporary
+  task is sent to the current provider first. The task may start immediately
+  when idle, or wait behind the current turn. Manual policy does not switch
+  the chat. Cancellation keeps the draft; a rejected create restores it,
+  preserving edits made while the request was pending.
 
   Grouped rows must have matching provider assignments and source generations.
   A saved retry also requires its

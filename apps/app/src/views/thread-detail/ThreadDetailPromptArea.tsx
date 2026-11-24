@@ -75,6 +75,7 @@ import { InlineMessageEditorFrame } from "@/components/promptbox/InlineMessageEd
 import type { ModelReasoningPickerSelection } from "@/components/pickers/ModelReasoningPicker";
 import { ThreadProviderSwitchDialog } from "./ThreadProviderSwitch";
 import { QueuedMessageAssignment } from "./QueuedMessageAssignment";
+import { QueueDraftWithModel } from "./QueueDraftWithModel";
 import {
   buildSessionOptionMenuSections,
   sessionOptionViewSelections,
@@ -2408,6 +2409,30 @@ export function ThreadDetailPromptArea({
             threadStatus={thread.status}
           />
         )}
+        {!shouldHideComposer &&
+        !isHandoffSelection &&
+        thread.environmentId !== null ? (
+          <QueueDraftWithModel
+            key={`${thread.id}:${thread.environmentId}`}
+            draft={promptDraft}
+            threadId={thread.id}
+            environmentId={thread.environmentId}
+            initial={{
+              providerId: thread.providerId,
+              providerSwitchPolicy: "manual",
+              model: effectiveSelectedModel,
+              permissionMode,
+              reasoningLevel,
+              serviceTier: serviceTier ?? DEFAULT_SERVICE_TIER,
+            }}
+            disabled={
+              !hasPromptDraftInput ||
+              isAttachingBottomFiles ||
+              isFollowUpSubmitting ||
+              isQueueMutationPending
+            }
+          />
+        ) : null}
       </>
     ),
     [
@@ -2460,6 +2485,16 @@ export function ThreadDetailPromptArea({
       submitMode.kind,
       thread.archivedAt,
       thread.id,
+      thread.environmentId,
+      thread.providerId,
+      isHandoffSelection,
+      promptDraft,
+      effectiveSelectedModel,
+      permissionMode,
+      reasoningLevel,
+      serviceTier,
+      hasPromptDraftInput,
+      isAttachingBottomFiles,
     ],
   );
 

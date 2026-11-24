@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 import type { ThreadQueuedMessage } from "@bb/domain";
 import type {
+  CreateQueuedMessageRequest,
   SendQueuedMessageMode,
   SendQueuedMessageResponse,
   ThreadQueuedMessageListResponse,
@@ -52,6 +53,7 @@ import {
 import {
   invalidateThreadBannerQueries,
   invalidateThreadHistoryRewriteQueries,
+  invalidateThreadQueueQueries,
 } from "../cache-owners/mutation-cache-effects";
 
 interface UpdateThreadQueuedMessageMutationRequest extends UpdateQueuedMessageRequest {
@@ -197,6 +199,26 @@ export function sendThreadMessageMutationOptions(queryClient: QueryClient) {
 export function useSendThreadMessage() {
   const queryClient = useQueryClient();
   return useMutation(sendThreadMessageMutationOptions(queryClient));
+}
+
+export function useCreateThreadQueuedMessage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: {
+      errorMessage: "Failed to queue message.",
+      lifecycleOperation: "queue_message",
+      showErrorToast: false,
+    },
+    mutationFn: ({
+      id,
+      ...request
+    }: CreateQueuedMessageRequest & { id: string }) =>
+      sdk.threads.queuedMessages.create({ threadId: id, ...request }),
+    onSuccess: (_queuedMessage, variables) => {
+      notifyComposerSubmitted({ kind: "thread", threadId: variables.id });
+      invalidateThreadQueueQueries({ queryClient, threadId: variables.id });
+    },
+  });
 }
 
 export function editThreadMessageMutationOptions(queryClient: QueryClient) {
