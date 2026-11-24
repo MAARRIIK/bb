@@ -7,6 +7,42 @@ export type InterfaceTranslator = (
 
 const russian = new Map<string, string>(
   Object.entries({
+    "Message queue": "Очередь",
+    "Loading queued messages": "Загрузка очереди",
+    "Queued messages": "Сообщения в очереди",
+    "Toggle queued messages": "Развернуть очередь",
+    "Collapse queued messages": "Свернуть очередь",
+    "Send now": "Отправить сейчас",
+    "Steer when ready": "Направить агенту, когда будет готов",
+    "Steer queued message {number} when ready":
+      "Направить сообщение {number} из очереди агенту, когда будет готов",
+    "Send queued message {number} now":
+      "Отправить сообщение {number} из очереди сейчас",
+    "Reorder queued message {number}":
+      "Переместить сообщение {number} в очереди",
+    "Edit queued message {number}": "Изменить сообщение {number} в очереди",
+    "Change when queued message {number} sends":
+      "Изменить время отправки сообщения {number} из очереди",
+    "Delete queued message {number}": "Удалить сообщение {number} из очереди",
+    "Queued message {number} actions":
+      "Действия с сообщением {number} в очереди",
+    "Messages above send together": "Сообщения выше отправятся вместе",
+    "Stop editing queued message":
+      "Закончить редактирование сообщения в очереди",
+    "Editing queued message {number}":
+      "Редактирование сообщения {number} в очереди",
+    "Editing…": "Редактирование…",
+    "Deleting…": "Удаление…",
+    "Sending…": "Отправка…",
+    Edit: "Изменить",
+    Delete: "Удалить",
+    "Change send time": "Изменить время отправки",
+    "1 attachment": "1 вложение",
+    "{count} attachments": "Вложения: {count}",
+    "From {sender}": "Отправитель: {sender}",
+    From: "Отправитель:",
+    "{count} from bb": "от bb: {count}",
+
     "Wait for tasks to succeed": "Дождаться успешного завершения заданий",
     "Failed or cancelled tasks keep this task waiting. You can change its dependencies later.":
       "При ошибке или отмене предшественника это задание продолжит ждать. Зависимости можно изменить позже.",
@@ -138,8 +174,8 @@ const russian = new Map<string, string>(
     "Use Russian for the interface.": "Показывать интерфейс на русском.",
     "Applies to connected clients without restarting. Code, filenames and model replies are unchanged.":
       "Применяется на подключённых устройствах без перезапуска. Код, имена файлов и ответы моделей сохраняют исходный язык.",
-    "Russian translations currently cover settings navigation and selected general and appearance controls. Other text uses English while translation continues.":
-      "Сейчас переведены навигация настроек и часть основных настроек и оформления. Остальной текст остаётся на английском до завершения перевода.",
+    "Russian translations cover settings navigation, selected settings, model switching and queue controls. Other text uses English while translation continues.":
+      "Переведены навигация настроек, часть настроек, переключение моделей и управление очередью. Остальной текст остаётся на английском до завершения перевода.",
     "Threads & editing": "Диалоги и редактирование",
     "Navigate to threads on creation": "Открывать диалог после создания",
     "Default thread followup behavior": "Поведение Enter в активном диалоге",

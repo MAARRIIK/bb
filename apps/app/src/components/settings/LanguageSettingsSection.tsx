@@ -45,7 +45,7 @@ export function LanguageSettingsSection({
       />
       <p className="mt-3 text-xs text-muted-foreground">
         {t(
-          "Russian translations currently cover settings navigation and selected general and appearance controls. Other text uses English while translation continues.",
+          "Russian translations cover settings navigation, selected settings, model switching and queue controls. Other text uses English while translation continues.",
         )}
       </p>
     </SettingsSection>
