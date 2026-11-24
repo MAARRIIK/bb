@@ -8,7 +8,10 @@ const desktopPackageRoot = process.cwd();
 
 const printedConfigSchema = z
   .object({
-    extraMetadata: z.object({ name: z.string() }).optional(),
+    extraMetadata: z.object({
+      desktopName: z.string(),
+      name: z.string(),
+    }),
     nsis: z.object({ oneClick: z.boolean(), perMachine: z.boolean() }),
     win: z.object({
       icon: z.string(),
@@ -41,19 +44,33 @@ describe("electron-builder Windows config", () => {
     expect(config.win.target).toEqual([{ arch: ["x64"], target: "nsis" }]);
     expect(config.win.icon).toBe("assets/icon.png");
     expect(config.nsis).toEqual({ oneClick: true, perMachine: false });
-    expect(config.extraMetadata).toEqual({ name: "bb" });
+    expect(config.extraMetadata).toEqual({
+      desktopName: "dev.maarriik.ai.desktop",
+      name: "ai-ide",
+    });
   });
 
   it("keeps the nightly install apart from the stable one", async () => {
     const config = await printConfig(["--win", "--x64"], "nightly");
 
     expect(config.win.icon).toBe("assets/icon-nightly.png");
-    expect(config.extraMetadata).toEqual({ name: "bb-nightly" });
+    expect(config.extraMetadata).toEqual({
+      desktopName: "dev.maarriik.ai.nightly.desktop",
+      name: "ai-ide-nightly",
+    });
   });
 
-  it("leaves the package name alone for other platforms", async () => {
-    const config = await printConfig(["--linux", "--x64"], "latest");
+  it("uses AI metadata for Linux and the desktop identity for macOS", async () => {
+    const linux = await printConfig(["--linux", "--x64"], "latest");
+    const mac = await printConfig(["--mac", "--arm64"], "latest");
 
-    expect(config.extraMetadata).toBeUndefined();
+    expect(linux.extraMetadata).toEqual({
+      desktopName: "dev.maarriik.ai.desktop",
+      name: "ai-ide",
+    });
+    expect(mac.extraMetadata).toEqual({
+      desktopName: "dev.maarriik.ai.desktop",
+      name: "ai-ide",
+    });
   });
 });

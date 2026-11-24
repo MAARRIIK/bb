@@ -157,7 +157,7 @@ async function run() {
   if (scenario === "crashed") {
     const desktopLog = join(process.env.BB_DATA_DIR, "logs", "desktop.log");
     await until(async () =>
-      (await readFile(desktopLog, "utf8")).includes("Could not start bb"),
+      (await readFile(desktopLog, "utf8")).includes("Could not start AI"),
     );
     const savedLogs = await readFile(desktopLog, "utf8");
     assert.ok(
@@ -335,7 +335,7 @@ async function run() {
 async function verifyLocalLogs() {
   await until(() => {
     logsWindow = BrowserWindow.getAllWindows().find(
-      (window) => window.getTitle() === "bb - Local Logs",
+      (window) => window.getTitle() === "AI - Local Logs",
     );
     return logsWindow && !logsWindow.webContents.isLoading();
   });

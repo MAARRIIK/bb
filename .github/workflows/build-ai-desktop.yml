@@ -111,7 +111,7 @@ jobs:
           test -x "/usr/bin/$executable"
           ELECTRON_RUN_AS_NODE=1 "$executable" -p 'process.arch' | grep -x x64
       - name: Generate update feed
-        run: pnpm --dir apps/desktop run desktop:version-feed
+        run: pnpm exec turbo run desktop:version-feed --filter=@bb/desktop --output-logs=new-only
       - name: Upload installers and update metadata
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
