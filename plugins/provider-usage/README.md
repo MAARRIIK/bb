@@ -4,7 +4,18 @@ Shows usage from enabled usage-source plugins in the sidebar. When a location ha
 more than one provider, the card opens on an **All** tab that stacks every provider
 tab's accounts, each marked with its provider icon. Provider tabs use provider icons,
 with pooled accounts stacked under each provider. Each account shows its plan and,
-per usage window, a bar, the percent used, and the time until reset.
+per usage window, a consumption bar, the percentage remaining, and the time until reset.
+Open a window row for its consumed amount, exact reset time in the device's time
+zone, and whether the window is shared by all models in this account or applies
+to a reported model family. Settings shows these details directly. Window labels
+come from the source; hourly, monthly and other custom windows appear only when
+reported. A percentage is not an estimate of requests remaining.
+
+Both displays identify the source plugin and its last successful measurement
+time. Measurements older than five minutes or retained after a failed resource
+refresh are marked stale. A missing or invalid measurement timestamp is shown as
+unknown; the cache's load time never substitutes for it. Remaining percentages
+stop at zero on overage, while consumption above 100% remains visible in details.
 The card lists account metadata cheaply, then fetches the accounts on the selected
 tab. Unopened tabs have no quota badge until measured, and a badge shows only while
 that provider's accounts are off screen. Shared sources such as Account Pooler are selected by default; an explicit
@@ -23,6 +34,16 @@ Use `bb plugin rpc list --method provider-usage.v1.listResources --json` to find
 and `bb plugin rpc inspect <plugin-id> provider-usage.v1.listResources --json`
 to inspect their published contracts. RPC calls accept JSON through
 `--input-file`. See the Plugin Guide for the contract API.
+
+The display's aggregate is also available through its existing RPC. For example,
+write a JSON input file containing
+`{"force":false,"machineIds":null,"providerIds":["codex"],"maxAgeMs":60000}`,
+then run `bb plugin rpc call bb--provider-usage getUsage --input-file <path> --json`.
+Use `bb plugin rpc inspect bb--provider-usage getUsage --json` for its current
+schema. SDK consumers call `sdk.plugins.callRpc` with the same plugin ID, method
+and input. Each account includes `source` and nullable `observedAt`; window IDs
+and nullable model-family scope are retained. This aggregate follows the same
+selected-resource collection, deduplication and failure cache as the UI.
 
 `bb settings usage --json` and `bb.sdk.system.usageLimits()` remain the
 host-local provider-maintenance view; they do not aggregate shared pool accounts.

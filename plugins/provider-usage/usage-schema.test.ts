@@ -12,6 +12,8 @@ function provider(
   usedPercent: number,
 ): UsageProvider {
   return {
+    source: { pluginId: "test-source", displayName: "Test source" },
+    observedAt: null,
     id,
     providerId: id,
     accountLabel: null,
@@ -27,6 +29,8 @@ function provider(
       planLabel: null,
       windows: [
         {
+          id: "window-1",
+          model: null,
           label: "Five-hour limit",
           usedPercent,
           resetsAt: null,

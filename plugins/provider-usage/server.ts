@@ -23,6 +23,7 @@ import {
 
 interface SourceResult {
   pluginId: string;
+  displayName: string;
   label: string | null;
   resources: UsageResourceList["resources"];
   error: string | null;
@@ -70,7 +71,9 @@ function normalizedUsage(
         accountEmail: usage.accountEmail || null,
         planLabel: usage.planLabel || null,
         windows: usage.windows.map((window) => ({
+          id: window.id,
           label: window.label,
+          model: window.model || null,
           usedPercent: window.usedPercent,
           resetsAt: window.resetsAt || null,
           cost: window.cost ?? null,
@@ -100,7 +103,7 @@ function normalizedProvider(
     "id" | "displayName" | "logoUrl" | "icon" | "strings"
   >,
   usage: Resource["usage"] | undefined,
-): UsageProvider {
+): Omit<UsageProvider, "source" | "observedAt"> {
   return {
     id: provider.id,
     providerId: provider.id,
@@ -124,7 +127,7 @@ function normalizedProvider(
 function resourceProvider(
   resource: UsageResourceList["resources"][number],
   measurement: UsageMeasurement | undefined,
-  pluginId: string,
+  source: Pick<SourceResult, "pluginId" | "displayName">,
   providers: Provider[],
 ): UsageProvider {
   const metadata = providers.find(
@@ -147,7 +150,9 @@ function resourceProvider(
             "This account’s session expired. Sign in again in the source plugin’s settings, then reload usage.",
         }
       : {}),
-    id: `${pluginId}:${resource.id}`,
+    id: `${source.pluginId}:${resource.id}`,
+    source: { pluginId: source.pluginId, displayName: source.displayName },
+    observedAt: measurement?.observedAt ?? null,
     accountLabel:
       resource.scope.kind === "shared"
         ? (measurement?.usage.accountEmail ?? resource.label)
@@ -242,6 +247,7 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
             });
             inventories.set(source.pluginId, {
               pluginId: source.pluginId,
+              displayName: source.displayName,
               label: inventory.label ?? null,
               resources: inventory.resources,
               error: null,
@@ -250,6 +256,7 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
             const previous = inventories.get(source.pluginId);
             inventories.set(source.pluginId, {
               pluginId: source.pluginId,
+              displayName: source.displayName,
               label: previous?.label ?? null,
               resources: previous?.resources ?? [],
               error: "Usage resources could not be listed.",
@@ -362,7 +369,7 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
         const provider = resourceProvider(
           resource,
           cached?.value,
-          source.pluginId,
+          source,
           providers,
         );
         const error = failures.get(key) ?? source.error;

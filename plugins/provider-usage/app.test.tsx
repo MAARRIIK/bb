@@ -72,6 +72,8 @@ describe("provider usage footer disclosure", () => {
         ["claude-code", "Claude Code", "claude-team@example.com", 97],
       ] as const
     ).map(([providerId, displayName, email, usedPercent]) => ({
+      source: { pluginId: "test-source", displayName: "Test source" },
+      observedAt: null,
       id: email,
       providerId: providerId,
       accountLabel: email,
@@ -87,6 +89,8 @@ describe("provider usage footer disclosure", () => {
         planLabel: "Pro",
         windows: [
           {
+            id: "window-1",
+            model: null,
             label: "Weekly limit",
             usedPercent: usedPercent,
             resetsAt:
@@ -112,6 +116,11 @@ describe("provider usage footer disclosure", () => {
                   error: null,
                   providers: [
                     {
+                      source: {
+                        pluginId: "test-source",
+                        displayName: "Test source",
+                      },
+                      observedAt: null,
                       id: "claude-code",
                       providerId: "claude-code",
                       accountLabel: null,
@@ -130,6 +139,8 @@ describe("provider usage footer disclosure", () => {
                         planLabel: "Max",
                         windows: [
                           {
+                            id: "window-2",
+                            model: null,
                             label: "Five-hour limit",
                             usedPercent: 82,
                             resetsAt: "2026-09-02T18:42:00.000Z",
@@ -139,6 +150,11 @@ describe("provider usage footer disclosure", () => {
                       },
                     },
                     {
+                      source: {
+                        pluginId: "test-source",
+                        displayName: "Test source",
+                      },
+                      observedAt: null,
                       id: "codex",
                       providerId: "codex",
                       accountLabel: null,
@@ -154,6 +170,8 @@ describe("provider usage footer disclosure", () => {
                         planLabel: "Plus",
                         windows: [
                           {
+                            id: "window-3",
+                            model: null,
                             label: "Weekly limit",
                             usedPercent: 37,
                             resetsAt: null,
@@ -171,6 +189,11 @@ describe("provider usage footer disclosure", () => {
                   error: null,
                   providers: [
                     {
+                      source: {
+                        pluginId: "test-source",
+                        displayName: "Test source",
+                      },
+                      observedAt: null,
                       id: "codex",
                       providerId: "codex",
                       accountLabel: null,
@@ -186,6 +209,8 @@ describe("provider usage footer disclosure", () => {
                         planLabel: "Plus",
                         windows: [
                           {
+                            id: "window-4",
+                            model: null,
                             label: "Weekly limit",
                             usedPercent: 97,
                             resetsAt: null,
@@ -304,7 +329,7 @@ describe("provider usage footer disclosure", () => {
     expect(
       slot.getByRole("heading", { name: "codex@example.com" }),
     ).toBeTruthy();
-    expect(slot.getByText("97%")).toBeTruthy();
+    expect(slot.getByText("3% remaining")).toBeTruthy();
     expect(
       localStorage.getItem("bb.bb--provider-usage.selected-machine.v1"),
     ).toBe("host-m5");
@@ -330,13 +355,13 @@ describe("provider usage footer disclosure", () => {
     expect(
       slot.getByRole("heading", { name: "claude@example.com" }),
     ).toBeTruthy();
-    expect(slot.getByText("82%")).toBeTruthy();
+    expect(slot.getByText("18% remaining")).toBeTruthy();
 
     fireEvent.click(codexTab);
     expect(
       slot.getByRole("heading", { name: "codex@example.com" }),
     ).toBeTruthy();
-    expect(slot.getByText("37%")).toBeTruthy();
+    expect(slot.getByText("63% remaining")).toBeTruthy();
     fireEvent.keyDown(codexTab, { key: "ArrowLeft" });
     expect(claudeTab.getAttribute("aria-selected")).toBe("true");
 
@@ -418,17 +443,17 @@ describe("provider usage footer disclosure", () => {
     ).not.toBeNull();
     expect(slot.getAllByText("team@example.com")).toHaveLength(1);
     expect(slot.getAllByText("personal@example.com")).toHaveLength(1);
-    expect(slot.getByText("46%")).toBeTruthy();
+    expect(slot.getByText("54% remaining")).toBeTruthy();
     expect(slot.getByText("2d 3h")).toBeTruthy();
     expect(
       slot.getAllByRole("heading").map((heading) => heading.textContent),
     ).toEqual(["team@example.com", "personal@example.com"]);
     const windowButton = slot.getByRole("button", {
-      name: "Weekly limit: 46% used. Reset time not reported",
+      name: "Weekly limit: 54% remaining. 46% used. Reset time not reported",
     });
     fireEvent.click(windowButton);
-    expect(slot.getByText("Reset time not reported.")).toBeTruthy();
-    expect(slot.getByText("82%")).toBeTruthy();
+    expect(slot.getByText(/Reset time not reported\./u)).toBeTruthy();
+    expect(slot.getByText("18% remaining")).toBeTruthy();
     fireEvent.click(slot.getByRole("tab", { name: "Claude Code" }));
     expect(slot.getByText("claude-team@example.com")).toBeTruthy();
     expect(slot.queryByText("personal@example.com")).toBeNull();
@@ -496,6 +521,8 @@ it.each([
               ? []
               : [
                   {
+                    id: "window-5",
+                    model: null,
                     label: "Weekly limit",
                     usedPercent: 42,
                     resetsAt: null,
@@ -504,6 +531,8 @@ it.each([
                 ],
         };
   const account: UsageProvider = {
+    source: { pluginId: "test-source", displayName: "Test source" },
+    observedAt: null,
     id: "account",
     providerId: "codex",
     accountLabel: "review@example.com",
@@ -549,7 +578,7 @@ it.each([
     expect(slot.getByText(expected, { exact: false })).toBeTruthy(),
   );
   if (state === "source-error") {
-    expect(slot.getByText("42%")).toBeTruthy();
+    expect(slot.getByText("58% remaining")).toBeTruthy();
     expect(slot.queryByText("private backend error")).toBeNull();
     expect(
       slot.queryByRole("button", { name: "Retry usage refresh" }),
@@ -560,6 +589,8 @@ it.each([
 
 it("keeps a measured refresh when an older snapshot response arrives late", async () => {
   const account = (usage: UsageProvider["usage"]): UsageProvider => ({
+    source: { pluginId: "test-source", displayName: "Test source" },
+    observedAt: null,
     id: "account",
     providerId: "codex",
     accountLabel: "review@example.com",
@@ -599,6 +630,8 @@ it("keeps a measured refresh when an older snapshot response arrives late", asyn
           planLabel: null,
           windows: [
             {
+              id: "window-6",
+              model: null,
               label: "Weekly limit",
               usedPercent: 37,
               resetsAt: null,
@@ -635,7 +668,7 @@ it("keeps a measured refresh when an older snapshot response arrives late", asyn
   );
   await new Promise((resolve) => setTimeout(resolve, 0));
   releaseInventory!();
-  await waitFor(() => expect(slot.getByText("37%")).toBeTruthy());
+  await waitFor(() => expect(slot.getByText("63% remaining")).toBeTruthy());
   await waitFor(() =>
     expect(
       slot
@@ -644,6 +677,6 @@ it("keeps a measured refresh when an older snapshot response arrives late", asyn
     ).toBe(false),
   );
   expect(slot.queryByText("Usage not reported.")).toBeNull();
-  expect(slot.getByText("37%")).toBeTruthy();
+  expect(slot.getByText("63% remaining")).toBeTruthy();
   await mounted.lifecycle.dispose();
 });

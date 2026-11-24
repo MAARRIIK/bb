@@ -1,3 +1,5 @@
+import type { UsageWindow } from "./usage-schema.js";
+
 export function usageBarColorClass(usedPercent: number): string {
   if (usedPercent >= 95) return "bg-destructive";
   if (usedPercent >= 80) return "bg-warning";
@@ -40,4 +42,26 @@ export function formatUsdCents(
     minimumFractionDigits: alwaysShowCents || cents % 100 !== 0 ? 2 : 0,
     maximumFractionDigits: 2,
   }).format(cents / 100);
+}
+
+export function formatRemainingUsage(window: UsageWindow): string {
+  const remainingPercent = new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 1,
+  }).format(Math.max(0, 100 - window.usedPercent));
+  return `${remainingPercent}% remaining`;
+}
+
+export function formatUsageTimestamp(timestamp: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "long",
+  }).format(timestamp);
+}
+
+export function formatUsageResetTimestamp(
+  resetsAt: string | null,
+): string | null {
+  if (resetsAt === null) return null;
+  const timestamp = new Date(resetsAt).getTime();
+  return Number.isFinite(timestamp) ? formatUsageTimestamp(timestamp) : null;
 }

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
@@ -13,6 +14,8 @@ installTestPluginRuntime();
 
 function account(id: string, providerId = "codex"): UsageProvider {
   return {
+    source: { pluginId: "test-source", displayName: "Test source" },
+    observedAt: null,
     id,
     providerId,
     accountLabel: `${id}@example.com`,
@@ -28,6 +31,8 @@ function account(id: string, providerId = "codex"): UsageProvider {
       planLabel: "Ultra",
       windows: [
         {
+          id: "window-1",
+          model: null,
           label: "Weekly limit",
           usedPercent: 42,
           resetsAt: new Date(Date.now() + 3600_000).toISOString(),
