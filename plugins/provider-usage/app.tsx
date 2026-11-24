@@ -27,6 +27,8 @@ import {
 import { cn } from "@/lib/utils";
 import {
   formatUsageReset,
+  formatUsageResetTimestamp,
+  formatRemainingUsage,
   formatUsdCents,
   usageBarColorClass,
 } from "./usage-format.js";
@@ -52,6 +54,7 @@ import {
 } from "./usage-feedback.js";
 
 import { UsageSettings } from "./settings.js";
+import { UsageMeasurementDetails } from "./usage-measurement.js";
 
 export interface UsageStoreSnapshot {
   data: UsageSnapshot | null;
@@ -270,10 +273,12 @@ const USAGE_GRID_CLASS_NAME =
 function UsageWindow({ window }: { window: UsageWindowValue }) {
   const [showReset, setShowReset] = useState(false);
   const reset = formatUsageReset(window.resetsAt);
+  const resetTimestamp = formatUsageResetTimestamp(window.resetsAt);
+  const remaining = formatRemainingUsage(window);
   const countdown = formatResetCountdown(window.resetsAt);
   const value =
     window.cost === null
-      ? Math.round(window.usedPercent) + "% used"
+      ? window.usedPercent + "% used"
       : formatUsdCents(window.cost.usedUsdCents, true) +
         " / " +
         formatUsdCents(window.cost.limitUsdCents, false);
@@ -282,7 +287,7 @@ function UsageWindow({ window }: { window: UsageWindowValue }) {
       type="button"
       className="col-span-full grid grid-cols-subgrid rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
       title={`${window.label} · ${reset ?? "Reset time not reported"}`}
-      aria-label={`${window.label}: ${value}. ${reset ?? "Reset time not reported"}`}
+      aria-label={`${window.label}: ${remaining}. ${value}. ${reset ?? "Reset time not reported"}`}
       aria-expanded={showReset}
       onClick={() => setShowReset((shown) => !shown)}
     >
@@ -307,7 +312,7 @@ function UsageWindow({ window }: { window: UsageWindowValue }) {
             usageToneTextClass(window.usedPercent),
           )}
         >
-          {Math.round(window.usedPercent)}%
+          {remaining}
         </span>
         <span
           aria-hidden="true"
@@ -319,7 +324,13 @@ function UsageWindow({ window }: { window: UsageWindowValue }) {
       {showReset ? (
         <span className="col-span-full pb-1 text-2xs text-subtle-foreground">
           {reset ?? "Reset time not reported."}
-          {window.cost === null ? "" : ` · ${value}`}
+          {resetTimestamp === null ? "" : ` · ${resetTimestamp}`}
+          {" · "}
+          {value}
+          {" · "}
+          {window.model === null
+            ? "Shared by all models in this account"
+            : `Model family: ${window.model}`}
         </span>
       ) : null}
     </button>
@@ -406,13 +417,16 @@ function AccountUsage({
           {account.refreshError} Showing last update.
         </p>
       ) : null}
+      <div className="col-span-full pb-1 text-2xs text-subtle-foreground">
+        <UsageMeasurementDetails account={account} unavailable={unavailable} />
+      </div>
       {message !== null ? (
         <p className="col-span-full text-2xs text-subtle-foreground">
           {message}
         </p>
       ) : usage?.status === "ok" ? (
         usage.windows.map((window) => (
-          <UsageWindow key={window.label} window={window} />
+          <UsageWindow key={window.id} window={window} />
         ))
       ) : null}
     </section>
@@ -589,7 +603,10 @@ export function ProviderUsageStatusContent({
     ? providers.flatMap((provider) => provider.accounts)
     : (activeProvider?.accounts ?? []);
   const hasActiveUsage = hasReportedUsage(activeAccounts);
-  const unavailable = activeMachine?.error != null || snapshot.error !== null;
+  const unavailable =
+    activeMachine?.error != null ||
+    snapshot.error !== null ||
+    activeMachine?.status === "disconnected";
   const notice: CardNotice | null =
     activeMachine === null
       ? snapshot.error !== null

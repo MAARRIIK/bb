@@ -140,7 +140,12 @@ it("lists cheaply, fetches only the selected source/provider, preserves failed m
         {
           id: "source:pool",
           providers: [
-            { providerId: "codex", usage: null },
+            {
+              providerId: "codex",
+              usage: null,
+              observedAt: null,
+              source: { pluginId: "pool", displayName: "Account Pooler" },
+            },
             { providerId: "codex", usage: null },
             { providerId: "claude-code", usage: null },
           ],
@@ -155,7 +160,25 @@ it("lists cheaply, fetches only the selected source/provider, preserves failed m
       machineIds: ["source:pool"],
       providerIds: ["codex"],
     };
-    await host.harness.behavior.callRpc("getUsage", target);
+    expect(
+      await host.harness.behavior.callRpc("getUsage", target),
+    ).toMatchObject({
+      machines: [
+        { id: "host" },
+        {
+          id: "source:pool",
+          providers: [
+            {
+              observedAt: 123,
+              source: { pluginId: "pool", displayName: "Account Pooler" },
+              usage: { windows: [{ id: "week", model: null }] },
+            },
+            { observedAt: 123 },
+            { observedAt: null },
+          ],
+        },
+      ],
+    });
     expect(
       rpc.mock.calls
         .filter(([args]) => args.method === usageFetchMethod)
@@ -190,6 +213,7 @@ it("lists cheaply, fetches only the selected source/provider, preserves failed m
             {
               usage: { status: "ok" },
               refreshError: "Usage could not be refreshed.",
+              observedAt: 123,
             },
             { usage: { status: "error", message: "Subscription required." } },
           ],

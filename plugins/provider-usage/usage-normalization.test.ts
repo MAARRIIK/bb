@@ -82,6 +82,9 @@ it("normalizes structured plans and windows while retaining custom provider labe
       ],
     },
   });
+  expect(
+    normalizeUsageMeasurement({ ...raw, observedAt: 1e18 }).observedAt,
+  ).toBeNull();
   expect(normalizeUsageMeasurement(raw)).toMatchObject({
     accountKey: null,
     usage: {

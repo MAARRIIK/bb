@@ -53,6 +53,8 @@ function provider(
   const isClaude = providerId === "claude-code";
   const displayName = isClaude ? "Claude Code" : "Codex";
   return {
+    source: { pluginId: "test-source", displayName: "Test source" },
+    observedAt: null,
     id,
     providerId,
     accountLabel: `${id}@example.com`,
@@ -79,6 +81,8 @@ function measured(
     planLabel,
     windows: [
       {
+        id: "window-1",
+        model: null,
         label: "Weekly limit",
         usedPercent,
         resetsAt: futureIso(usedPercent > 90 ? 18 : 83),
@@ -129,12 +133,16 @@ function twoWindows(
     planLabel,
     windows: [
       {
+        id: "window-2",
+        model: null,
         label: "Five-hour limit",
         usedPercent: fiveHour,
         resetsAt: futureIso(3),
         cost: null,
       },
       {
+        id: "window-3",
+        model: null,
         label: "Weekly limit",
         usedPercent: weekly,
         resetsAt: futureIso(83),
@@ -188,6 +196,8 @@ function liveAccount(
 ): UsageProvider {
   const { displayName, logoUrl, iconTint } = liveProviders[providerId];
   return {
+    source: { pluginId: "test-source", displayName: "Test source" },
+    observedAt: null,
     id,
     providerId,
     accountLabel,
@@ -211,6 +221,8 @@ function liveUsage(
     accountEmail: email,
     planLabel,
     windows: windows.map(([label, usedPercent, resetHours]) => ({
+      id: label,
+      model: null,
       label,
       usedPercent,
       resetsAt: futureIso(resetHours),

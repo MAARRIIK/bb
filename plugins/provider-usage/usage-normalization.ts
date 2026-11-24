@@ -1,8 +1,16 @@
 import type { UsageMeasurement } from "./usage-source-contract.js";
 
 export function normalizeUsageMeasurement(
-  measurement: UsageMeasurement,
+  raw: UsageMeasurement,
 ): UsageMeasurement {
+  const measurement = {
+    ...raw,
+    observedAt:
+      raw.observedAt !== null &&
+      Number.isFinite(new Date(raw.observedAt).getTime())
+        ? raw.observedAt
+        : null,
+  };
   if (measurement.usage.status !== "ok") return measurement;
   const usage = measurement.usage;
   const labels: Record<string, string> = {

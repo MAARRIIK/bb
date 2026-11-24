@@ -12,6 +12,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import {
+  formatRemainingUsage,
+  formatUsageReset as formatReset,
+  formatUsageResetTimestamp,
+  formatUsdCents,
+  usageBarColorClass as barColorClass,
+} from "./usage-format.js";
+import { UsageMeasurementDetails } from "./usage-measurement.js";
 import type { providerUsageRpcContract, UsageRequest } from "./server.js";
 import {
   emptyUsageMessage,
@@ -44,63 +52,6 @@ interface ProviderConfig {
   provider: UsageProvider;
 }
 
-function barColorClass(usedPercent: number): string {
-  if (usedPercent >= 95) {
-    return "bg-destructive";
-  }
-  if (usedPercent >= 80) {
-    return "bg-warning";
-  }
-  return "bg-primary";
-}
-
-function formatReset(resetsAt: string | null): string | null {
-  if (!resetsAt) {
-    return null;
-  }
-  const reset = new Date(resetsAt);
-  if (Number.isNaN(reset.getTime())) {
-    return null;
-  }
-  const diffMs = reset.getTime() - Date.now();
-  if (diffMs <= 0) {
-    return "Resetting now";
-  }
-
-  const diffMinutes = Math.round(diffMs / 60_000);
-  if (diffMinutes < 60) {
-    return `Resets in ${diffMinutes} min`;
-  }
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) {
-    const minutes = diffMinutes % 60;
-    return minutes > 0
-      ? `Resets in ${diffHours} hr ${minutes} min`
-      : `Resets in ${diffHours} hr`;
-  }
-
-  const withinWeek = diffMs < 7 * 24 * 60 * 60_000;
-  const formatted = reset.toLocaleString(undefined, {
-    weekday: withinWeek ? "short" : undefined,
-    month: withinWeek ? undefined : "short",
-    day: withinWeek ? undefined : "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  return `Resets ${formatted}`;
-}
-
-function formatUsdCents(cents: number, alwaysShowCents: boolean): string {
-  const hasFractionalDollar = cents % 100 !== 0;
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: alwaysShowCents || hasFractionalDollar ? 2 : 0,
-    maximumFractionDigits: 2,
-  }).format(cents / 100);
-}
-
 function usageWindowValue(window: UsageWindow): string {
   if (!window.cost) {
     return `${window.usedPercent}% used`;
@@ -110,12 +61,13 @@ function usageWindowValue(window: UsageWindow): string {
 
 function UsageWindowRow({ window }: { window: UsageWindow }) {
   const reset = formatReset(window.resetsAt);
+  const resetTimestamp = formatUsageResetTimestamp(window.resetsAt);
   return (
     <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-xs text-foreground">{window.label}</span>
-        <span className="text-xs tabular-nums text-muted-foreground">
-          {usageWindowValue(window)}
+        <span className="text-right text-xs tabular-nums text-muted-foreground">
+          {formatRemainingUsage(window)} · {usageWindowValue(window)}
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -130,11 +82,21 @@ function UsageWindowRow({ window }: { window: UsageWindow }) {
         />
       </div>
       {reset ? <p className="text-xs text-muted-foreground">{reset}</p> : null}
+      {resetTimestamp === null ? null : (
+        <p className="text-xs text-muted-foreground">{resetTimestamp}</p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        {window.model === null
+          ? "Shared by all models in this account"
+          : `Model family: ${window.model}`}
+      </p>
     </div>
   );
 }
 
 interface ProviderUsageBlockProps {
+  account: UsageProvider;
+  unavailable: boolean;
   refreshError?: string;
   accountLabel?: string;
   config: ProviderConfig;
@@ -210,6 +172,8 @@ function UsageLocationPicker({
 }
 
 function ProviderUsageBlock({
+  account,
+  unavailable,
   refreshError,
   accountLabel,
   config,
@@ -255,6 +219,12 @@ function ProviderUsageBlock({
                 {refreshError} Showing last update.
               </p>
             ) : null}
+            <div className="mt-1 text-xs text-muted-foreground">
+              <UsageMeasurementDetails
+                account={account}
+                unavailable={unavailable}
+              />
+            </div>
             {!showsUsageWindows ? (
               <div className={accountEmail ? "mt-1.5" : undefined}>
                 <ProviderUsageBody
@@ -305,6 +275,8 @@ function UsageResourceGroup({
         return (
           <ProviderUsageBlock
             key={resource.id}
+            account={resource}
+            unavailable={isError}
             refreshError={resource.refreshError}
             accountLabel={email ?? undefined}
             config={config}
@@ -323,7 +295,10 @@ function ProviderUsageBody({
   usage,
   isLoading,
   isError,
-}: ProviderUsageBlockProps) {
+}: Pick<
+  ProviderUsageBlockProps,
+  "config" | "usage" | "isLoading" | "isError"
+>) {
   if (isError) {
     return (
       <p className="text-xs text-muted-foreground">
@@ -350,7 +325,7 @@ function ProviderUsageBody({
       return (
         <div className="space-y-3.5">
           {usage.windows.map((window) => (
-            <UsageWindowRow key={window.label} window={window} />
+            <UsageWindowRow key={window.id} window={window} />
           ))}
         </div>
       );
@@ -486,7 +461,11 @@ export function UsageSettingsContent({
                 }}
                 resources={resources}
                 isLoading={loading}
-                isError={error || Boolean(selected?.error)}
+                isError={
+                  error ||
+                  Boolean(selected?.error) ||
+                  selected?.status === "disconnected"
+                }
               />
             );
           })}
