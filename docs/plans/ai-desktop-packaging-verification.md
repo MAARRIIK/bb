@@ -57,7 +57,15 @@ and plugin tasks retain Turbo caching. See [build and update commands](../ai-des
 - The full native build/typecheck/lint graph completed **80 tasks**; final
   affected typecheck/lint completed **12 tasks** after later UI and release fixes.
 - Both workflow files were parsed and their repository guards inspected.
+- Provider-literal ratchet, branch-ref ownership, SDK-surface/version lockstep
+  and source-NUL checks passed. The ratchet fixture also verifies test-only
+  exclusions while keeping neighboring production files in scope.
 - `git diff --check` passed. No daemon protocol or database migration changed.
+- The inherited process-identity guard still reports four PID-only signal calls
+  in the unchanged `runtime.multi-thread.test.ts` and
+  `runtime.prepared-sessions.test.ts` baseline. This stage does not modify or
+  waive that guard. Legacy hosted CI jobs remain queued on Blacksmith runners;
+  they are not counted as passing verification.
 
 Private log names under `.tmp/verify-ai-packaging-20261125/` include
 `native-build-checks-2.log`, `final-lint-types.log`, `native-tests-2.log`,

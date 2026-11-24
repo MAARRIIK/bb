@@ -1,3 +1,7 @@
+import { z } from "zod";
+import builtinProviderData from "./builtin-providers.json" with { type: "json" };
+import { providerIdSchema } from "./contract";
+
 export const BUILTIN_ICONS = [
   "Bot",
   "Calendar",
@@ -48,4 +52,15 @@ export function isBuiltinIcon(name: string): name is BuiltinIconName {
   return BUILTIN_SET.has(name);
 }
 
-export const BUILTIN_PROVIDER_IDS = ["codex", "claude-code", "acp-cursor", "acp-hermes-agent"] as const;
+type BuiltinProviderId = keyof typeof builtinProviderData;
+
+const builtinProviderCatalog = z
+  .record(providerIdSchema, z.literal(true))
+  .parse(builtinProviderData);
+
+export const BUILTIN_PROVIDER_IDS: readonly BuiltinProviderId[] = Object.freeze(
+  Object.keys(builtinProviderCatalog).filter(
+    (providerId): providerId is BuiltinProviderId =>
+      Object.hasOwn(builtinProviderData, providerId),
+  ),
+);
