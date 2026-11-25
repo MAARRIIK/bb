@@ -5692,3 +5692,25 @@ plugin views, mobile web, SSR fallback and future language additions. Decide
 whether the public contract should expand the union or expose language tags
 before additional translations ship. Then rename project-wide and remove this
 entry. No server/daemon wire fields change.
+
+
+## Owner authentication (`bb.sdk.experimental_ownerAuth`)
+
+The opt-in self-hosted server owner wall protects the same UI, JSON API and
+WebSocket endpoints used by core. `status`, `login({username,password})` and
+`logout` share the HTML form handlers and return only enabled/authenticated
+flags. Browser sessions use a host-only HttpOnly cookie; Node SDK instances
+retain it only for the configured origin and attach it to their WebSockets.
+The CLI stores its cookie privately per origin and calls the same SDK area.
+Owner password initialization uses `setLocalServerOwnerPassword` from the
+Node-only `bb-app` SDK and the same helper in `bb server auth set-password`;
+input is never accepted through argv. Machine authorization uses validated
+individual host keys and the existing machine-level management restrictions.
+
+Stabilization requires independently verified public HTTPS deployment, login
+and revocation on multiple clients, iPhone Safari/PWA and desktop remote
+profiles, denied unauthenticated API/WS access, real machine enrollment and
+key rotation, backup recovery, and a defined native mobile session contract.
+Official TestFlight compatibility is not established by the web route. The
+core login form and CLI are the initial callers; plugins must not store owner
+passwords or forward sessions to another origin.

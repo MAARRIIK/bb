@@ -1,3 +1,4 @@
+import { registerServerOwnerAuth } from "./services/server-owner-auth.js";
 import { createPluginUpdateJobs } from "./services/plugins/plugin-update-jobs.js";
 import { registerPluginUpdateJobRoutes } from "./routes/plugin-update-jobs.js";
 import {
@@ -22,6 +23,8 @@ import {
   INSTALL_MACHINE_WINDOWS_SCRIPT_PATH,
 } from "./install-machine-asset.js";
 import { createNodeWebSocket } from "@hono/node-ws";
+import { defineWebSocketHelper } from "hono/ws";
+import type { WebSocket } from "ws";
 import {
   declineSameMachineWebSocketCompression,
   WEB_SOCKET_COMPRESSION,
@@ -499,8 +502,14 @@ export function createApp(
     }
     return next();
   });
-  app.use("*", async (context, next) => {
+  app.use("*", (context, next) => {
     captureTrustedRemoteAddress(context);
+    return next();
+  });
+  const ownerAuth = registerServerOwnerAuth(app, deps, (token) =>
+    pluginService.resolveRpcCaller(token),
+  );
+  app.use("*", async (context, next) => {
     return runWithTelemetryRequest(
       {
         appSurface: resolveRequestAppSurface(context),
@@ -544,6 +553,7 @@ export function createApp(
   });
   app.onError(createServerErrorHandler(deps.logger));
   app.get("/health", async (context) => {
+    if (deps.config.ownerAuthEnabled) return context.json({ ok: true });
     const serverMove = await readServerMoveHealth({
       dataDir: deps.config.dataDir,
       pending: pendingServerMove,
@@ -931,7 +941,14 @@ export function createApp(
     pluginService,
     pluginInstallJobs,
     pluginUpdateJobs,
-    upgradeWebSocket,
+    defineWebSocketHelper<WebSocket, Parameters<typeof upgradeWebSocket>[2]>(
+      (context, events, options) =>
+        upgradeWebSocket(
+          context,
+          ownerAuth.guardWebSocket(context, events),
+          options,
+        ),
+    ),
   );
   registerSkillsRegistryRoutes(publicApi, deps);
   registerServerMoveRoutes(publicApi, deps, serverMove);
@@ -980,12 +997,12 @@ export function createApp(
     "/ws",
     upgradeWebSocket((context) => {
       assertBrowserWebSocketAllowed(context);
-      return {
+      return ownerAuth.guardWebSocket(context, {
         onOpen: (_event, socket) => onClientSocketOpen(deps.hub, socket),
         onMessage: (event, socket) =>
           onClientSocketMessage(deps.hub, socket, event.data),
         onClose: (_event, socket) => onClientSocketClose(deps.hub, socket),
-      };
+      });
     }),
   );
 
@@ -1009,7 +1026,7 @@ export function createApp(
           "Terminal websocket sinceSeq must be a non-negative integer and outputAcks must be 0 or 1",
         );
       }
-      return {
+      return ownerAuth.guardWebSocket(context, {
         onOpen: (_event, socket) =>
           onTerminalSocketOpen(deps, {
             outputAcks: query.data.outputAcks,
@@ -1028,7 +1045,7 @@ export function createApp(
             socket,
             terminalId,
           }),
-      };
+      });
     }),
   );
 
@@ -1070,6 +1087,7 @@ export function createApp(
   return {
     app,
     closeWebSockets: () => {
+      ownerAuth.dispose();
       endDaemonSessionChannels(
         deps.hub,
         WEB_SOCKET_SHUTDOWN_CODE,

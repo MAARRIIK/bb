@@ -157,6 +157,11 @@
       "source": "./src/desktop-runtime-ready.ts",
       "types": "./src/desktop-runtime-ready.ts",
       "default": "./src/desktop-runtime-ready.ts"
+    },
+    "./server-owner-auth": {
+      "source": "./src/server-owner-auth.ts",
+      "types": "./src/server-owner-auth.ts",
+      "default": "./src/server-owner-auth.ts"
     }
   },
   "scripts": {

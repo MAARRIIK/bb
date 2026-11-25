@@ -332,6 +332,22 @@
       "outputs": ["release/**"],
       "passThroughEnv": ["*"]
     },
+    "bb-app#server:package": {
+      "dependsOn": ["bb-app#build"],
+      "cache": false,
+      "outputs": ["release-server/**"]
+    },
+    "bb-app#smoke:server": {
+      "dependsOn": ["bb-app#server:package"],
+      "cache": false,
+      "outputs": [],
+      "passThroughEnv": [
+        "npm_config_cache",
+        "npm_config_devdir",
+        "npm_config_nodedir",
+        "NODE_OPTIONS"
+      ]
+    },
     "@bb/desktop#desktop:version-feed": {
       "cache": false,
       "outputs": ["release/desktop-version*.json"],

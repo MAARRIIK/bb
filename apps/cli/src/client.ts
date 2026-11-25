@@ -1,3 +1,4 @@
+import { loadCliOwnerSession, saveCliOwnerSession } from "./owner-session.js";
 import { createNodeBbSdk, type BbSdk } from "@bb/sdk/node";
 import {
   CALLER_THREAD_HEADER_NAME,
@@ -46,5 +47,10 @@ function cliSdkFetch(timeoutMs: number | undefined): typeof cliFetch {
 }
 
 export function createCliBbSdk(baseUrl: string, timeoutMs?: number): BbSdk {
-  return createNodeBbSdk({ baseUrl, fetch: cliSdkFetch(timeoutMs) });
+  return createNodeBbSdk({
+    baseUrl,
+    fetch: cliSdkFetch(timeoutMs),
+    ownerSession: loadCliOwnerSession(baseUrl),
+    onOwnerSessionChange: (session) => saveCliOwnerSession(baseUrl, session),
+  });
 }

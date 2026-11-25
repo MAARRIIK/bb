@@ -1,4 +1,5 @@
 import { ApplicationLinkApprovalsSettings } from "@/components/settings/ApplicationLinkApprovalsSettings";
+import { OwnerSessionSettingsSection } from "@/components/settings/OwnerSessionSettingsSection";
 import { LanguageSettingsSection } from "@/components/settings/LanguageSettingsSection";
 import { useInterfaceTranslation } from "@/lib/interface-language";
 import { MobileAppSection } from "@/components/settings/MobileAppSection";
@@ -920,6 +921,7 @@ export function GeneralSettingsSection({
   );
   return (
     <>
+      <OwnerSessionSettingsSection />
       <SettingsSection title="Threads & editing">
         <div className="space-y-5">
           <SettingsWithControl

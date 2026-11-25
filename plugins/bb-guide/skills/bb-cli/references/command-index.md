@@ -105,6 +105,11 @@ Use `--selected-model <model-id>` to discover its reasoning choices and include 
 ## server
 
 - `bb server`
+- `bb server auth`
+- `bb server auth set-password`
+- `bb server auth login`
+- `bb server auth status`
+- `bb server auth logout`
 - `bb server move`
 - `bb server move status`
 - `bb server move cancel`

@@ -303,6 +303,13 @@ export const BB_SKIP_ONBOARDING_ENV = defineEnvVar<boolean>({
   parse: parseBooleanEnvValue,
 });
 
+export const BB_OWNER_AUTH_ENV = defineEnvVar<boolean>({
+  description:
+    "Require owner login for this self-hosted server. Requires a private server-owner-auth.json credential file and HTTPS BB_APP_URL, except on loopback.",
+  name: "BB_OWNER_AUTH",
+  parse: parseBooleanEnvValue,
+});
+
 export const BB_TELEMETRY_ENV = defineEnvVar<boolean>({
   description:
     "Anonymous usage telemetry (app starts, thread creation counts, user message counts, and plugin installs, tagged with app version, install kind, and OS and Node versions). Set to false to opt out.",

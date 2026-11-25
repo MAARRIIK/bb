@@ -105,3 +105,6 @@ provider-recordings/raw/
 
 .ci-health/
 .test-durations/
+
+/packages/bb-app/release-server/
+/deploy/ai-server/.env

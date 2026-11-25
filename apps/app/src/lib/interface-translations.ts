@@ -8,6 +8,10 @@ export type InterfaceTranslator = (
 const russian = new Map<string, string>(
   Object.entries({
     Configuration: "Настройки",
+    "Owner session": "Сеанс владельца",
+    "Sign out": "Выйти",
+    "Sign out of this browser session.": "Выйти из сеанса в этом браузере.",
+    "Could not sign out": "Не удалось выйти",
     "Plugin details": "О плагине",
     "Enable {plugin}": "Включить {plugin}",
     "Disable {plugin}": "Отключить {plugin}",

@@ -261,6 +261,7 @@ configured for AI; see [AI desktop packages](./ai-desktop.md).
 | ------------------------------ | -------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BB_APP_URL`                   | `bb-app config`                                    | Optional for remote use | Human-facing app URL used for generated links, allowed browser origins, and the allowed DNS hostname for requests. Leave empty for local-only use. Live when set with `bb-app config`.                                                                                                                                              |
 | `BB_EXTERNAL_URL`              | `bb-app env`, or environment                       | Startup-only            | Internet-facing HTTPS base URL for generated public links; the fallback for `machineServerUrl`.                                                                                                                                                                                                                                     |
+| `BB_OWNER_AUTH`                | Server environment                                 | Startup-only            | Default `false`. When `true`, requires owner login for this self-hosted server, a private `server-owner-auth.json` in its data directory, and an HTTPS `BB_APP_URL` (HTTP is allowed only on loopback). See [Personal AI server](./ai-server.md#вход-владельца).                                                                         |
 | `BB_MARKETPLACE_URL`           | `bb-app env`, or environment                       | Startup-only testing    | Manifest URL of the reserved `bb-community` marketplace. Default `https://getbb.app/marketplace/v2/marketplace.json` (falls back to v1 on 404); a custom URL is requested without fallback. Changes only `bb-community`.                                                                                                            |
 | `BB_SERVER_URL`                | `bb-app config`                                    | Remote CLI/host use     | Server targeted by the standalone `bb` CLI and `host-daemon` commands on this machine. Defaults to `http://127.0.0.1:38886`. It does not change where `npx bb-app` binds.                                                                                                                                                           |
 | `BB_SERVER_BIND_HOST`          | `bb-app env`, environment, or `--server-bind-host` | Startup-only            | Server listener host: `127.0.0.1` (default) or `0.0.0.0`. Not a `bb-app config` key. See [Startup Flags](#startup-flags).                                                                                                                                                                                                           |
@@ -284,6 +285,18 @@ connecting, including from the CLI or SDK; a matching `Host`/`Origin` or
 `X-Forwarded-Host` cannot authorize an unconfigured name. A proxy can preserve
 the configured host or forward to localhost. bb connect needs no additional
 configuration.
+
+`BB_OWNER_AUTH` adds a single owner login to a self-hosted server. Configure or
+rotate its credential with `bb server auth set-password --data-dir <dir>
+--username <name> --password-stdin`; the command reads the password from stdin
+and writes `server-owner-auth.json` in the data directory. Passwords must be
+12–512 characters. Password changes revoke existing owner sessions. The web
+login uses an HTTP-only, secure cookie on HTTPS. `bb server auth login`,
+`status`, and `logout` manage the CLI session, stored under the selected
+`BB_DATA_DIR` in an origin-scoped owner session file. This is a single-owner
+access gate, not multi-user account management. Leave the flag off to retain
+the existing unauthenticated server behavior. See [Personal AI
+server](./ai-server.md) for the VPS setup and access boundary.
 
 ## General settings
 

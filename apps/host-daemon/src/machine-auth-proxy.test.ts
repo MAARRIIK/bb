@@ -53,6 +53,7 @@ describe("startMachineAuthProxy", () => {
       });
       const port = await listen(upstream);
       const proxy = await startMachineAuthProxy({
+        getHostKey: () => "host-key",
         serverUrl: `http://127.0.0.1:${port}`,
         serverHeaders: { "x-bb-connect-machine": "test-machine" },
       });
@@ -90,6 +91,7 @@ describe("startMachineAuthProxy", () => {
     });
     const port = await listen(upstream);
     const proxy = await startMachineAuthProxy({
+        getHostKey: () => "host-key",
       serverUrl: `http://127.0.0.1:${port}`,
       serverHeaders: { "x-bb-connect-machine": "test-machine" },
     });
@@ -133,6 +135,7 @@ describe("startMachineAuthProxy", () => {
       const upstreamConnected = once(upstream, "connection");
       const upstreamPort = await listen(upstream);
       const proxy = await startMachineAuthProxy({
+        getHostKey: () => "host-key",
         serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
         serverUrl: `http://127.0.0.1:${upstreamPort}`,
       });
@@ -175,6 +178,7 @@ describe("startMachineAuthProxy", () => {
       });
       const upstreamPort = await listen(upstream);
       const proxy = await startMachineAuthProxy({
+        getHostKey: () => "host-key",
         serverHeaders: {},
         serverUrl: `http://127.0.0.1:${upstreamPort}`,
       });
@@ -213,6 +217,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
+        getHostKey: () => "host-key",
       serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
@@ -233,6 +238,36 @@ describe("startMachineAuthProxy", () => {
     expect(response.status).toBe(201);
     expect(response.headers.get("x-upstream")).toBe("yes");
     await expect(response.text()).resolves.toBe("created");
+  });
+
+  it("uses the current host key and fails closed when it is unavailable", async () => {
+    let hostKey: string | null = "first-key";
+    const seen: Array<string | string[] | undefined> = [];
+    const upstream = http.createServer((request, response) => {
+      seen.push(request.headers["x-bb-host-key"]);
+      expect(request.headers.authorization).toBe("Bearer outer-proxy");
+      response.end("ok");
+    });
+    const port = await listen(upstream);
+    const proxy = await startMachineAuthProxy({
+      getHostKey: () => hostKey,
+      serverHeaders: { authorization: "Bearer outer-proxy" },
+      serverUrl: `http://127.0.0.1:${port}`,
+    });
+    proxies.push(proxy);
+
+    for (const key of ["first-key", "rotated-key"]) {
+      hostKey = key;
+      const response = await fetch(`${proxy.serverUrl}/api/v1/threads`, {
+        headers: { "x-bb-host-key": "forged" },
+      });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("x-bb-host-key")).toBeNull();
+      expect(await response.text()).toBe("ok");
+    }
+    hostKey = null;
+    expect((await fetch(`${proxy.serverUrl}/api/v1/threads`)).status).toBe(503);
+    expect(seen).toEqual(["first-key", "rotated-key"]);
   });
 
   it("streams multipart attachment bytes while adding the machine credential", async () => {
@@ -274,6 +309,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
+        getHostKey: () => "host-key",
       serverHeaders: { "x-bb-connect-machine": "bbcm_attachment_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
@@ -299,6 +335,7 @@ describe("startMachineAuthProxy", () => {
     const websocketServer = new WebSocketServer({ noServer: true });
     upstream.on("upgrade", (request, socket, head) => {
       expect(request.headers["x-bb-connect-machine"]).toBe("bbcm_machine");
+      expect(request.headers["x-bb-host-key"]).toBe("host-key");
       websocketServer.handleUpgrade(request, socket, head, (websocket) => {
         websocketServer.emit("connection", websocket, request);
       });
@@ -310,6 +347,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
+        getHostKey: () => "host-key",
       serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
@@ -318,6 +356,7 @@ describe("startMachineAuthProxy", () => {
     const response = await new Promise<string>((resolve, reject) => {
       const socket = new WebSocket(
         `${proxy.serverUrl.replace("http:", "ws:")}/ws/threads/thread-1/terminals/terminal-1`,
+        { headers: { "x-bb-host-key": "forged" } },
       );
       socket.once("open", () => socket.send("ping"));
       socket.once("message", (message: RawData) => {
@@ -339,6 +378,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
+        getHostKey: () => "host-key",
       serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
@@ -387,6 +427,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
+        getHostKey: () => "host-key",
       serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
@@ -423,6 +464,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
+        getHostKey: () => "host-key",
       serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
@@ -456,6 +498,7 @@ describe("startMachineAuthProxy", () => {
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startMachineAuthProxy({
+        getHostKey: () => "host-key",
       serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
       serverUrl: `http://127.0.0.1:${upstreamPort}`,
     });
@@ -498,6 +541,7 @@ describe("startMachineAuthProxy", () => {
 
     await expect(
       startMachineAuthProxy({
+        getHostKey: () => "host-key",
         serverHeaders: { "x-bb-connect-machine": "bbcm_machine" },
         port,
         serverUrl: "http://server.test",

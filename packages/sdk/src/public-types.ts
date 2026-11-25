@@ -38,3 +38,6 @@ export type * from "./areas/threads.js";
 export type * from "./areas/provider-switch.js";
 export type * from "./areas/desktop-browsers.js";
 export type * from "./areas/server.js";
+
+export type { OwnerAuthStatus, OwnerAuthLogin } from "@bb/server-contract";
+export type { ExperimentalOwnerAuthArea } from "./areas/owner-auth.js";

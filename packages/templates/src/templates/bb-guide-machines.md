@@ -26,6 +26,13 @@ a server access provider: paired bb Connect, or a configured direct URL reachabl
 from the target, such as a private Tailscale Serve URL. A configured URL alone
 does not prove reachability.
 
+For a self-hosted server with `BB_OWNER_AUTH=true`, sign in to the web app before
+adding machines. The Add machine installer provisions a separate machine
+credential; do not copy the owner password to an execution machine. The owner
+login protects the server's browser/API/WebSocket surfaces, while authenticated
+machine requests use their enrolled machine credential. See the Personal AI
+server deployment guide for single-owner VPS setup.
+
   bb machine list                         List persistent machines with role, ID, type,
                                           connection status, and relative last-seen time
     --all                                 Include disposable provider sandboxes

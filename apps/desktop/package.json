@@ -1,6 +1,6 @@
 {
   "name": "@bb/desktop",
-  "version": "0.50.2",
+  "version": "0.50.3",
   "private": true,
   "description": "AI desktop IDE for macOS, Ubuntu/Linux, and Windows",
   "main": "dist/main.js",
