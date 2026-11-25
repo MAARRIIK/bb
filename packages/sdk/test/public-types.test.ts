@@ -213,6 +213,7 @@ interface NodeSurface {
 }
 
 type ExpectedBbSdkKey =
+  | "experimental_ownerAuth"
   | "experimental_desktopBrowsers"
   | "experimental_promptHistory"
   | "experimental_server"

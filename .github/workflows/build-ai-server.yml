@@ -1,0 +1,56 @@
+name: Build AI Server
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/build-ai-server.yml
+      - deploy/ai-server/**
+      - apps/app/**
+      - apps/host-daemon/**
+      - apps/server/**
+      - apps/cli/**
+      - packages/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+
+env:
+  NODE_VERSION: "22.x"
+  PNPM_VERSION: "9.15.0"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.repository == 'MAARRIIK/bb'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Package server
+        run: pnpm exec turbo run server:package --filter=bb-app --output-logs=new-only
+      - name: Build image from release package
+        run: docker build -f deploy/ai-server/Dockerfile -t ai-server-smoke packages/bb-app/release-server
+      - name: Smoke test installed package in image
+        run: docker run --rm --network none --entrypoint node -v "$PWD/packages/bb-app/scripts/smoke-ai-server.mjs:/qa/smoke.mjs:ro" ai-server-smoke /qa/smoke.mjs --package-root /opt/ai/node_modules/bb-app
+      - name: Upload server package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: AI-server-linux-x64
+          if-no-files-found: error
+          path: |
+            packages/bb-app/release-server/ai-server.tgz
+            packages/bb-app/release-server/sha256sums.txt
+            packages/bb-app/release-server/build-info.json

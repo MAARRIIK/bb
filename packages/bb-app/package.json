@@ -1,6 +1,6 @@
 {
   "name": "bb-app",
-  "version": "0.50.2",
+  "version": "0.50.3",
   "license": "MIT",
   "description": "bb app launcher for npx",
   "keywords": [
@@ -70,7 +70,9 @@
     "smoke:tarball": "node scripts/smoke-tarball.mjs",
     "typecheck": "tsrs --noEmit",
     "lint:type-aware": "oxlint -c ../../.oxlintrc.type-aware.json",
-    "test": "vitest run --config vitest.config.ts"
+    "test": "vitest run --config vitest.config.ts",
+    "server:package": "node scripts/package-ai-server.mjs",
+    "smoke:server": "node scripts/smoke-ai-server.mjs"
   },
   "dependencies": {
     "@parcel/watcher": "2.6.0",

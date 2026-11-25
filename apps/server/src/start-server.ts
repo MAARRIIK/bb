@@ -162,6 +162,12 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
       logger,
     });
   }
+  if (serverConfig.BB_OWNER_AUTH) {
+    const settings = getAppSettings(db);
+    if (settings.defaultMachineAccess === null) {
+      setAppSettings(db, { ...settings, defaultMachineAccess: "direct" });
+    }
+  }
   if (serverConfig.BB_SKIP_ONBOARDING) {
     const settings = getAppSettings(db);
     if (settings.onboardingCompletedAt === null) {
@@ -204,6 +210,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     inheritedSkillsRootPaths: serverConfig.BB_INHERITED_SKILLS_ROOTS,
     isDevelopment: !isProduction,
     performanceDiagnosticsAvailable: serverConfig.BB_PERF_DIAGNOSTICS,
+    ownerAuthEnabled: serverConfig.BB_OWNER_AUTH,
     serverPort: serverConfig.BB_SERVER_PORT,
     sharedSkillRoots: { user: [], project: [] },
   };

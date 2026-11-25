@@ -1,3 +1,7 @@
+import {
+  createOwnerSessionFetch,
+  type OwnerSessionCookie,
+} from "./owner-session-fetch.js";
 import { loadCliConfig, type CliConfig } from "@bb/config/cli";
 import {
   createHostDaemonLocalClient,
@@ -19,6 +23,8 @@ import type {
 } from "./transport.js";
 
 export interface CreateNodeTransportArgs {
+  ownerSession?: OwnerSessionCookie;
+  onOwnerSessionChange?: (session: OwnerSessionCookie | null) => void;
   baseUrl?: string;
   cliConfig?: CliConfig;
   fetch?: FetchImplementation;
@@ -48,16 +54,25 @@ function resolveHostDaemonUrl(cliConfig?: CliConfig): string {
 export function createNodeTransport(
   args: CreateNodeTransportArgs = {},
 ): BbSdkTransport {
-  return createHttpTransport({
-    baseUrl: args.baseUrl ?? resolveCliConfig(args.cliConfig).BB_SERVER_URL,
+  const baseUrl =
+    args.baseUrl ?? resolveCliConfig(args.cliConfig).BB_SERVER_URL;
+  const authenticated = createOwnerSessionFetch({
+    baseUrl,
     fetch:
       args.fetch ??
       createRequestTimeoutFetch({
         timeoutMs: args.timeoutMs ?? DEFAULT_BB_REQUEST_TIMEOUT_MS,
       }),
+    session: args.ownerSession,
+    onChange: args.onOwnerSessionChange,
+  });
+  return createHttpTransport({
+    baseUrl,
+    fetch: authenticated.fetch,
     realtimeUrl: args.realtimeUrl,
     runtime: "node",
-    websocket: args.websocket ?? createNodeWebsocketFactory(),
+    websocket:
+      args.websocket ?? createNodeWebsocketFactory(authenticated.getCookie),
   });
 }
 

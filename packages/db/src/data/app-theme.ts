@@ -43,3 +43,20 @@ export function setStoredAppearance(
     })
     .run();
 }
+
+export function insertStoredAppearanceIfMissing(
+  db: DbConnection,
+  appearance: {
+    themeId: string;
+    faviconColor: FaviconColorPreference;
+    updatedAt: number;
+  },
+): void {
+  db.insert(appTheme)
+    .values({
+      id: APP_THEME_ROW_ID,
+      ...appearance,
+    })
+    .onConflictDoNothing({ target: appTheme.id })
+    .run();
+}

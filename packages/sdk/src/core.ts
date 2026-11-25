@@ -1,4 +1,8 @@
 import {
+  createOwnerAuthArea,
+  type ExperimentalOwnerAuthArea,
+} from "./areas/owner-auth.js";
+import {
   createDesktopBrowsersArea,
   type ExperimentalDesktopBrowsersArea,
 } from "./areas/desktop-browsers.js";
@@ -47,6 +51,7 @@ export interface CreateBbSdkWithGuideArgs extends CreateBbSdkArgs {
 }
 
 export interface BbSdkAreas extends BbRealtime {
+  experimental_ownerAuth: ExperimentalOwnerAuthArea;
   experimental_desktopBrowsers: ExperimentalDesktopBrowsersArea;
   experimental_promptHistory: ExperimentalPromptHistoryArea;
   experimental_server: ExperimentalServerArea;
@@ -79,6 +84,7 @@ export function createBbSdk(
     transport: args.transport,
   });
   const areas: BbSdkAreas = {
+    experimental_ownerAuth: createOwnerAuthArea(sdkContext),
     experimental_desktopBrowsers: createDesktopBrowsersArea(sdkContext),
     experimental_promptHistory: createPromptHistoryArea(sdkContext),
     experimental_server: createServerArea(sdkContext),

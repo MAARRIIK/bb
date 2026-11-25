@@ -1,3 +1,4 @@
+export { setLocalServerOwnerPassword } from "@bb/config/server-owner-auth";
 import {
   BbHttpError,
   BbRequestTimeoutError,
@@ -63,6 +64,7 @@ export class BBSdk implements BbSdk {
   readonly environments: BbSdk["environments"];
   readonly experimental_desktopBrowsers: BbSdk["experimental_desktopBrowsers"];
   readonly experimental_promptHistory: BbSdk["experimental_promptHistory"];
+  readonly experimental_ownerAuth: BbSdk["experimental_ownerAuth"];
   readonly experimental_server: BbSdk["experimental_server"];
   readonly files: BbSdk["files"];
   readonly guide: BbSdk["guide"];
@@ -84,6 +86,7 @@ export class BBSdk implements BbSdk {
     this.environments = sdk.environments;
     this.experimental_desktopBrowsers = sdk.experimental_desktopBrowsers;
     this.experimental_promptHistory = sdk.experimental_promptHistory;
+    this.experimental_ownerAuth = sdk.experimental_ownerAuth;
     this.experimental_server = sdk.experimental_server;
     this.files = sdk.files;
     this.guide = sdk.guide;

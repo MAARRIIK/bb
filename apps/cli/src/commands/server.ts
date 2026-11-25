@@ -1,3 +1,4 @@
+import { registerServerOwnerAuthCommands } from "./server-owner-auth.js";
 import { outputJson, reportCommandResult } from "../command-result.js";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -293,6 +294,8 @@ export function registerServerCommands(
   const server = program
     .command("server")
     .description("Move, export, and import the bb server");
+
+  registerServerOwnerAuthCommands(server, getUrl);
 
   const move = server
     .command("move")

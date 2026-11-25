@@ -4,6 +4,7 @@ import {
   disableEnabledAuthApiKeysForHost,
   findRedeemableAuthApiKey,
   hasEnabledAuthApiKeyForHost,
+  hasActiveAuthApiKeyForHost,
   insertAuthUserIfMissing,
 } from "../../src/data/auth-api-keys.js";
 import {
@@ -353,6 +354,16 @@ const CASES: readonly QueryCostCase<CredentialsAttachmentsSeed>[] = [
       findRedeemableAuthApiKey(db, {
         configId: ENROLL_CONFIG_ID,
         hashedKey: seed.redeemableHashedKey,
+        now: new Date(),
+      }),
+  },
+  {
+    name: `${AUTH_API_KEYS}#hasActiveAuthApiKeyForHost`,
+    run: (db, _fixture, seed) =>
+      hasActiveAuthApiKeyForHost(db, {
+        keyId: "host-key-0",
+        configId: HOST_CONFIG_ID,
+        hostId: seed.busyHostId,
         now: new Date(),
       }),
   },

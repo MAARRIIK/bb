@@ -1,4 +1,8 @@
-import { defaultAppSettings, type ThreadEventType } from "@bb/domain";
+import {
+  defaultAppSettings,
+  defaultFaviconColor,
+  type ThreadEventType,
+} from "@bb/domain";
 import { performance } from "node:perf_hooks";
 import {
   deletePluginRecommendationId,
@@ -29,6 +33,7 @@ import {
 import {
   getStoredFaviconColor,
   getStoredThemeId,
+  insertStoredAppearanceIfMissing,
   setStoredAppearance,
 } from "../../src/data/app-theme.js";
 import { getExperiments, setExperiments } from "../../src/data/experiments.js";
@@ -448,6 +453,15 @@ const SETTINGS_CASES: readonly Case[] = [
       setStoredAppearance(db, {
         themeId: "github-light",
         faviconColor: "default",
+      }),
+  },
+  {
+    name: `${APP_THEME}#insertStoredAppearanceIfMissing`,
+    run: (db) =>
+      insertStoredAppearanceIfMissing(db, {
+        themeId: "github-light",
+        faviconColor: defaultFaviconColor,
+        updatedAt: Date.now(),
       }),
   },
   {

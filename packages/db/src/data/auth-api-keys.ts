@@ -1,4 +1,4 @@
-import { and, eq, gt, inArray, isNotNull, lt, ne, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import type { DbQueryConnection } from "../connection.js";
 import { authApiKeys, authUsers } from "../schema.js";
 
@@ -137,6 +137,27 @@ export function hasEnabledAuthApiKeyForHost(
         ),
       )
       .limit(1)
+      .get() !== undefined
+  );
+}
+
+export function hasActiveAuthApiKeyForHost(
+  db: DbQueryConnection,
+  args: { keyId: string; configId: string; hostId: string; now: Date },
+): boolean {
+  return (
+    db
+      .select({ id: authApiKeys.id })
+      .from(authApiKeys)
+      .where(
+        and(
+          eq(authApiKeys.id, args.keyId),
+          eq(authApiKeys.configId, args.configId),
+          eq(authApiKeys.enabled, true),
+          or(isNull(authApiKeys.expiresAt), gt(authApiKeys.expiresAt, args.now)),
+          sql`json_extract(${authApiKeys.metadata}, '$.hostId') = ${args.hostId}`,
+        ),
+      )
       .get() !== undefined
   );
 }

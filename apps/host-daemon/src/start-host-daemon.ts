@@ -133,12 +133,11 @@ export async function startHostDaemon(
       dataDir,
     });
     lockDiagnosticsLogger = logger;
-    if (options.serverHeaders !== undefined) {
-      machineAuthProxy = await startMachineAuthProxy({
-        serverHeaders: options.serverHeaders,
-        serverUrl,
-      });
-    }
+    machineAuthProxy = await startMachineAuthProxy({
+      getHostKey: () => hostKey,
+      serverHeaders: options.serverHeaders ?? {},
+      serverUrl,
+    });
     setParcelWatcherBackend(
       createSubprocessParcelWatcherBackend({
         log: (level, message, fields) => {

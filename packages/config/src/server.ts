@@ -33,6 +33,7 @@ import {
   BB_PERF_DIAGNOSTICS_ENV,
   BB_QUERY_PLAN_AUDIT_ENV,
   BB_SKIP_ONBOARDING_ENV,
+  BB_OWNER_AUTH_ENV,
   DEFAULT_BB_APP_URL,
   DEFAULT_BB_APP_SURFACE,
   DEFAULT_BB_APP_VERSION,
@@ -71,6 +72,7 @@ export interface ServerConfig
   BB_PERF_DIAGNOSTICS: boolean;
   BB_QUERY_PLAN_AUDIT: boolean;
   BB_SKIP_ONBOARDING: boolean;
+  BB_OWNER_AUTH: boolean;
   featureFlags: FeatureFlags;
 }
 
@@ -174,6 +176,12 @@ export function loadServerConfig(
     BB_QUERY_PLAN_AUDIT: readEnvVarWithDefault({
       context: loader.context,
       definition: BB_QUERY_PLAN_AUDIT_ENV,
+      env: loader.env,
+      defaultValue: false,
+    }),
+    BB_OWNER_AUTH: readEnvVarWithDefault({
+      context: loader.context,
+      definition: BB_OWNER_AUTH_ENV,
       env: loader.env,
       defaultValue: false,
     }),

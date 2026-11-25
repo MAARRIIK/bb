@@ -33,6 +33,7 @@ export interface ServerRuntimeConfig {
   inheritedSkillsRootPaths: string[];
   isDevelopment: boolean;
   performanceDiagnosticsAvailable: boolean;
+  ownerAuthEnabled: boolean;
   marketplaceUrl: string;
   serverPort: number;
   sharedSkillRoots: ProviderNativeSkillRoots;

@@ -122,6 +122,10 @@ const ARGUMENTS_BY_COMMAND: Record<string, readonly string[]> = {
 };
 
 const COMMANDS_THAT_NEED_NO_SERVER = new Map([
+  [
+    "server auth set-password",
+    "writes local owner credentials without calling the server",
+  ],
   ["diagnostics cli-errors", "reads and edits the local CLI error log"],
   ["guide", "prints the guide built into the CLI"],
   [
@@ -415,7 +419,9 @@ function placeholderArgs(
   );
   for (const option of command.options) {
     if (option.mandatory && option.long !== undefined) {
-      args.push(option.long, PLACEHOLDER_BY_OPTION[option.long] ?? "x");
+      args.push(option.long);
+      if (option.required || option.optional)
+        args.push(PLACEHOLDER_BY_OPTION[option.long] ?? "x");
     }
     if (option.long === "--yes") args.push("--yes");
   }

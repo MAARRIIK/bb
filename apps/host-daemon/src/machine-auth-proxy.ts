@@ -6,11 +6,13 @@ import http, {
 import https from "node:https";
 import type { AddressInfo, Socket } from "node:net";
 import type { Duplex } from "node:stream";
+import { HOST_API_AUTH_HEADER } from "@bb/host-daemon-contract/protocol";
 
 const LOOPBACK_HOST = "127.0.0.1";
 
 interface StartMachineAuthProxyOptions {
   serverHeaders: Record<string, string>;
+  getHostKey(): string | null;
   serverUrl: string;
   port?: number;
 }
@@ -26,6 +28,7 @@ const REJECTED_SOCKET_MESSAGES = {
   400: "Bad Request",
   403: "Forbidden",
   405: "Method Not Allowed",
+  503: "Service Unavailable",
 } as const;
 
 type RejectedSocketStatus = keyof typeof REJECTED_SOCKET_MESSAGES;
@@ -110,6 +113,7 @@ function openUpstreamRequest(
   request: IncomingMessage,
   target: URL,
   serverHeaders: Record<string, string>,
+  hostKey: string,
 ): http.ClientRequest {
   const requestFn = target.protocol === "https:" ? https.request : http.request;
   return requestFn({
@@ -122,12 +126,14 @@ function openUpstreamRequest(
       ...request.headers,
       host: target.host,
       ...serverHeaders,
+      [HOST_API_AUTH_HEADER]: hostKey,
     },
   });
 }
 
 function proxyRequest(args: {
   boundPort: number | null;
+  getHostKey(): string | null;
   serverHeaders: Record<string, string>;
   request: IncomingMessage;
   response: ServerResponse;
@@ -139,10 +145,17 @@ function proxyRequest(args: {
     return;
   }
 
+  const hostKey = args.getHostKey();
+  if (!hostKey) {
+    args.response.writeHead(503).end();
+    return;
+  }
+
   const upstream = openUpstreamRequest(
     args.request,
     args.target,
     args.serverHeaders,
+    hostKey,
   );
   args.response.once("close", () => {
     if (!args.response.writableFinished) upstream.destroy();
@@ -173,6 +186,7 @@ function proxyRequest(args: {
 function proxyUpgrade(args: {
   boundPort: number | null;
   clientSocket: Duplex;
+  getHostKey(): string | null;
   head: Buffer;
   serverHeaders: Record<string, string>;
   request: IncomingMessage;
@@ -184,10 +198,17 @@ function proxyUpgrade(args: {
     return;
   }
 
+  const hostKey = args.getHostKey();
+  if (!hostKey) {
+    writeRejectedSocket(args.clientSocket, 503);
+    return;
+  }
+
   const upstreamRequest = openUpstreamRequest(
     args.request,
     args.target,
     args.serverHeaders,
+    hostKey,
   );
   upstreamRequest.on("upgrade", (response, upstreamSocket, upstreamHead) => {
     upstreamSocket.on("error", () => upstreamSocket.destroy());
@@ -233,6 +254,7 @@ export async function startMachineAuthProxy(
   const server = http.createServer((request, response) =>
     proxyRequest({
       boundPort,
+      getHostKey: options.getHostKey,
       serverHeaders: options.serverHeaders,
       request,
       response,
@@ -244,6 +266,7 @@ export async function startMachineAuthProxy(
     proxyUpgrade({
       boundPort,
       clientSocket: socket,
+      getHostKey: options.getHostKey,
       head,
       serverHeaders: options.serverHeaders,
       request,
