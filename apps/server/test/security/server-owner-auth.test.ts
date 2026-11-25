@@ -343,6 +343,75 @@ describe("self-hosted owner authentication", () => {
     }
   });
 
+  it("revokes active and idle real machine WebSockets after key revocation", async () => {
+    const dataDir = await mkdtemp(join(tmpdir(), "bb-machine-websocket-"));
+    const sockets: WebSocket[] = [];
+    try {
+      await setLocalServerOwnerPassword({
+        dataDir,
+        username: "owner",
+        password,
+      });
+      const server = await startTestServer({
+        dataDir,
+        ownerAuthEnabled: true,
+        seedFirstPartyProviders: false,
+      });
+      try {
+        const hostId = "paired-websocket-machine";
+        upsertHost(server.db, server.hub, {
+          id: hostId,
+          name: "Paired websocket PC",
+        });
+        const key = await server.deps.machineAuth.issueDaemonHostKey({
+          hostId,
+        });
+        const open = async () => {
+          const socket = new WebSocket(
+            `${server.baseUrl.replace("http:", "ws:")}/ws`,
+            { headers: { [HOST_API_AUTH_HEADER]: key } },
+          );
+          sockets.push(socket);
+          await new Promise<void>((resolve, reject) => {
+            socket.once("open", resolve);
+            socket.once("error", reject);
+          });
+          return socket;
+        };
+        const active = await open();
+        const idle = await open();
+        const pong = new Promise<string>((resolve) =>
+          active.once("message", (data) => resolve(data.toString())),
+        );
+        active.send(JSON.stringify({ type: "ping" }));
+        expect(await pong).toBe(JSON.stringify({ type: "pong" }));
+        const activeClosed = new Promise<number>((resolve) =>
+          active.once("close", (code) => resolve(code)),
+        );
+        const idleClosed = new Promise<number>((resolve) =>
+          idle.once("close", (code) => resolve(code)),
+        );
+        let messagesAfterRevocation = 0;
+        active.on("message", () => {
+          messagesAfterRevocation += 1;
+        });
+        await server.deps.machineAuth.revokeHostAuthKeys({ hostId });
+        active.send(JSON.stringify({ type: "ping" }));
+        await expect
+          .poll(() => [active.readyState, idle.readyState], { timeout: 3000 })
+          .toEqual([WebSocket.CLOSED, WebSocket.CLOSED]);
+        await expect(activeClosed).resolves.toBe(1008);
+        await expect(idleClosed).resolves.toBe(1008);
+        expect(messagesAfterRevocation).toBe(0);
+      } finally {
+        for (const socket of sockets) socket.terminate();
+        await server.close();
+      }
+    } finally {
+      await rm(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it("bounds failed login attempts and rejects oversized malformed credentials", async () => {
     await withOwnerApp(async (harness) => {
       expect(
@@ -350,7 +419,7 @@ describe("self-hosted owner authentication", () => {
           await harness.app.request(loginPath, {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: "a".repeat(2049),
+            body: "a".repeat(16384),
           })
         ).status,
       ).toBe(401);
@@ -360,6 +429,30 @@ describe("self-hosted owner authentication", () => {
       expect(limited.status).toBe(429);
       expect(limited.headers.get("retry-after")).toBe("60");
       expect(limited.headers.get("set-cookie")).toBeNull();
+    });
+  });
+
+  it("accepts a maximum-length Unicode password through the browser form", async () => {
+    await withOwnerApp(async (harness) => {
+      const secret = "я".repeat(512);
+      await setLocalServerOwnerPassword({
+        dataDir: harness.config.dataDir,
+        username: "owner",
+        password: secret,
+      });
+      const response = await harness.app.request("/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          origin: "https://bb.example.test",
+        },
+        body: new URLSearchParams({
+          username: "owner",
+          password: secret,
+        }).toString(),
+      });
+      expect(response.status).toBe(303);
+      expect(responseCookie(response)).toMatch(/^bb_owner_session=/u);
     });
   });
 });

@@ -1,4 +1,4 @@
-import { getNonDestroyedHost } from "@bb/db";
+import { getNonDestroyedHost, hasActiveAuthApiKeyForHost } from "@bb/db";
 import { isLoopbackHostname } from "@bb/config/loopback";
 import {
   createServerOwnerSession,
@@ -19,6 +19,7 @@ import {
   type OwnerAuthStatus,
 } from "@bb/server-contract";
 import { allowedAppOrigins } from "../browser-request-guard.js";
+import { DAEMON_HOST_CONFIG_ID } from "./machine-auth.js";
 import { getTrustedRemoteAddress } from "../request-context.js";
 import type { ServerAppDeps } from "../types.js";
 import {
@@ -26,6 +27,18 @@ import {
   type PluginRpcCallerResolution,
 } from "./plugins/plugin-rpc-caller.js";
 
+interface VerifiedMachineCredential {
+  hostId: string;
+  keyId: string;
+}
+
+declare module "hono" {
+  interface ContextVariableMap {
+    bbOwnerAuthenticatedMachine: VerifiedMachineCredential | undefined;
+  }
+}
+
+const LOGIN_BODY_MAX_BYTES = 8192;
 const LOGIN_HTML = `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>Вход в AI</title><style>:root{font-family:system-ui,sans-serif;color-scheme:light dark}body{margin:0;min-height:100svh;display:grid;place-items:center;background:Canvas;color:CanvasText}main{width:min(22rem,calc(100vw - 3rem));padding:2rem 0}h1{font-size:2rem;margin:0 0 .5rem}p{line-height:1.5;opacity:.75}label{display:block;margin-top:1.25rem}input,button{box-sizing:border-box;width:100%;font:inherit;padding:.8rem;margin-top:.4rem;border-radius:.6rem;border:1px solid color-mix(in oklab,CanvasText 25%,Canvas)}input{background:Canvas;color:CanvasText}button{margin-top:1.5rem;background:CanvasText;color:Canvas;cursor:pointer}small{display:block;margin-top:1rem;line-height:1.5}</style><main><h1>AI</h1><p>Войдите, чтобы открыть ваши проекты и диалоги.</p><form method="post" action="/auth/login"><label for="username">Имя пользователя</label><input id="username" name="username" autocomplete="username" maxlength="128" required autofocus><label for="password">Пароль</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="512" required><button type="submit">Войти</button></form></main></html>`;
 
 function loginHtml(context: Context, failed: boolean): Response {
@@ -54,7 +67,8 @@ function unauthorized(context: Context): Response {
 }
 
 async function readLogin(context: Context): Promise<OwnerAuthLogin | null> {
-  if (Number(context.req.header("content-length") ?? 0) > 2048) return null;
+  if (Number(context.req.header("content-length") ?? 0) > LOGIN_BODY_MAX_BYTES)
+    return null;
   const body = context.req.raw.body;
   if (body === null) return null;
   const reader = body.getReader();
@@ -65,7 +79,7 @@ async function readLogin(context: Context): Promise<OwnerAuthLogin | null> {
       const result = await reader.read();
       if (result.done) break;
       length += result.value.byteLength;
-      if (length > 2048) {
+      if (length > LOGIN_BODY_MAX_BYTES) {
         await reader.cancel();
         return null;
       }
@@ -214,6 +228,10 @@ export function registerServerOwnerAuth(
             403,
           );
         }
+        context.set("bbOwnerAuthenticatedMachine", {
+          hostId: verified.metadata.hostId,
+          keyId: verified.keyId,
+        });
         context.req.raw.headers.set("x-bb-gate-auth", "machine");
         context.req.raw.headers.set(
           "x-bb-gate-machine-id",
@@ -331,14 +349,26 @@ export function registerServerOwnerAuth(
   return {
     guardWebSocket(context, events) {
       const token = getCookie(context, SERVER_OWNER_COOKIE_NAME);
-      if (
-        !enabled ||
-        token === undefined ||
-        context.req.header("x-bb-gate-auth") === "machine"
-      )
+      const machine = context.get("bbOwnerAuthenticatedMachine");
+      if (!enabled || (token === undefined && machine === undefined))
         return events;
+      const reason =
+        machine === undefined
+          ? "Owner session expired"
+          : "Machine authentication expired";
       const check = (): boolean => {
         try {
+          if (machine !== undefined) {
+            return (
+              getNonDestroyedHost(deps.db, machine.hostId) !== null &&
+              hasActiveAuthApiKeyForHost(deps.db, {
+                keyId: machine.keyId,
+                hostId: machine.hostId,
+                configId: DAEMON_HOST_CONFIG_ID,
+                now: new Date(),
+              })
+            );
+          }
           return (
             verifyServerOwnerSession(
               readLocalServerOwnerCredentials(deps.config.dataDir),
@@ -354,12 +384,12 @@ export function registerServerOwnerAuth(
         ...events,
         onOpen(event, socket) {
           if (!check()) {
-            socket.close(1008, "Owner session expired");
+            socket.close(1008, reason);
             return;
           }
           tracked = {
             check,
-            close: () => socket.close(1008, "Owner session expired"),
+            close: () => socket.close(1008, reason),
           };
           sockets.add(tracked);
           if (interval === null) {
@@ -370,7 +400,7 @@ export function registerServerOwnerAuth(
         },
         onMessage(event, socket) {
           if (!check()) {
-            socket.close(1008, "Owner session expired");
+            socket.close(1008, reason);
             return;
           }
           events.onMessage?.(event, socket);

@@ -483,6 +483,7 @@ const WORKFLOWS_CASES: readonly QueryCostCase<WorkflowsSeed>[] = [
           outputSchema: null,
           title: null,
           phase: null,
+          workspace: { type: "shared" },
         },
         selection: {
           providerId: "provider-a",
